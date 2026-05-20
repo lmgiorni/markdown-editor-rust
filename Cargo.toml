@@ -1,0 +1,11 @@
+[package]
+name = "markdown_editor"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+eframe = "0.26"
+egui = "0.26"
+rfd = "0.13"
+pulldown-cmark = "0.10"
+image = "0.24"

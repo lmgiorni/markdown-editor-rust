@@ -1,0 +1,10 @@
+# Ignorar los binarios y artefactos de compilación
+/target
+
+# Ignorar archivos del sistema operativo
+.DS_Store
+Thumbs.db
+
+# Ignorar archivos de configuración local o secretos
+.env
+*.rs.bk

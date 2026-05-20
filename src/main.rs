@@ -9,6 +9,7 @@ use ui::{toolbar_ui, panels_ui, editor_preview_ui};
 impl eframe::App for MarkdownApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         self.load_toolbar_icons(ctx);
+        ctx.send_viewport_cmd(egui::ViewportCommand::Title(self.window_title()));
 
         // Top toolbar
         toolbar_ui::show_toolbar(self, ctx);
@@ -38,6 +39,9 @@ fn main() -> eframe::Result<()> {
     eframe::run_native(
         "Premium Markdown Editor",
         options,
-        Box::new(|_cc| Box::new(MarkdownApp::default())),
+        Box::new(|cc| {
+            crate::app::configure_fonts(&cc.egui_ctx);
+            Box::new(MarkdownApp::default())
+        }),
     )
 }

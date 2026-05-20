@@ -39,6 +39,14 @@ pub struct MarkdownApp {
     // Cursor/selection tracking (para aplicar comandos MD)
     pub last_cursor: usize,
     pub last_selection: Option<(usize, usize)>,
+    pub previous_selection: Option<(usize, usize)>,
+    pub should_scroll_to_selection: bool,
+
+    // Alturas de contenido para sincronización de scroll
+    pub editor_content_height: f32,
+    pub preview_content_height: f32,
+    pub last_editor_scroll: f32,
+    pub last_preview_scroll: f32,
 
     // Toolbar icons (optional)
     pub toolbar_texture: Option<egui::TextureHandle>,
@@ -60,9 +68,76 @@ impl Default for MarkdownApp {
             base_font_size: 14.0,
             last_cursor: 0,
             last_selection: None,
+            previous_selection: None,
+            should_scroll_to_selection: false,
+            editor_content_height: 1.0,
+            preview_content_height: 1.0,
+            last_editor_scroll: 0.0,
+            last_preview_scroll: 0.0,
             toolbar_texture: None,
         }
     }
+}
+
+pub fn configure_fonts(ctx: &egui::Context) {
+    let mut fonts = egui::FontDefinitions::default();
+
+    // 1. Cargar Consolas y Courier New para Monospace (si están en Windows)
+    let mut mono_fonts = vec![];
+    if let Ok(bytes) = std::fs::read("C:\\Windows\\Fonts\\consola.ttf") {
+        fonts.font_data.insert("Consolas".to_owned(), egui::FontData::from_owned(bytes));
+        mono_fonts.push("Consolas".to_owned());
+    }
+    if let Ok(bytes) = std::fs::read("C:\\Windows\\Fonts\\cour.ttf") {
+        fonts.font_data.insert("Courier New".to_owned(), egui::FontData::from_owned(bytes));
+        mono_fonts.push("Courier New".to_owned());
+    }
+    
+    // Insertamos nuestras fuentes al principio de la lista Monospace existente para no perder los emojis y fallbacks de egui
+    if let Some(existing) = fonts.families.get_mut(&egui::FontFamily::Monospace) {
+        for font in mono_fonts.into_iter().rev() {
+            existing.insert(0, font);
+        }
+    }
+
+    // 2. Cargar Georgia y Times New Roman para la familia Serif
+    let mut serif_fonts = vec![];
+    if let Ok(bytes) = std::fs::read("C:\\Windows\\Fonts\\georgia.ttf") {
+        fonts.font_data.insert("Georgia".to_owned(), egui::FontData::from_owned(bytes));
+        serif_fonts.push("Georgia".to_owned());
+    }
+    if let Ok(bytes) = std::fs::read("C:\\Windows\\Fonts\\times.ttf") {
+        fonts.font_data.insert("Times New Roman".to_owned(), egui::FontData::from_owned(bytes));
+        serif_fonts.push("Times New Roman".to_owned());
+    }
+    
+    // Como fallback de Serif, tomamos las fuentes de la familia Proportional por defecto de egui
+    if let Some(prop_existing) = fonts.families.get(&egui::FontFamily::Proportional) {
+        for font in prop_existing.iter() {
+            serif_fonts.push(font.clone());
+        }
+    }
+    fonts.families.insert(egui::FontFamily::Name("serif".into()), serif_fonts);
+
+    // 3. Cargar Segoe UI y Arial para Proportional (Sans Serif)
+    let mut prop_fonts = vec![];
+    if let Ok(bytes) = std::fs::read("C:\\Windows\\Fonts\\segoeui.ttf") {
+        fonts.font_data.insert("Segoe UI".to_owned(), egui::FontData::from_owned(bytes));
+        prop_fonts.push("Segoe UI".to_owned());
+    }
+    if let Ok(bytes) = std::fs::read("C:\\Windows\\Fonts\\arial.ttf") {
+        fonts.font_data.insert("Arial".to_owned(), egui::FontData::from_owned(bytes));
+        prop_fonts.push("Arial".to_owned());
+    }
+    
+    // Insertamos nuestras fuentes al principio de la lista Proportional existente
+    if let Some(existing) = fonts.families.get_mut(&egui::FontFamily::Proportional) {
+        for font in prop_fonts.into_iter().rev() {
+            existing.insert(0, font);
+        }
+    }
+
+    ctx.set_fonts(fonts);
 }
 
 impl MarkdownApp {
@@ -100,14 +175,20 @@ impl MarkdownApp {
 
     pub fn open_file(&mut self) {
         if let Some(path) = FileDialog::new().add_filter("Markdown", &["md"]).pick_file() {
-            if let Ok(content) = fs::read_to_string(&path) {
-                self.text = content;
-                self.filename = Some(path.clone());
-                self.is_modified = false;
+            match fs::read(&path) {
+                Ok(bytes) => {
+                    let content = String::from_utf8_lossy(&bytes).into_owned();
+                    self.text = content;
+                    self.filename = Some(path.clone());
+                    self.is_modified = false;
 
-                // Actualizar display_name con el nombre del archivo
-                if let Some(name) = path.file_name() {
-                    self.display_name = name.to_string_lossy().into_owned();
+                    // Actualizar display_name con el nombre del archivo
+                    if let Some(name) = path.file_name() {
+                        self.display_name = name.to_string_lossy().into_owned();
+                    }
+                }
+                Err(e) => {
+                    eprintln!("Error al leer el archivo: {}", e);
                 }
             }
         }
@@ -124,7 +205,11 @@ impl MarkdownApp {
     }
 
     pub fn save_as(&mut self) {
-        if let Some(path) = FileDialog::new().add_filter("Markdown", &["md"]).save_file() {
+        let mut dialog = FileDialog::new().add_filter("Markdown", &["md"]);
+        if !self.display_name.is_empty() {
+            dialog = dialog.set_file_name(&self.display_name);
+        }
+        if let Some(path) = dialog.save_file() {
             if fs::write(&path, &self.text).is_ok() {
                 self.filename = Some(path.clone());
                 self.is_modified = false;
@@ -146,21 +231,29 @@ impl MarkdownApp {
 
     // Inserta antes/después del cursor o envuelve la selección si existe.
     pub fn insert_at_cursor_or_selection(&mut self, before: &str, after: &str) {
-        if let Some((start, end)) = self.last_selection {
-            if start != end && start <= self.text.len() && end <= self.text.len() && start <= end {
-                // Hay selección: envolver texto seleccionado
-                let selected_text = &self.text[start..end];
-                let replacement = format!("{}{}{}", before, selected_text, after);
-                self.text.replace_range(start..end, &replacement);
-                return;
+        if let Some((start_char, end_char)) = self.last_selection {
+            if start_char != end_char {
+                let start_byte = char_to_byte_index(&self.text, start_char);
+                let end_byte = char_to_byte_index(&self.text, end_char);
+                if start_byte <= end_byte && end_byte <= self.text.len() {
+                    let selected_text = &self.text[start_byte..end_byte];
+                    let replacement = format!("{}{}{}", before, selected_text, after);
+                    self.text.replace_range(start_byte..end_byte, &replacement);
+                    self.is_modified = true;
+                    // Resetear la selección para evitar aplicar el comando múltiples veces accidentalmente
+                    self.last_selection = None;
+                    return;
+                }
             }
         }
 
-        // Sin selección válida: insertar en posición del cursor
-        let pos = self.last_cursor.min(self.text.len());
-        self.text.insert_str(pos, before);
-        let new_pos = pos + before.len();
-        self.text.insert_str(new_pos, after);
+        let char_pos = self.last_cursor;
+        let byte_pos = char_to_byte_index(&self.text, char_pos);
+        self.text.insert_str(byte_pos, before);
+        let new_byte_pos = byte_pos + before.len();
+        self.text.insert_str(new_byte_pos, after);
+        self.last_cursor = byte_to_char_index(&self.text, new_byte_pos);
+        self.is_modified = true;
     }
 
     pub fn apply_md_command(&mut self, cmd: &str) {
@@ -169,49 +262,27 @@ impl MarkdownApp {
             "Italic" => self.insert_at_cursor_or_selection("*", "*"),
             "Underline" => self.insert_at_cursor_or_selection("<u>", "</u>"),
             "Strikethrough" => self.insert_at_cursor_or_selection("~~", "~~"),
-            "Link" => self.insert_at_cursor_or_selection("[texto](url)", ""),
-            "Image" => self.insert_at_cursor_or_selection("![](url_imagen)", ""),
-            "Table" => {
-                let t = "\n| Col1 | Col2 |\n|------|------|\n|      |      |\n";
-                self.text.push_str(t);
-            }
-            "UnorderedList" => {
-                self.text.push_str("\n- ");
-            }
-            "OrderedList" => {
-                self.text.push_str("\n1. ");
-            }
-            "TaskList" => {
-                self.text.push_str("\n- [ ] Tarea");
-            }
-            "Blockquote" => {
-                self.text.push_str("\n> Cita\n");
-            }
+            "Link" => self.insert_at_cursor_or_selection("[", "](url)"),
+            "Image" => self.insert_at_cursor_or_selection("![", "](url_imagen)"),
+            "Table" => self.insert_at_cursor_or_selection("\n| Columna 1 | Columna 2 |\n|-----------|-----------|\n| Celda 1   | Celda 2   |\n", ""),
+            "UnorderedList" => self.insert_at_cursor_or_selection("\n- ", ""),
+            "OrderedList" => self.insert_at_cursor_or_selection("\n1. ", ""),
+            "TaskList" => self.insert_at_cursor_or_selection("\n- [ ] ", ""),
+            "Blockquote" => self.insert_at_cursor_or_selection("\n> ", ""),
             "InlineCode" => self.insert_at_cursor_or_selection("`", "`"),
-            "BlockCode" => {
-                let c = "\n```\ncódigo\n```\n";
-                self.text.push_str(c);
-            }
+            "BlockCode" => self.insert_at_cursor_or_selection("\n```rust\n", "\n```\n"),
             "InlineMath" => self.insert_at_cursor_or_selection("$", "$"),
-            "BlockMath" => {
-                let m = "\n$$\nfórmula\n$$\n";
-                self.text.push_str(m);
-            }
-            "H1" => self.text.push_str("\n# "),
-            "H2" => self.text.push_str("\n## "),
-            "H3" => self.text.push_str("\n### "),
-            "H4" => self.text.push_str("\n#### "),
-            "H5" => self.text.push_str("\n##### "),
-            "H6" => self.text.push_str("\n###### "),
-            "Paragraph" => {
-                self.text.push_str("\n\n");
-            }
-            "HorizontalRule" => {
-                self.text.push_str("\n---\n");
-            }
+            "BlockMath" => self.insert_at_cursor_or_selection("\n$$\n", "\n$$\n"),
+            "H1" => self.insert_at_cursor_or_selection("\n# ", ""),
+            "H2" => self.insert_at_cursor_or_selection("\n## ", ""),
+            "H3" => self.insert_at_cursor_or_selection("\n### ", ""),
+            "H4" => self.insert_at_cursor_or_selection("\n#### ", ""),
+            "H5" => self.insert_at_cursor_or_selection("\n##### ", ""),
+            "H6" => self.insert_at_cursor_or_selection("\n###### ", ""),
+            "Paragraph" => self.insert_at_cursor_or_selection("\n\n", ""),
+            "HorizontalRule" => self.insert_at_cursor_or_selection("\n---\n", ""),
             _ => {}
         }
-
         self.is_modified = true;
     }
 
@@ -246,4 +317,17 @@ impl MarkdownApp {
         let suffix = if self.is_modified { "*" } else { "" };
         format!("{} {}", self.display_name, suffix)
     }
+}
+
+pub fn char_to_byte_index(text: &str, char_idx: usize) -> usize {
+    text.char_indices()
+        .nth(char_idx)
+        .map(|(byte_idx, _)| byte_idx)
+        .unwrap_or_else(|| text.len())
+}
+
+pub fn byte_to_char_index(text: &str, byte_idx: usize) -> usize {
+    text.char_indices()
+        .take_while(|&(idx, _)| idx < byte_idx)
+        .count()
 }

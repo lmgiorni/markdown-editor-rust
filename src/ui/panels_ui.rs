@@ -1,7 +1,7 @@
 use crate::app::{FontChoice, MarkdownApp};
 use eframe::egui;
 
-pub fn show_stats_panel(app: &MarkdownApp, ctx: &egui::Context) {
+pub fn show_stats_panel(app: &mut MarkdownApp, ctx: &egui::Context) {
     if !app.show_stats_window {
         return;
     }
@@ -36,8 +36,7 @@ pub fn show_stats_panel(app: &MarkdownApp, ctx: &egui::Context) {
 
             ui.separator();
             if ui.add(egui::Button::new("Cerrar")).clicked() {
-                // El toggle se controla desde toolbar_ui; aquí solo cerramos visualmente.
-                ctx.send_viewport_cmd(egui::ViewportCommand::Close);
+                app.show_stats_window = false;
             }
         });
 }
@@ -47,8 +46,10 @@ pub fn show_md_panel(app: &mut MarkdownApp, ctx: &egui::Context) {
         return;
     }
 
-    egui::SidePanel::right("md_panel")
-        .default_width(200.0)
+    egui::Window::new("Herramientas Markdown")
+        .collapsible(true)
+        .resizable(true)
+        .default_size(egui::vec2(220.0, 420.0))
         .show(ctx, |ui| {
             ui.heading("Markdown Tools");
             ui.separator();
@@ -88,6 +89,11 @@ pub fn show_md_panel(app: &mut MarkdownApp, ctx: &egui::Context) {
 
             if ui.add(btn("¶ Paragraph")).clicked() { app.apply_md_command("Paragraph"); }
             if ui.add(btn("--- Horizontal Rule")).clicked() { app.apply_md_command("HorizontalRule"); }
+
+            ui.separator();
+            if ui.add(egui::Button::new("Cerrar")).clicked() {
+                app.show_md_panel = false;
+            }
         });
 }
 
@@ -106,27 +112,27 @@ pub fn show_config_window(app: &mut MarkdownApp, ctx: &egui::Context) {
             // Fuente del Editor
             egui::ComboBox::from_label("Fuente del Editor")
                 .selected_text(match app.editor_font {
-                    FontChoice::SansSerif => "Sans Serif",
-                    FontChoice::Serif => "Serif",
-                    FontChoice::Mono => "Monospace",
+                    FontChoice::SansSerif => "Revista Moderna (Segoe UI / Arial)",
+                    FontChoice::Serif => "Estilo Periódico/Libro (Georgia)",
+                    FontChoice::Mono => "Código Limpio (Consolas)",
                 })
                 .show_ui(ui, |ui| {
-                    ui.selectable_value(&mut app.editor_font, FontChoice::SansSerif, "Sans Serif");
-                    ui.selectable_value(&mut app.editor_font, FontChoice::Serif, "Serif");
-                    ui.selectable_value(&mut app.editor_font, FontChoice::Mono, "Monospace");
+                    ui.selectable_value(&mut app.editor_font, FontChoice::SansSerif, "Revista Moderna (Segoe UI / Arial)");
+                    ui.selectable_value(&mut app.editor_font, FontChoice::Serif, "Estilo Periódico/Libro (Georgia)");
+                    ui.selectable_value(&mut app.editor_font, FontChoice::Mono, "Código Limpio (Consolas)");
                 });
 
             // Fuente del Preview
-            egui::ComboBox::from_label("Fuente del Preview")
+            egui::ComboBox::from_label("Fuente del Preview (Read)")
                 .selected_text(match app.preview_font {
-                    FontChoice::SansSerif => "Sans Serif",
-                    FontChoice::Serif => "Serif",
-                    FontChoice::Mono => "Monospace",
+                    FontChoice::SansSerif => "Revista Moderna (Segoe UI / Arial)",
+                    FontChoice::Serif => "Estilo Periódico/Libro (Georgia)",
+                    FontChoice::Mono => "Código Limpio (Consolas)",
                 })
                 .show_ui(ui, |ui| {
-                    ui.selectable_value(&mut app.preview_font, FontChoice::SansSerif, "Sans Serif");
-                    ui.selectable_value(&mut app.preview_font, FontChoice::Serif, "Serif");
-                    ui.selectable_value(&mut app.preview_font, FontChoice::Mono, "Monospace");
+                    ui.selectable_value(&mut app.preview_font, FontChoice::SansSerif, "Revista Moderna (Segoe UI / Arial)");
+                    ui.selectable_value(&mut app.preview_font, FontChoice::Serif, "Estilo Periódico/Libro (Georgia)");
+                    ui.selectable_value(&mut app.preview_font, FontChoice::Mono, "Código Limpio (Consolas)");
                 });
 
             // Tamaño base afecta a editor y preview
@@ -142,34 +148,38 @@ pub fn show_config_window(app: &mut MarkdownApp, ctx: &egui::Context) {
                 // Editor style preview
                 match app.editor_font {
                     FontChoice::Mono => {
-                        ui.label(egui::RichText::new("Editor: Monospace")
+                        ui.label(egui::RichText::new("Editor: Código Limpio (Consolas)")
                             .monospace().size(size));
                     }
                     FontChoice::Serif => {
-                        ui.label(egui::RichText::new("Editor: Serif").size(size));
+                        ui.label(egui::RichText::new("Editor: Estilo Periódico (Georgia)")
+                            .family(egui::FontFamily::Name("serif".into())).size(size));
                     }
                     FontChoice::SansSerif => {
-                        ui.label(egui::RichText::new("Editor: Sans Serif").size(size));
+                        ui.label(egui::RichText::new("Editor: Revista Moderna (Arial)")
+                            .size(size));
                     }
                 }
 
                 // Preview style preview
                 match app.preview_font {
                     FontChoice::Mono => {
-                        ui.label(egui::RichText::new("Preview: Monospace")
+                        ui.label(egui::RichText::new("Preview: Código Limpio (Consolas)")
                             .monospace().size(size));
                     }
                     FontChoice::Serif => {
-                        ui.label(egui::RichText::new("Preview: Serif").size(size));
+                        ui.label(egui::RichText::new("Preview: Estilo Periódico (Georgia)")
+                            .family(egui::FontFamily::Name("serif".into())).size(size));
                     }
                     FontChoice::SansSerif => {
-                        ui.label(egui::RichText::new("Preview: Sans Serif").size(size));
+                        ui.label(egui::RichText::new("Preview: Revista Moderna (Arial)")
+                            .size(size));
                     }
                 }
 
                 // Ejemplos de formato
                 ui.add_space(4.0);
-                ui.label(egui::RichText::new("**Negrita** y *cursiva*").size(size));
+                ui.label(egui::RichText::new("**Negrita** y *cursiva*").size(size).strong());
                 ui.label(egui::RichText::new("# Encabezado H1")
                     .size(size + 6.0).strong());
             });

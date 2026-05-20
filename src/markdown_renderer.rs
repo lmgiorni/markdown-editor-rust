@@ -18,9 +18,408 @@ impl Default for Style {
     }
 }
 
-pub fn render_markdown(ui: &mut egui::Ui, text: &str, base_font_size: f32) {
+struct TextFragment {
+    text: String,
+    style: Style,
+    heading_level: Option<u8>,
+    is_link: Option<String>,
+    is_inline_code: bool,
+    range: std::ops::Range<usize>,
+}
+
+fn push_text_fragment(
+    fragments: &mut Vec<TextFragment>,
+    text: String,
+    style: Style,
+    heading_level: Option<u8>,
+    is_link: Option<String>,
+    is_inline_code: bool,
+    range: std::ops::Range<usize>,
+) {
+    fragments.push(TextFragment {
+        text,
+        style,
+        heading_level,
+        is_link,
+        is_inline_code,
+        range,
+    });
+}
+
+fn flush_fragments(
+    ui: &mut egui::Ui,
+    app: &mut crate::app::MarkdownApp,
+    fragments: &mut Vec<TextFragment>,
+    list_depth: usize,
+) {
+    if fragments.is_empty() {
+        return;
+    }
+
+    // Traducir last_selection de caracteres a bytes
+    let selection_bytes = app.last_selection.map(|(start_char, end_char)| {
+        (
+            crate::app::char_to_byte_index(&app.text, start_char),
+            crate::app::char_to_byte_index(&app.text, end_char),
+        )
+    });
+
+    ui.horizontal_wrapped(|ui| {
+        if list_depth > 0 {
+            let indent = (list_depth as f32) * 16.0;
+            ui.add_space(indent);
+            ui.label(egui::RichText::new("• ").strong().size(app.base_font_size));
+        }
+
+        for frag in fragments.iter() {
+            let family = match app.preview_font {
+                crate::app::FontChoice::SansSerif => egui::FontFamily::Proportional,
+                crate::app::FontChoice::Serif => egui::FontFamily::Name("serif".into()),
+                crate::app::FontChoice::Mono => egui::FontFamily::Monospace,
+            };
+
+            let mut rt = egui::RichText::new(&frag.text)
+                .size(app.base_font_size)
+                .family(family);
+
+            if let Some(level) = frag.heading_level {
+                match level {
+                    1 => rt = rt.size(app.base_font_size + 8.0).strong(),
+                    2 => rt = rt.size(app.base_font_size + 6.0).strong(),
+                    3 => rt = rt.size(app.base_font_size + 4.0).strong(),
+                    4 => rt = rt.size(app.base_font_size + 2.0).strong(),
+                    5 => rt = rt.size(app.base_font_size).strong(),
+                    _ => rt = rt.size(app.base_font_size - 1.0).weak(),
+                }
+            }
+
+            if frag.style.strong {
+                rt = rt.strong();
+            }
+            if frag.style.emphasis {
+                rt = rt.italics();
+            }
+            if frag.style.strikethrough {
+                rt = rt.strikethrough();
+            }
+
+            if frag.is_inline_code {
+                rt = rt.monospace().color(egui::Color32::from_rgb(210, 80, 80));
+            }
+
+            // Resaltar si coincide con la selección en bytes
+            let is_selected = if let Some((sel_start, sel_end)) = selection_bytes {
+                sel_start < sel_end && frag.range.start < sel_end && frag.range.end > sel_start
+            } else {
+                false
+            };
+
+            if is_selected {
+                rt = rt.background_color(egui::Color32::from_rgba_unmultiplied(100, 150, 255, 60)); // elegante fondo semi-transparente
+            }
+
+            let response = if let Some(ref url) = frag.is_link {
+                ui.hyperlink_to(rt, url)
+            } else {
+                let label = egui::Label::new(rt).sense(egui::Sense::click());
+                ui.add(label)
+            };
+
+            if is_selected && app.should_scroll_to_selection {
+                response.scroll_to_me(Some(egui::Align::Center));
+                app.should_scroll_to_selection = false;
+            }
+
+            // Sincronización a la inversa
+            if response.clicked() {
+                app.last_cursor = crate::app::byte_to_char_index(&app.text, frag.range.start);
+                app.last_selection = None;
+                app.should_scroll_to_selection = true; // enfocar editor
+            }
+        }
+    });
+
+    fragments.clear();
+}
+
+fn render_math_block(ui: &mut egui::Ui, app: &mut crate::app::MarkdownApp, text: &str) {
+    let clean_text = text.trim_start_matches("$$").trim_end_matches("$$").trim();
+    
+    egui::Frame::none()
+        .fill(egui::Color32::from_black_alpha(6))
+        .inner_margin(egui::Margin::symmetric(16.0, 10.0))
+        .stroke(egui::Stroke::new(1.0, egui::Color32::from_rgb(210, 210, 210)))
+        .rounding(egui::Rounding::same(6.0))
+        .show(ui, |ui| {
+            ui.vertical_centered(|ui| {
+                let rt = egui::RichText::new(clean_text)
+                    .family(egui::FontFamily::Name("serif".into()))
+                    .italics()
+                    .size(app.base_font_size + 2.0)
+                    .color(egui::Color32::from_rgb(50, 55, 60));
+                ui.label(rt);
+            });
+        });
+    ui.add_space(8.0);
+}
+
+fn render_image<'a, I>(
+    ui: &mut egui::Ui,
+    app: &mut crate::app::MarkdownApp,
+    dest_url: &str,
+    events: &mut std::iter::Peekable<I>,
+) where
+    I: Iterator<Item = (Event<'a>, std::ops::Range<usize>)>,
+{
+    let mut alt_text = String::new();
+    while let Some(&(ref event, _)) = events.peek() {
+        if matches!(event, Event::End(TagEnd::Image)) {
+            events.next();
+            break;
+        }
+        if let Some((evt, _)) = events.next() {
+            if let Event::Text(t) = evt {
+                alt_text.push_str(&t);
+            }
+        }
+    }
+
+    if alt_text.is_empty() {
+        alt_text = "Imagen de Internet".to_string();
+    }
+
+    egui::Frame::none()
+        .stroke(egui::Stroke::new(1.0, egui::Color32::from_rgb(180, 200, 220)))
+        .fill(egui::Color32::from_rgb(240, 245, 250))
+        .rounding(egui::Rounding::same(8.0))
+        .inner_margin(egui::Margin::same(12.0))
+        .show(ui, |ui| {
+            ui.vertical_centered(|ui| {
+                ui.label(egui::RichText::new("🖼").size(24.0));
+                ui.add_space(4.0);
+                ui.label(egui::RichText::new(&alt_text).strong().size(app.base_font_size));
+                ui.add_space(2.0);
+                ui.hyperlink_to(dest_url, dest_url);
+            });
+        });
+    ui.add_space(8.0);
+}
+
+fn render_blockquote<'a, I>(
+    ui: &mut egui::Ui,
+    app: &mut crate::app::MarkdownApp,
+    events: &mut std::iter::Peekable<I>,
+    style_stack: &mut Vec<Style>,
+    list_depth: usize,
+) where
+    I: Iterator<Item = (Event<'a>, std::ops::Range<usize>)>,
+{
+    egui::Frame::none()
+        .fill(egui::Color32::from_black_alpha(8))
+        .inner_margin(egui::Margin { left: 16.0, right: 12.0, top: 8.0, bottom: 8.0 })
+        .rounding(egui::Rounding::same(4.0))
+        .show(ui, |ui| {
+            let rect = ui.max_rect();
+            let line_start = egui::pos2(rect.left() + 4.0, rect.top() + 4.0);
+            let line_end = egui::pos2(rect.left() + 4.0, rect.bottom() - 4.0);
+            ui.painter().line_segment(
+                [line_start, line_end],
+                egui::Stroke::new(4.0, egui::Color32::from_rgb(90, 140, 210)),
+            );
+
+            let mut fragments = Vec::new();
+            let mut active_link = None;
+
+            while let Some(&(ref event, ref _range)) = events.peek() {
+                if matches!(event, Event::End(TagEnd::BlockQuote)) {
+                    events.next();
+                    break;
+                }
+
+                let (evt, rng) = events.next().unwrap();
+                match evt {
+                    Event::Text(t) => {
+                        let mut style = style_stack.last().cloned().unwrap_or_default();
+                        style.emphasis = true;
+                        push_text_fragment(&mut fragments, t.to_string(), style, None, active_link.clone(), false, rng);
+                    }
+                    Event::Code(t) => {
+                        let style = style_stack.last().cloned().unwrap_or_default();
+                        push_text_fragment(&mut fragments, t.to_string(), style, None, active_link.clone(), true, rng);
+                    }
+                    Event::Start(Tag::Strong) => {
+                        let mut s = style_stack.pop().unwrap_or_default();
+                        s.strong = true;
+                        style_stack.push(s);
+                    }
+                    Event::End(TagEnd::Strong) => {
+                        let mut s = style_stack.pop().unwrap_or_default();
+                        s.strong = false;
+                        style_stack.push(s);
+                    }
+                    Event::Start(Tag::Emphasis) => {
+                        let mut s = style_stack.pop().unwrap_or_default();
+                        s.emphasis = true;
+                        style_stack.push(s);
+                    }
+                    Event::End(TagEnd::Emphasis) => {
+                        let mut s = style_stack.pop().unwrap_or_default();
+                        s.emphasis = false;
+                        style_stack.push(s);
+                    }
+                    Event::Start(Tag::Link { dest_url, .. }) => {
+                        active_link = Some(dest_url.to_string());
+                    }
+                    Event::End(TagEnd::Link) => {
+                        active_link = None;
+                    }
+                    Event::SoftBreak | Event::HardBreak => {
+                        fragments.push(TextFragment {
+                            text: " ".to_string(),
+                            style: Style { strong: false, emphasis: true, strikethrough: false },
+                            heading_level: None,
+                            is_link: None,
+                            is_inline_code: false,
+                            range: rng,
+                        });
+                    }
+                    Event::End(TagEnd::Paragraph) => {
+                        flush_fragments(ui, app, &mut fragments, list_depth);
+                        ui.add_space(4.0);
+                    }
+                    _ => {}
+                }
+            }
+            flush_fragments(ui, app, &mut fragments, list_depth);
+        });
+    ui.add_space(6.0);
+}
+
+fn render_table<'a, I>(
+    ui: &mut egui::Ui,
+    app: &mut crate::app::MarkdownApp,
+    events: &mut std::iter::Peekable<I>,
+) where
+    I: Iterator<Item = (Event<'a>, std::ops::Range<usize>)>,
+{
+    let mut rows: Vec<Vec<Vec<(Event, std::ops::Range<usize>)>>> = Vec::new();
+    let mut current_row: Vec<Vec<(Event, std::ops::Range<usize>)>> = Vec::new();
+    let mut current_cell: Vec<(Event, std::ops::Range<usize>)> = Vec::new();
+
+    while let Some(&(ref event, _)) = events.peek() {
+        if matches!(event, Event::End(TagEnd::Table)) {
+            events.next();
+            break;
+        }
+
+        let (evt, rng) = events.next().unwrap();
+        match evt {
+            Event::Start(Tag::TableRow) => {
+                current_row.clear();
+            }
+            Event::End(TagEnd::TableRow) => {
+                rows.push(current_row.clone());
+            }
+            Event::Start(Tag::TableCell) => {
+                current_cell.clear();
+            }
+            Event::End(TagEnd::TableCell) => {
+                current_row.push(current_cell.clone());
+            }
+            _ => {
+                current_cell.push((evt, rng));
+            }
+        }
+    }
+
+    if rows.is_empty() {
+        return;
+    }
+
+    // Calcular el número máximo de columnas en la tabla para distribuir el espacio proporcionalmente
+    let num_cols = rows.iter().map(|r| r.len()).max().unwrap_or(1);
+    let num_cols_f32 = num_cols as f32;
+    let spacing_x = 16.0;
+    
+    // Ancho total disponible en el panel
+    let available_width = ui.available_width();
+    
+    // Descontar márgenes internos y espacios entre columnas para estimar el ancho equitativo
+    let min_col_width = ((available_width - 20.0 - (spacing_x * (num_cols_f32 - 1.0))) / num_cols_f32).max(40.0);
+
+    egui::Frame::none()
+        .stroke(egui::Stroke::new(1.0, egui::Color32::from_gray(200)))
+        .fill(egui::Color32::from_black_alpha(4))
+        .inner_margin(egui::Margin::same(10.0))
+        .rounding(egui::Rounding::same(6.0))
+        .show(ui, |ui| {
+            egui::Grid::new(ui.next_auto_id())
+                .striped(true)
+                .spacing(egui::vec2(spacing_x, 8.0))
+                .min_col_width(min_col_width)
+                .show(ui, |ui| {
+                    for (row_idx, row) in rows.iter().enumerate() {
+                        for cell in row.iter() {
+                            ui.vertical(|ui| {
+                                let mut fragments = Vec::new();
+                                let mut style_stack = vec![Style::default()];
+                                let active_link = None;
+
+                                for (evt, rng) in cell.iter().cloned() {
+                                    match evt {
+                                        Event::Text(t) => {
+                                            let mut style = style_stack.last().cloned().unwrap_or_default();
+                                            if row_idx == 0 {
+                                                style.strong = true;
+                                            }
+                                            push_text_fragment(&mut fragments, t.to_string(), style, None, active_link.clone(), false, rng);
+                                        }
+                                        Event::Code(t) => {
+                                            let style = style_stack.last().cloned().unwrap_or_default();
+                                            push_text_fragment(&mut fragments, t.to_string(), style, None, active_link.clone(), true, rng);
+                                        }
+                                        Event::Start(Tag::Strong) => {
+                                            let mut s = style_stack.pop().unwrap_or_default();
+                                            s.strong = true;
+                                            style_stack.push(s);
+                                        }
+                                        Event::End(TagEnd::Strong) => {
+                                            let mut s = style_stack.pop().unwrap_or_default();
+                                            s.strong = false;
+                                            style_stack.push(s);
+                                        }
+                                        Event::Start(Tag::Emphasis) => {
+                                            let mut s = style_stack.pop().unwrap_or_default();
+                                            s.emphasis = true;
+                                            style_stack.push(s);
+                                        }
+                                        Event::End(TagEnd::Emphasis) => {
+                                            let mut s = style_stack.pop().unwrap_or_default();
+                                            s.emphasis = false;
+                                            style_stack.push(s);
+                                        }
+                                        _ => {}
+                                    }
+                                }
+                                flush_fragments(ui, app, &mut fragments, 0);
+                            });
+                        }
+                        ui.end_row();
+                    }
+                });
+        });
+    ui.add_space(8.0);
+}
+
+pub fn render_markdown(
+    ui: &mut egui::Ui,
+    app: &mut crate::app::MarkdownApp,
+    _last_selection: Option<(usize, usize)>,
+) {
+    let doc_text = app.text.clone();
     let options = Options::ENABLE_STRIKETHROUGH | Options::ENABLE_TABLES;
-    let parser = Parser::new_ext(text, options);
+    let parser = Parser::new_ext(&doc_text, options);
+    let mut events = parser.into_offset_iter().peekable();
 
     let mut in_code_block = false;
     let mut code_text = String::new();
@@ -28,12 +427,15 @@ pub fn render_markdown(ui: &mut egui::Ui, text: &str, base_font_size: f32) {
     let mut list_depth: usize = 0;
     let mut heading_level: Option<u8> = None;
     let mut style_stack: Vec<Style> = vec![Style::default()];
+    let mut active_link: Option<String> = None;
+    let mut fragments: Vec<TextFragment> = Vec::new();
 
     egui::Frame::none().inner_margin(16.0).show(ui, |ui| {
-        for event in parser {
+        while let Some((event, range)) = events.next() {
             match event {
                 // Code block
                 Event::Start(Tag::CodeBlock(_)) => {
+                    flush_fragments(ui, app, &mut fragments, list_depth);
                     in_code_block = true;
                     code_text.clear();
                     ui.add_space(4.0);
@@ -41,7 +443,7 @@ pub fn render_markdown(ui: &mut egui::Ui, text: &str, base_font_size: f32) {
                 Event::End(TagEnd::CodeBlock) => {
                     in_code_block = false;
                     let rt = egui::RichText::new(code_text.trim_end_matches('\n'))
-                        .font(egui::FontId::monospace(base_font_size));
+                        .font(egui::FontId::monospace(app.base_font_size));
                     ui.add_space(2.0);
                     egui::ScrollArea::horizontal()
                         .show(ui, |ui| {
@@ -52,6 +454,7 @@ pub fn render_markdown(ui: &mut egui::Ui, text: &str, base_font_size: f32) {
 
                 // Headings
                 Event::Start(Tag::Heading { level, .. }) => {
+                    flush_fragments(ui, app, &mut fragments, list_depth);
                     heading_level = Some(match level {
                         HeadingLevel::H1 => 1,
                         HeadingLevel::H2 => 2,
@@ -62,25 +465,32 @@ pub fn render_markdown(ui: &mut egui::Ui, text: &str, base_font_size: f32) {
                     });
                 }
                 Event::End(TagEnd::Heading(_)) => {
+                    flush_fragments(ui, app, &mut fragments, list_depth);
                     heading_level = None;
-                    ui.add_space(6.0);
+                    ui.add_space(8.0);
                 }
 
                 // Paragraphs
-                Event::Start(Tag::Paragraph) => {}
+                Event::Start(Tag::Paragraph) => {
+                    flush_fragments(ui, app, &mut fragments, list_depth);
+                }
                 Event::End(TagEnd::Paragraph) => {
-                    ui.add_space(4.0);
+                    flush_fragments(ui, app, &mut fragments, list_depth);
+                    ui.add_space(6.0);
                 }
 
                 // Lists
                 Event::Start(Tag::List(Some(start))) => {
+                    flush_fragments(ui, app, &mut fragments, list_depth);
                     list_depth += 1;
                     let _ = start;
                 }
                 Event::Start(Tag::List(None)) => {
+                    flush_fragments(ui, app, &mut fragments, list_depth);
                     list_depth += 1;
                 }
                 Event::End(TagEnd::List(_)) => {
+                    flush_fragments(ui, app, &mut fragments, list_depth);
                     if list_depth > 0 {
                         list_depth -= 1;
                     }
@@ -88,26 +498,31 @@ pub fn render_markdown(ui: &mut egui::Ui, text: &str, base_font_size: f32) {
                 }
 
                 // List items
-                Event::Start(Tag::Item) => {}
+                Event::Start(Tag::Item) => {
+                    flush_fragments(ui, app, &mut fragments, list_depth);
+                }
                 Event::End(TagEnd::Item) => {
+                    flush_fragments(ui, app, &mut fragments, list_depth);
                     ui.end_row();
                 }
 
-                // Blockquote (unit variant in this version)
+                // Blockquote
                 Event::Start(Tag::BlockQuote) => {
-                    egui::Frame::none()
-                        .outer_margin(egui::Margin::same(10.0))
-                        .show(ui, |ui| {
-                            ui.add_space(0.0);
-                        });
+                    flush_fragments(ui, app, &mut fragments, list_depth);
+                    render_blockquote(ui, app, &mut events, &mut style_stack, list_depth);
                 }
-                Event::End(TagEnd::BlockQuote) => {
-                    ui.add_space(4.0);
-                }
+                Event::End(TagEnd::BlockQuote) => {}
 
-                // Inline styles: Strong / Emphasis / Strikethrough
+                // Tables
+                Event::Start(Tag::Table(_)) => {
+                    flush_fragments(ui, app, &mut fragments, list_depth);
+                    render_table(ui, app, &mut events);
+                }
+                Event::End(TagEnd::Table) => {}
+
+                // Inline styles
                 Event::Start(Tag::Strong) => {
-                 let mut s = style_stack.pop().unwrap_or_default();
+                    let mut s = style_stack.pop().unwrap_or_default();
                     s.strong = true;
                     style_stack.push(s);
                 }
@@ -139,24 +554,24 @@ pub fn render_markdown(ui: &mut egui::Ui, text: &str, base_font_size: f32) {
                     style_stack.push(s);
                 }
 
-                // Links (struct variant in this version)
+                // Links
                 Event::Start(Tag::Link { dest_url, .. }) => {
-                    ui.horizontal_wrapped(|ui| {
-                        ui.add_space(0.0);
-                    });
-                    let _ = dest_url;
+                    active_link = Some(dest_url.to_string());
                 }
-                Event::End(TagEnd::Link) => {}
+                Event::End(TagEnd::Link) => {
+                    active_link = None;
+                }
 
-                // Images (struct variant in this version)
+                // Images
                 Event::Start(Tag::Image { dest_url, .. }) => {
-                    ui.label(egui::RichText::new(format!("[Imagen: {}]", dest_url))
-                        .size(base_font_size - 1.0).weak());
+                    flush_fragments(ui, app, &mut fragments, list_depth);
+                    render_image(ui, app, &dest_url, &mut events);
                 }
                 Event::End(TagEnd::Image) => {}
 
                 // Horizontal rule
                 Event::Rule => {
+                    flush_fragments(ui, app, &mut fragments, list_depth);
                     ui.separator();
                     ui.add_space(4.0);
                 }
@@ -168,46 +583,39 @@ pub fn render_markdown(ui: &mut egui::Ui, text: &str, base_font_size: f32) {
                         return;
                     }
 
+                    if t.starts_with("$$") && t.ends_with("$$") {
+                        flush_fragments(ui, app, &mut fragments, list_depth);
+                        render_math_block(ui, app, &t);
+                        return;
+                    }
+
                     let current_style = style_stack.last().cloned().unwrap_or_default();
-                    let text: String = t.to_string();
-                    let mut rt = egui::RichText::new(text).size(base_font_size);
+                    push_text_fragment(&mut fragments, t.to_string(), current_style, heading_level, active_link.clone(), false, range);
+                }
 
-                    if heading_level.is_some() {
-                        match heading_level.unwrap() {
-                            1 => rt = rt.size(base_font_size + 8.0).strong(),
-                            2 => rt = rt.size(base_font_size + 6.0).strong(),
-                            3 => rt = rt.size(base_font_size + 4.0).strong(),
-                            4 => rt = rt.size(base_font_size + 2.0).strong(),
-                            5 => rt = rt.size(base_font_size).strong(),
-                            _ => rt = rt.size(base_font_size - 1.0).weak(),
-                        }
-                    }
-
-                    if current_style.strong {
-                        rt = rt.strong();
-                    }
-                    if current_style.emphasis {
-                        rt = rt.italics();
-                    }
-
-                    ui.horizontal_wrapped(|ui| {
-                        if list_depth > 0 && heading_level.is_none() {
-                            let indent = (list_depth as f32) * 16.0;
-                            ui.add_space(indent);
-                        }
-                        ui.label(rt);
-                    });
+                // Inline code
+                Event::Code(t) => {
+                    let current_style = style_stack.last().cloned().unwrap_or_default();
+                    push_text_fragment(&mut fragments, t.to_string(), current_style, heading_level, active_link.clone(), true, range);
                 }
 
                 // Soft/Hard break
                 Event::SoftBreak | Event::HardBreak => {
                     if !in_code_block && heading_level.is_none() {
-                        ui.add_space(2.0);
+                        fragments.push(TextFragment {
+                            text: " ".to_string(),
+                            style: Style::default(),
+                            heading_level: None,
+                            is_link: None,
+                            is_inline_code: false,
+                            range,
+                        });
                     }
                 }
 
                 _ => {}
             }
         }
+        flush_fragments(ui, app, &mut fragments, list_depth);
     });
 }

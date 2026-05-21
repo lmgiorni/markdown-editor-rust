@@ -8,3 +8,7 @@ Thumbs.db
 # Ignorar archivos de configuración local o secretos
 .env
 *.rs.bk
+
+
+# Ignorar carpetas
+___PROCESS/

@@ -10,11 +10,83 @@ pub enum ViewMode {
     Focus,
 }
 
-#[derive(Clone, Copy, PartialEq)]
-pub enum FontChoice {
-    SansSerif,
-    Serif,
-    Mono,
+#[derive(Clone, Copy, PartialEq, Debug)]
+pub enum EditorFont {
+    JetBrainsMono,
+    Iosevka,
+    GoogleSansCode,
+    Consolas,
+    FiraCode,
+    CourierNew,
+    Inter,
+}
+
+impl EditorFont {
+    pub fn to_family(&self) -> egui::FontFamily {
+        let name = match self {
+            EditorFont::JetBrainsMono => "JetBrains Mono",
+            EditorFont::Iosevka => "Iosevka",
+            EditorFont::GoogleSansCode => "Google Sans Code",
+            EditorFont::Consolas => "Consolas",
+            EditorFont::FiraCode => "Fira Code",
+            EditorFont::CourierNew => "Courier New",
+            EditorFont::Inter => "Inter",
+        };
+        egui::FontFamily::Name(name.into())
+    }
+
+    pub fn display_name(&self) -> &'static str {
+        match self {
+            EditorFont::JetBrainsMono => "JetBrains Mono",
+            EditorFont::Iosevka => "Iosevka (Compacta)",
+            EditorFont::GoogleSansCode => "Google Sans Code",
+            EditorFont::Consolas => "Consolas (Sistema)",
+            EditorFont::FiraCode => "Fira Code",
+            EditorFont::CourierNew => "Courier New",
+            EditorFont::Inter => "Inter (Sans)",
+        }
+    }
+}
+
+#[derive(Clone, Copy, PartialEq, Debug)]
+pub enum ReadFont {
+    Inter,
+    Roboto,
+    Georgia,
+    Merriweather,
+    JetBrainsMono,
+    Iosevka,
+    GoogleSansCode,
+    AtkinsonHyperlegible,
+}
+
+impl ReadFont {
+    pub fn to_family(&self) -> egui::FontFamily {
+        let name = match self {
+            ReadFont::Inter => "Inter",
+            ReadFont::Roboto => "Roboto",
+            ReadFont::Georgia => "Georgia",
+            ReadFont::Merriweather => "Merriweather",
+            ReadFont::JetBrainsMono => "JetBrains Mono",
+            ReadFont::Iosevka => "Iosevka",
+            ReadFont::GoogleSansCode => "Google Sans Code",
+            ReadFont::AtkinsonHyperlegible => "Atkinson Hyperlegible",
+        };
+        egui::FontFamily::Name(name.into())
+    }
+
+    pub fn display_name(&self) -> &'static str {
+        match self {
+            ReadFont::Inter => "Inter (Moderna)",
+            ReadFont::Roboto => "Roboto (Limpia)",
+            ReadFont::Georgia => "Georgia (Periódico)",
+            ReadFont::Merriweather => "Merriweather (Elegante)",
+            ReadFont::JetBrainsMono => "JetBrains Mono",
+            ReadFont::Iosevka => "Iosevka",
+            ReadFont::GoogleSansCode => "Google Sans Code",
+            ReadFont::AtkinsonHyperlegible => "Atkinson Hyperlegible (Máxima Legibilidad)",
+        }
+    }
 }
 
 pub struct MarkdownApp {
@@ -32,8 +104,8 @@ pub struct MarkdownApp {
     pub show_md_panel: bool,
 
     // Config
-    pub editor_font: FontChoice,
-    pub preview_font: FontChoice,
+    pub editor_font: EditorFont,
+    pub preview_font: ReadFont,
     pub base_font_size: f32,
 
     // Cursor/selection tracking (para aplicar comandos MD)
@@ -63,8 +135,8 @@ impl Default for MarkdownApp {
             show_config: false,
             show_stats_window: false,
             show_md_panel: false,
-            editor_font: FontChoice::Mono,
-            preview_font: FontChoice::SansSerif,
+            editor_font: EditorFont::Consolas,
+            preview_font: ReadFont::Georgia,
             base_font_size: 14.0,
             last_cursor: 0,
             last_selection: None,
@@ -82,59 +154,68 @@ impl Default for MarkdownApp {
 pub fn configure_fonts(ctx: &egui::Context) {
     let mut fonts = egui::FontDefinitions::default();
 
-    // 1. Cargar Consolas y Courier New para Monospace (si están en Windows)
-    let mut mono_fonts = vec![];
-    if let Ok(bytes) = std::fs::read("C:\\Windows\\Fonts\\consola.ttf") {
-        fonts.font_data.insert("Consolas".to_owned(), egui::FontData::from_owned(bytes));
-        mono_fonts.push("Consolas".to_owned());
-    }
-    if let Ok(bytes) = std::fs::read("C:\\Windows\\Fonts\\cour.ttf") {
-        fonts.font_data.insert("Courier New".to_owned(), egui::FontData::from_owned(bytes));
-        mono_fonts.push("Courier New".to_owned());
-    }
-    
-    // Insertamos nuestras fuentes al principio de la lista Monospace existente para no perder los emojis y fallbacks de egui
-    if let Some(existing) = fonts.families.get_mut(&egui::FontFamily::Monospace) {
-        for font in mono_fonts.into_iter().rev() {
-            existing.insert(0, font);
+    // Función auxiliar para cargar fuentes desde carpeta local o del sistema Windows de forma robusta
+    fn load_font(fonts: &mut egui::FontDefinitions, font_name: &str, file_names: &[&str]) -> bool {
+        for file_name in file_names {
+            // Opción 1: Carpeta local del proyecto
+            let local_path = format!("assets/fonts/{}", file_name);
+            if let Ok(bytes) = std::fs::read(&local_path) {
+                fonts.font_data.insert(font_name.to_owned(), egui::FontData::from_owned(bytes));
+                return true;
+            }
+            // Opción 2: Carpeta del sistema Windows
+            let system_path = format!("C:\\Windows\\Fonts\\{}", file_name);
+            if let Ok(bytes) = std::fs::read(&system_path) {
+                fonts.font_data.insert(font_name.to_owned(), egui::FontData::from_owned(bytes));
+                return true;
+            }
         }
+        false
     }
 
-    // 2. Cargar Georgia y Times New Roman para la familia Serif
-    let mut serif_fonts = vec![];
-    if let Ok(bytes) = std::fs::read("C:\\Windows\\Fonts\\georgia.ttf") {
-        fonts.font_data.insert("Georgia".to_owned(), egui::FontData::from_owned(bytes));
-        serif_fonts.push("Georgia".to_owned());
-    }
-    if let Ok(bytes) = std::fs::read("C:\\Windows\\Fonts\\times.ttf") {
-        fonts.font_data.insert("Times New Roman".to_owned(), egui::FontData::from_owned(bytes));
-        serif_fonts.push("Times New Roman".to_owned());
-    }
-    
-    // Como fallback de Serif, tomamos las fuentes de la familia Proportional por defecto de egui
-    if let Some(prop_existing) = fonts.families.get(&egui::FontFamily::Proportional) {
-        for font in prop_existing.iter() {
-            serif_fonts.push(font.clone());
-        }
-    }
-    fonts.families.insert(egui::FontFamily::Name("serif".into()), serif_fonts);
+    // Intentar cargar las 11 tipografías solicitadas por el usuario
+    load_font(&mut fonts, "JetBrains Mono", &["JetBrainsMono-Regular.ttf", "JetBrainsMono.ttf"]);
+    load_font(&mut fonts, "Iosevka", &["iosevka-regular.ttf", "iosevka.ttf"]);
+    load_font(&mut fonts, "Google Sans Code", &["GoogleSansCode-Regular.ttf", "GoogleSansCode.ttf"]);
+    load_font(&mut fonts, "Consolas", &["consola.ttf"]);
+    load_font(&mut fonts, "Fira Code", &["FiraCode-Regular.ttf", "FiraCode.ttf"]);
+    load_font(&mut fonts, "Courier New", &["cour.ttf"]);
+    load_font(&mut fonts, "Inter", &["Inter-Regular.ttf", "Inter.ttf"]);
+    load_font(&mut fonts, "Roboto", &["Roboto-Regular.ttf", "Roboto.ttf"]);
+    load_font(&mut fonts, "Georgia", &["georgia.ttf"]);
+    load_font(&mut fonts, "Merriweather", &["Merriweather-Regular.ttf", "Merriweather.ttf"]);
+    load_font(&mut fonts, "Atkinson Hyperlegible", &["AtkinsonHyperlegible-Regular.ttf", "AtkinsonHyperlegible.ttf"]);
 
-    // 3. Cargar Segoe UI y Arial para Proportional (Sans Serif)
-    let mut prop_fonts = vec![];
-    if let Ok(bytes) = std::fs::read("C:\\Windows\\Fonts\\segoeui.ttf") {
-        fonts.font_data.insert("Segoe UI".to_owned(), egui::FontData::from_owned(bytes));
-        prop_fonts.push("Segoe UI".to_owned());
-    }
-    if let Ok(bytes) = std::fs::read("C:\\Windows\\Fonts\\arial.ttf") {
-        fonts.font_data.insert("Arial".to_owned(), egui::FontData::from_owned(bytes));
-        prop_fonts.push("Arial".to_owned());
-    }
-    
-    // Insertamos nuestras fuentes al principio de la lista Proportional existente
-    if let Some(existing) = fonts.families.get_mut(&egui::FontFamily::Proportional) {
-        for font in prop_fonts.into_iter().rev() {
-            existing.insert(0, font);
+    let font_names = &[
+        "JetBrains Mono", "Iosevka", "Google Sans Code", "Consolas", "Fira Code",
+        "Courier New", "Inter", "Roboto", "Georgia", "Merriweather", "Atkinson Hyperlegible"
+    ];
+
+    // Obtener los fallbacks por defecto de egui
+    let default_prop = fonts.families.get(&egui::FontFamily::Proportional).cloned().unwrap_or_default();
+    let default_mono = fonts.families.get(&egui::FontFamily::Monospace).cloned().unwrap_or_default();
+
+    // Crear familias individuales personalizadas con fallbacks seguros
+    for &name in font_names {
+        let mut family_fonts = vec![];
+        if fonts.font_data.contains_key(name) {
+            family_fonts.push(name.to_owned());
         }
+
+        let is_mono = name == "JetBrains Mono" || name == "Iosevka" || name == "Google Sans Code"
+            || name == "Consolas" || name == "Fira Code" || name == "Courier New";
+
+        if is_mono {
+            for f in &default_mono {
+                family_fonts.push(f.clone());
+            }
+        } else {
+            for f in &default_prop {
+                family_fonts.push(f.clone());
+            }
+        }
+
+        fonts.families.insert(egui::FontFamily::Name(name.into()), family_fonts);
     }
 
     ctx.set_fonts(fonts);

@@ -1,4 +1,4 @@
-use crate::app::{FontChoice, MarkdownApp};
+use crate::app::MarkdownApp;
 use eframe::egui;
 
 pub fn show_stats_panel(app: &mut MarkdownApp, ctx: &egui::Context) {
@@ -111,28 +111,41 @@ pub fn show_config_window(app: &mut MarkdownApp, ctx: &egui::Context) {
 
             // Fuente del Editor
             egui::ComboBox::from_label("Fuente del Editor")
-                .selected_text(match app.editor_font {
-                    FontChoice::SansSerif => "Revista Moderna (Segoe UI / Arial)",
-                    FontChoice::Serif => "Estilo Periódico/Libro (Georgia)",
-                    FontChoice::Mono => "Código Limpio (Consolas)",
-                })
+                .selected_text(app.editor_font.display_name())
                 .show_ui(ui, |ui| {
-                    ui.selectable_value(&mut app.editor_font, FontChoice::SansSerif, "Revista Moderna (Segoe UI / Arial)");
-                    ui.selectable_value(&mut app.editor_font, FontChoice::Serif, "Estilo Periódico/Libro (Georgia)");
-                    ui.selectable_value(&mut app.editor_font, FontChoice::Mono, "Código Limpio (Consolas)");
+                    use crate::app::EditorFont;
+                    let editor_options = &[
+                        EditorFont::JetBrainsMono,
+                        EditorFont::Iosevka,
+                        EditorFont::GoogleSansCode,
+                        EditorFont::Consolas,
+                        EditorFont::FiraCode,
+                        EditorFont::CourierNew,
+                        EditorFont::Inter,
+                    ];
+                    for &opt in editor_options {
+                        ui.selectable_value(&mut app.editor_font, opt, opt.display_name());
+                    }
                 });
 
             // Fuente del Preview
             egui::ComboBox::from_label("Fuente del Preview (Read)")
-                .selected_text(match app.preview_font {
-                    FontChoice::SansSerif => "Revista Moderna (Segoe UI / Arial)",
-                    FontChoice::Serif => "Estilo Periódico/Libro (Georgia)",
-                    FontChoice::Mono => "Código Limpio (Consolas)",
-                })
+                .selected_text(app.preview_font.display_name())
                 .show_ui(ui, |ui| {
-                    ui.selectable_value(&mut app.preview_font, FontChoice::SansSerif, "Revista Moderna (Segoe UI / Arial)");
-                    ui.selectable_value(&mut app.preview_font, FontChoice::Serif, "Estilo Periódico/Libro (Georgia)");
-                    ui.selectable_value(&mut app.preview_font, FontChoice::Mono, "Código Limpio (Consolas)");
+                    use crate::app::ReadFont;
+                    let read_options = &[
+                        ReadFont::Inter,
+                        ReadFont::Roboto,
+                        ReadFont::Georgia,
+                        ReadFont::Merriweather,
+                        ReadFont::JetBrainsMono,
+                        ReadFont::Iosevka,
+                        ReadFont::GoogleSansCode,
+                        ReadFont::AtkinsonHyperlegible,
+                    ];
+                    for &opt in read_options {
+                        ui.selectable_value(&mut app.preview_font, opt, opt.display_name());
+                    }
                 });
 
             // Tamaño base afecta a editor y preview
@@ -146,36 +159,14 @@ pub fn show_config_window(app: &mut MarkdownApp, ctx: &egui::Context) {
                 let size = app.base_font_size;
 
                 // Editor style preview
-                match app.editor_font {
-                    FontChoice::Mono => {
-                        ui.label(egui::RichText::new("Editor: Código Limpio (Consolas)")
-                            .monospace().size(size));
-                    }
-                    FontChoice::Serif => {
-                        ui.label(egui::RichText::new("Editor: Estilo Periódico (Georgia)")
-                            .family(egui::FontFamily::Name("serif".into())).size(size));
-                    }
-                    FontChoice::SansSerif => {
-                        ui.label(egui::RichText::new("Editor: Revista Moderna (Arial)")
-                            .size(size));
-                    }
-                }
+                ui.label(egui::RichText::new(format!("Editor: {}", app.editor_font.display_name()))
+                    .family(app.editor_font.to_family())
+                    .size(size));
 
                 // Preview style preview
-                match app.preview_font {
-                    FontChoice::Mono => {
-                        ui.label(egui::RichText::new("Preview: Código Limpio (Consolas)")
-                            .monospace().size(size));
-                    }
-                    FontChoice::Serif => {
-                        ui.label(egui::RichText::new("Preview: Estilo Periódico (Georgia)")
-                            .family(egui::FontFamily::Name("serif".into())).size(size));
-                    }
-                    FontChoice::SansSerif => {
-                        ui.label(egui::RichText::new("Preview: Revista Moderna (Arial)")
-                            .size(size));
-                    }
-                }
+                ui.label(egui::RichText::new(format!("Preview: {}", app.preview_font.display_name()))
+                    .family(app.preview_font.to_family())
+                    .size(size));
 
                 // Ejemplos de formato
                 ui.add_space(4.0);

@@ -56,85 +56,130 @@ fn flush_fragments(
         return;
     }
 
-    // Traducir last_selection de caracteres a bytes
-    let selection_bytes = app.last_selection.map(|(start_char, end_char)| {
-        (
-            crate::app::char_to_byte_index(&app.text, start_char),
-            crate::app::char_to_byte_index(&app.text, end_char),
-        )
-    });
-
     ui.horizontal_wrapped(|ui| {
         if list_depth > 0 {
-            let indent = (list_depth as f32) * 16.0;
+            let indent = (list_depth as f32) * (app.base_font_size * 1.5);
             ui.add_space(indent);
-            ui.label(egui::RichText::new("• ").strong().size(app.base_font_size));
+            let bullet_color = if ui.visuals().dark_mode {
+                egui::Color32::from_rgb(180, 180, 180)
+            } else {
+                egui::Color32::from_rgb(100, 100, 100)
+            };
+            ui.label(egui::RichText::new("• ")
+                .strong()
+                .size(app.base_font_size)
+                .color(bullet_color));
         }
 
         for frag in fragments.iter() {
-            let family = match app.preview_font {
-                crate::app::FontChoice::SansSerif => egui::FontFamily::Proportional,
-                crate::app::FontChoice::Serif => egui::FontFamily::Name("serif".into()),
-                crate::app::FontChoice::Mono => egui::FontFamily::Monospace,
-            };
+            let family = app.preview_font.to_family();
 
-            let mut rt = egui::RichText::new(&frag.text)
-                .size(app.base_font_size)
-                .family(family);
-
-            if let Some(level) = frag.heading_level {
-                match level {
-                    1 => rt = rt.size(app.base_font_size + 8.0).strong(),
-                    2 => rt = rt.size(app.base_font_size + 6.0).strong(),
-                    3 => rt = rt.size(app.base_font_size + 4.0).strong(),
-                    4 => rt = rt.size(app.base_font_size + 2.0).strong(),
-                    5 => rt = rt.size(app.base_font_size).strong(),
-                    _ => rt = rt.size(app.base_font_size - 1.0).weak(),
+            // Determinar partes del texto según la selección
+            let mut sub_parts = vec![];
+            
+            let is_selected_any = if let Some((sel_start_char, sel_end_char)) = app.last_selection {
+                if sel_start_char < sel_end_char {
+                    let frag_start_char = crate::app::byte_to_char_index(&app.text, frag.range.start);
+                    let frag_end_char = crate::app::byte_to_char_index(&app.text, frag.range.end);
+                    
+                    let int_start = frag_start_char.max(sel_start_char);
+                    let int_end = frag_end_char.min(sel_end_char);
+                    
+                    if int_start < int_end {
+                        let chars: Vec<char> = frag.text.chars().collect();
+                        let rel_start = int_start.saturating_sub(frag_start_char).min(chars.len());
+                        let rel_end = int_end.saturating_sub(frag_start_char).min(chars.len());
+                        
+                        let part1: String = chars[..rel_start].iter().collect();
+                        let part2: String = chars[rel_start..rel_end].iter().collect();
+                        let part3: String = chars[rel_end..].iter().collect();
+                        
+                        if !part1.is_empty() {
+                            sub_parts.push((part1, false));
+                        }
+                        if !part2.is_empty() {
+                            sub_parts.push((part2, true));
+                        }
+                        if !part3.is_empty() {
+                            sub_parts.push((part3, false));
+                        }
+                        true
+                    } else {
+                        false
+                    }
+                } else {
+                    false
                 }
-            }
-
-            if frag.style.strong {
-                rt = rt.strong();
-            }
-            if frag.style.emphasis {
-                rt = rt.italics();
-            }
-            if frag.style.strikethrough {
-                rt = rt.strikethrough();
-            }
-
-            if frag.is_inline_code {
-                rt = rt.monospace().color(egui::Color32::from_rgb(210, 80, 80));
-            }
-
-            // Resaltar si coincide con la selección en bytes
-            let is_selected = if let Some((sel_start, sel_end)) = selection_bytes {
-                sel_start < sel_end && frag.range.start < sel_end && frag.range.end > sel_start
             } else {
                 false
             };
 
-            if is_selected {
-                rt = rt.background_color(egui::Color32::from_rgba_unmultiplied(100, 150, 255, 60)); // elegante fondo semi-transparente
+            if !is_selected_any {
+                sub_parts.push((frag.text.clone(), false));
             }
 
-            let response = if let Some(ref url) = frag.is_link {
-                ui.hyperlink_to(rt, url)
+            let text_color = if ui.visuals().dark_mode {
+                egui::Color32::from_rgb(224, 224, 224) // #e0e0e0
             } else {
-                let label = egui::Label::new(rt).sense(egui::Sense::click());
-                ui.add(label)
+                egui::Color32::from_rgb(44, 44, 44) // #2c2c2c
             };
 
-            if is_selected && app.should_scroll_to_selection {
-                response.scroll_to_me(Some(egui::Align::Center));
-                app.should_scroll_to_selection = false;
-            }
+            for (text_part, is_part_selected) in sub_parts {
+                let mut rt = egui::RichText::new(&text_part)
+                    .size(app.base_font_size)
+                    .family(family.clone());
 
-            // Sincronización a la inversa
-            if response.clicked() {
-                app.last_cursor = crate::app::byte_to_char_index(&app.text, frag.range.start);
-                app.last_selection = None;
-                app.should_scroll_to_selection = true; // enfocar editor
+                if frag.is_link.is_none() {
+                    rt = rt.color(text_color);
+                }
+
+                if let Some(level) = frag.heading_level {
+                    match level {
+                        1 => rt = rt.size(app.base_font_size * 2.0).strong(),
+                        2 => rt = rt.size(app.base_font_size * 1.6).strong(),
+                        3 => rt = rt.size(app.base_font_size * 1.3).strong(),
+                        4 => rt = rt.size(app.base_font_size * 1.15).strong(),
+                        5 => rt = rt.size(app.base_font_size).strong(),
+                        _ => rt = rt.size(app.base_font_size - 1.0).weak(),
+                    }
+                }
+
+                if frag.style.strong {
+                    rt = rt.strong();
+                }
+                if frag.style.emphasis {
+                    rt = rt.italics();
+                }
+                if frag.style.strikethrough {
+                    rt = rt.strikethrough();
+                }
+
+                if frag.is_inline_code {
+                    rt = rt.monospace().color(egui::Color32::from_rgb(210, 80, 80));
+                }
+
+                if is_part_selected {
+                    rt = rt.background_color(egui::Color32::from_rgba_unmultiplied(100, 150, 255, 60)); // elegante fondo semi-transparente
+                }
+
+                let response = if let Some(ref url) = frag.is_link {
+                    ui.hyperlink_to(rt, url)
+                } else {
+                    let label = egui::Label::new(rt).sense(egui::Sense::click());
+                    ui.add(label)
+                };
+
+                if is_part_selected && app.should_scroll_to_selection {
+                    response.scroll_to_me(Some(egui::Align::Center));
+                    app.should_scroll_to_selection = false;
+                }
+
+                // Sincronización a la inversa
+                if response.clicked() {
+                    app.last_cursor = crate::app::byte_to_char_index(&app.text, frag.range.start);
+                    app.last_selection = None;
+                    app.should_scroll_to_selection = true; // enfocar editor
+                }
             }
         }
     });
@@ -430,7 +475,18 @@ pub fn render_markdown(
     let mut active_link: Option<String> = None;
     let mut fragments: Vec<TextFragment> = Vec::new();
 
-    egui::Frame::none().inner_margin(16.0).show(ui, |ui| {
+    // Espaciado vertical entre bloques (interlineado emulado)
+    ui.spacing_mut().item_spacing.y = app.base_font_size * 0.6;
+
+    // Padding editorial premium (superior/inferior generoso, laterales holgados)
+    let page_margin = egui::Margin {
+        left: 30.0,
+        right: 30.0,
+        top: 40.0,
+        bottom: 40.0,
+    };
+
+    egui::Frame::none().inner_margin(page_margin).show(ui, |ui| {
         while let Some((event, range)) = events.next() {
             match event {
                 // Code block
@@ -455,19 +511,39 @@ pub fn render_markdown(
                 // Headings
                 Event::Start(Tag::Heading { level, .. }) => {
                     flush_fragments(ui, app, &mut fragments, list_depth);
-                    heading_level = Some(match level {
+                    let lvl = match level {
                         HeadingLevel::H1 => 1,
                         HeadingLevel::H2 => 2,
                         HeadingLevel::H3 => 3,
                         HeadingLevel::H4 => 4,
                         HeadingLevel::H5 => 5,
                         HeadingLevel::H6 => 6,
-                    });
+                    };
+                    heading_level = Some(lvl);
+
+                    // Margen superior dinámico para jerarquía editorial
+                    let top_space = match lvl {
+                        1 => 0.0,
+                        2 => app.base_font_size * 2.5,
+                        3 => app.base_font_size * 2.0,
+                        _ => app.base_font_size * 1.2,
+                    };
+                    if top_space > 0.0 {
+                        ui.add_space(top_space);
+                    }
                 }
                 Event::End(TagEnd::Heading(_)) => {
                     flush_fragments(ui, app, &mut fragments, list_depth);
+                    
+                    // Margen inferior dinámico según el nivel
+                    let bottom_space = match heading_level {
+                        Some(1) => app.base_font_size * 1.8,
+                        Some(2) => app.base_font_size * 1.0,
+                        Some(3) => app.base_font_size * 0.8,
+                        _ => app.base_font_size * 0.6,
+                    };
                     heading_level = None;
-                    ui.add_space(8.0);
+                    ui.add_space(bottom_space);
                 }
 
                 // Paragraphs
@@ -476,7 +552,7 @@ pub fn render_markdown(
                 }
                 Event::End(TagEnd::Paragraph) => {
                     flush_fragments(ui, app, &mut fragments, list_depth);
-                    ui.add_space(6.0);
+                    ui.add_space(app.base_font_size * 1.6);
                 }
 
                 // Lists
@@ -504,6 +580,7 @@ pub fn render_markdown(
                 Event::End(TagEnd::Item) => {
                     flush_fragments(ui, app, &mut fragments, list_depth);
                     ui.end_row();
+                    ui.add_space(app.base_font_size * 0.5); // Margen inferior que hace "respirar" la lista
                 }
 
                 // Blockquote
@@ -580,13 +657,13 @@ pub fn render_markdown(
                 Event::Text(t) => {
                     if in_code_block {
                         code_text.push_str(&t);
-                        return;
+                        continue;
                     }
 
                     if t.starts_with("$$") && t.ends_with("$$") {
                         flush_fragments(ui, app, &mut fragments, list_depth);
                         render_math_block(ui, app, &t);
-                        return;
+                        continue;
                     }
 
                     let current_style = style_stack.last().cloned().unwrap_or_default();

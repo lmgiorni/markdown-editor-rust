@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Markdown Editor</title>
+  <link rel="stylesheet" href="style.css">
+  <!-- Fuentes Premium de Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400;1,700&family=Fira+Code:wght@400;500&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&family=Merriweather:ital,wght@0,300;0,400;0,700;1,300&family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+</head>
+<body>
+  <!-- Barra de Herramientas Superior -->
+  <header id="toolbar">
+    <!-- Grupo Izquierdo: Acciones de Archivo -->
+    <div class="toolbar-left">
+      <button id="btn-new" title="Nuevo Archivo (Ctrl+N)" class="toolbar-btn">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="btn-icon">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+          <polyline points="14 2 14 8 20 8"></polyline>
+          <line x1="12" y1="18" x2="12" y2="12"></line>
+          <line x1="9" y1="15" x2="15" y2="15"></line>
+        </svg>
+      </button>
+
+      <button id="btn-open" title="Abrir Archivo (Ctrl+O)" class="toolbar-btn">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="btn-icon">
+          <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
+          <polyline points="2 10 22 10"></polyline>
+        </svg>
+      </button>
+
+      <button id="btn-save" title="Guardar (Ctrl+S)" class="toolbar-btn">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="btn-icon">
+          <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+          <polyline points="17 21 17 13 7 13 7 21"></polyline>
+          <polyline points="7 3 7 8 15 8"></polyline>
+        </svg>
+      </button>
+
+      <!-- Contenedor editable del nombre de archivo -->
+      <div id="file-name-container" title="Haz click para renombrar el archivo">
+        <span id="file-info">Sin título.md</span>
+      </div>
+    </div>
+
+    <!-- Bloque Central: Selectores de Vista alineados con la división media -->
+    <div id="toolbar-center">
+      <div class="toolbar-group">
+        <button id="view-split" title="Vista Dividida" class="toolbar-btn active">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="btn-icon">
+            <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+            <line x1="12" y1="3" x2="12" y2="21"></line>
+          </svg>
+        </button>
+
+        <button id="view-editor" title="Vista Escritura (Focus)" class="toolbar-btn">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="btn-icon">
+            <path d="M12 20h9"></path>
+            <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path>
+          </svg>
+        </button>
+
+        <button id="view-preview" title="Vista Lectura (Read)" class="toolbar-btn">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="btn-icon">
+            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+            <circle cx="12" cy="12" r="3"></circle>
+          </svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- Grupo Derecho: Diálogos Emergentes -->
+    <div class="toolbar-right">
+      <button id="btn-md" title="Atajos Markdown" class="toolbar-btn special-btn">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="btn-icon">
+          <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+          <path d="M9 9l3 3 3-3"></path>
+          <path d="M9 15h6"></path>
+        </svg>
+      </button>
+
+      <button id="btn-stats" title="Estadísticas de Texto" class="toolbar-btn special-btn">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="btn-icon">
+          <line x1="18" y1="20" x2="18" y2="10"></line>
+          <line x1="12" y1="20" x2="12" y2="4"></line>
+          <line x1="6" y1="20" x2="6" y2="14"></line>
+        </svg>
+      </button>
+
+      <button id="btn-config" title="Configuración de la Aplicación" class="toolbar-btn special-btn">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="btn-icon">
+          <circle cx="12" cy="12" r="3"></circle>
+          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+        </svg>
+      </button>
+    </div>
+  </header>
+
+  <!-- Contenedor Principal (Pantalla Dividida) -->
+  <main id="app-container" class="split-view">
+    <!-- Panel Izquierdo: Editor -->
+    <section id="editor-container" class="panel">
+      <textarea id="editor" placeholder="Escribe tu Markdown aquí..."></textarea>
+    </section>
+
+    <!-- Tirador de Ajuste Visual (Separador Estético) -->
+    <div id="split-gutter"></div>
+
+    <!-- Panel Derecho: Visor de Markdown -->
+    <section id="preview-container" class="panel">
+      <div id="preview" class="markdown-body"></div>
+    </section>
+  </main>
+
+  <!-- Barra de Estado Inferior -->
+  <footer id="statusbar">
+    <div class="statusbar-left">
+      <span id="status-dot" class="dot-saved"></span>
+      <span id="active-filepath-display">Sin archivo cargado en disco</span>
+    </div>
+    <div class="statusbar-right">
+      <span id="word-count-status">0 palabras</span>
+    </div>
+  </footer>
+
+  <!-- ==========================================================================
+       VENTANAS EMERGENTES (MODALES ELEGANTES)
+       ========================================================================== -->
+
+  <!-- 1. Modal Atajos Markdown (MD) -->
+  <div id="modal-md" class="modal-overlay">
+    <div class="modal-box modal-box-narrow">
+      <header class="modal-header">
+        <h3>Atajos Markdown</h3>
+        <div class="modal-header-actions">
+          <button class="modal-collapse-btn" title="Minimizar panel">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="collapse-icon">
+              <polyline points="18 15 12 9 6 15"></polyline>
+            </svg>
+          </button>
+          <button class="modal-close-btn">&times;</button>
+        </div>
+      </header>
+      <div class="modal-body">
+        <div class="md-grid">
+          <button class="md-shortcut-btn" data-syntax="bold">Bold</button>
+          <button class="md-shortcut-btn" data-syntax="italic">Italic</button>
+          <button class="md-shortcut-btn" data-syntax="underline">Underline</button>
+          <button class="md-shortcut-btn" data-syntax="strikethrough">Strikethrough</button>
+          <button class="md-shortcut-btn" data-syntax="link">Link</button>
+          <button class="md-shortcut-btn" data-syntax="image">Image</button>
+          <button class="md-shortcut-btn" data-syntax="table">Table</button>
+          <button class="md-shortcut-btn" data-syntax="ul">Unordered list</button>
+          <button class="md-shortcut-btn" data-syntax="ol">Ordered list</button>
+          <button class="md-shortcut-btn" data-syntax="task">Task list</button>
+          <button class="md-shortcut-btn" data-syntax="blockquote">Blockquote</button>
+          <button class="md-shortcut-btn" data-syntax="inline-code">Inline code</button>
+          <button class="md-shortcut-btn" data-syntax="code-block">Code block</button>
+          <button class="md-shortcut-btn" data-syntax="inline-math">Inline math</button>
+          <button class="md-shortcut-btn" data-syntax="block-math">Block math</button>
+          <button class="md-shortcut-btn" data-syntax="h1">Heading 1</button>
+          <button class="md-shortcut-btn" data-syntax="h2">Heading 2</button>
+          <button class="md-shortcut-btn" data-syntax="h3">Heading 3</button>
+          <button class="md-shortcut-btn" data-syntax="h4">Heading 4</button>
+          <button class="md-shortcut-btn" data-syntax="h5">Heading 5</button>
+          <button class="md-shortcut-btn" data-syntax="h6">Heading 6</button>
+          <button class="md-shortcut-btn" data-syntax="paragraph">Paragraph</button>
+          <button class="md-shortcut-btn" data-syntax="hr">Horizontal rule</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 2. Modal Estadísticas (Stats) -->
+  <div id="modal-stats" class="modal-overlay">
+    <div class="modal-box">
+      <header class="modal-header">
+        <h3>Estadísticas del Documento</h3>
+        <div class="modal-header-actions">
+          <button class="modal-collapse-btn" title="Minimizar panel">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="collapse-icon">
+              <polyline points="18 15 12 9 6 15"></polyline>
+            </svg>
+          </button>
+          <button class="modal-close-btn">&times;</button>
+        </div>
+      </header>
+      <div class="modal-body">
+        <div class="stats-panel">
+          <div class="stat-card">
+            <span class="stat-num" id="stat-words">0</span>
+            <span class="stat-label">Palabras</span>
+          </div>
+          <div class="stat-card">
+            <span class="stat-num" id="stat-chars-no-space">0</span>
+            <span class="stat-label">Caracteres (sin espacios)</span>
+          </div>
+          <div class="stat-card">
+            <span class="stat-num" id="stat-chars-with-space">0</span>
+            <span class="stat-label">Caracteres (con espacios)</span>
+          </div>
+          <div class="stat-card">
+            <span class="stat-num" id="stat-links">0</span>
+            <span class="stat-label">Enlaces</span>
+          </div>
+          <div class="stat-card selection-card">
+            <span class="stat-num" id="stat-sel-words">0</span>
+            <span class="stat-label">Palabras seleccionadas</span>
+          </div>
+          <div class="stat-card selection-card">
+            <span class="stat-num" id="stat-sel-chars-no-space">0</span>
+            <span class="stat-label">Caract. seleccionados (sin esp.)</span>
+          </div>
+          <div class="stat-card selection-card">
+            <span class="stat-num" id="stat-sel-chars-with-space">0</span>
+            <span class="stat-label">Caract. seleccionados (con esp.)</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 3. Modal Configuración (Config) -->
+  <div id="modal-config" class="modal-overlay">
+    <div class="modal-box modal-box-large">
+      <header class="modal-header">
+        <h3>Configuración de Apariencia</h3>
+        <div class="modal-header-actions">
+          <button class="modal-collapse-btn" title="Minimizar panel">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="collapse-icon">
+              <polyline points="18 15 12 9 6 15"></polyline>
+            </svg>
+          </button>
+          <button class="modal-close-btn">&times;</button>
+        </div>
+      </header>
+      <div class="modal-body">
+        <div class="config-container">
+          <!-- Tipografía del Editor -->
+          <div class="config-row">
+            <label for="select-editor-font">Editor Font</label>
+            <select id="select-editor-font" class="config-select">
+              <option value="JetBrains Mono">JetBrains Mono</option>
+              <option value="Iosevka">Iosevka (Compacta)</option>
+              <option value="Google Sans Code">Google Sans Code</option>
+              <option value="Consolas">Consolas (Sistema)</option>
+              <option value="Fira Code" selected>Fira Code</option>
+              <option value="Courier New">Courier New</option>
+              <option value="Inter">Inter (Sans)</option>
+            </select>
+          </div>
+
+          <!-- Tipografía del Visor -->
+          <div class="config-row">
+            <label for="select-reader-font">Reader Font</label>
+            <select id="select-reader-font" class="config-select">
+              <option value="Inter" selected>Inter (Moderna)</option>
+              <option value="Roboto">Roboto (Limpia)</option>
+              <option value="Georgia">Georgia (Periódico)</option>
+              <option value="Merriweather">Merriweather (Elegante)</option>
+              <option value="JetBrains Mono">JetBrains Mono</option>
+              <option value="Iosevka">Iosevka</option>
+              <option value="Google Sans Code">Google Sans Code</option>
+              <option value="Atkinson Hyperlegible">Atkinson Hyperlegible</option>
+            </select>
+          </div>
+
+          <!-- Tamaño de fuente del Editor -->
+          <div class="config-row">
+            <div class="config-label-with-value">
+              <label for="range-editor-size">Editor Font Size</label>
+              <span id="val-editor-size" class="config-value-badge">14px</span>
+            </div>
+            <input type="range" id="range-editor-size" min="10" max="24" value="14" class="config-slider">
+          </div>
+
+          <!-- Tamaño de fuente del Visor -->
+          <div class="config-row">
+            <div class="config-label-with-value">
+              <label for="range-reader-size">Reader Font Size</label>
+              <span id="val-reader-size" class="config-value-badge">15px</span>
+            </div>
+            <input type="range" id="range-reader-size" min="10" max="24" value="15" class="config-slider">
+          </div>
+
+          <!-- Ajuste General Combinado +1 | -1 -->
+          <div class="config-row config-row-buttons">
+            <label>Ajuste General de Tamaño</label>
+            <div class="config-buttons-group">
+              <button id="btn-font-dec" class="config-action-btn">Font Size -1</button>
+              <button id="btn-font-inc" class="config-action-btn">Font Size +1</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Carga de Librerías y Scripts -->
+  <script src="lib/marked.min.js"></script>
+  <script src="main.js"></script>
+</body>
+</html>

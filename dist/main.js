@@ -453,6 +453,7 @@ function habilitarArrastreModal(modalOverlay) {
     maxY = window.innerHeight - rect.height;
     
     isDragging = true;
+    modalBox.classList.add('dragging');
     
     document.addEventListener('mousemove', drag);
     document.addEventListener('mouseup', dragEnd);
@@ -477,6 +478,7 @@ function habilitarArrastreModal(modalOverlay) {
   
   function dragEnd() {
     isDragging = false;
+    modalBox.classList.remove('dragging');
     document.removeEventListener('mousemove', drag);
     document.removeEventListener('mouseup', dragEnd);
   }
@@ -672,15 +674,24 @@ function actualizarEstadisticasDetalladas() {
   // Contar enlaces reales buscando etiquetas 'a' en el visor renderizado
   const totalLinks = DOM.preview.querySelectorAll('a').length;
   
-  // 2. Estadísticas de texto seleccionado (inteligente: soporta Editor y Reader)
+  // 2. Estadísticas de selección inteligente (Editor y Reader)
   let selText = '';
-  const selection = window.getSelection();
-  if (selection && selection.toString().length > 0) {
-    selText = selection.toString();
-  } else if (document.activeElement === DOM.editor) {
+  
+  // Si el foco está en el editor, priorizar la selección del editor
+  if (document.activeElement === DOM.editor) {
     const start = DOM.editor.selectionStart;
     const end = DOM.editor.selectionEnd;
-    selText = fullText.substring(start, end);
+    if (start !== undefined && end !== undefined && start !== end) {
+      selText = fullText.substring(start, end);
+    }
+  }
+  
+  // Si sigue vacía, intentar obtener la selección del visor (Reader)
+  if (!selText) {
+    const selection = window.getSelection();
+    if (selection) {
+      selText = selection.toString();
+    }
   }
   
   const selWords = selText.trim().split(/\s+/).filter(w => w.length > 0).length;
@@ -758,35 +769,40 @@ if (DOM.btnFontInc) {
   DOM.btnFontInc.addEventListener('click', () => ajustarTamañoGeneral(1));
 }
 
-let activeScrollPanel = null;
-let lastScrollTime = 0;
+let panelBajoCursor = null;
 
-// Sincronización proporcional de scroll bidireccional libre de parpadeos y rebotes
-function sincronizarDesplazamiento(panelOrigen, panelDestino) {
-  const ahora = Date.now();
-  
-  // Si el otro panel lidera el scroll y estamos dentro del margen de protección, ignoramos
-  if (activeScrollPanel && activeScrollPanel !== panelOrigen && (ahora - lastScrollTime < 80)) {
-    return;
-  }
-  
-  // Registrar este panel como líder activo del scroll
-  activeScrollPanel = panelOrigen;
-  lastScrollTime = ahora;
-  
-  const maxOrigen = panelOrigen.scrollHeight - panelOrigen.clientHeight;
-  const pct = maxOrigen > 0 ? panelOrigen.scrollTop / maxOrigen : 0;
-  
-  const maxDestino = panelDestino.scrollHeight - panelDestino.clientHeight;
-  panelDestino.scrollTop = pct * maxDestino;
-}
+// Rastrear en qué panel se encuentra físicamente el cursor del usuario
+DOM.editor.addEventListener('mouseenter', () => {
+  panelBajoCursor = DOM.editor;
+});
+DOM.previewContainer.addEventListener('mouseenter', () => {
+  panelBajoCursor = DOM.previewContainer;
+});
 
+DOM.editor.addEventListener('mousemove', () => {
+  if (panelBajoCursor !== DOM.editor) panelBajoCursor = DOM.editor;
+});
+DOM.previewContainer.addEventListener('mousemove', () => {
+  if (panelBajoCursor !== DOM.previewContainer) panelBajoCursor = DOM.previewContainer;
+});
+
+// Sincronización inmaculada de scroll basada únicamente en la acción del panel activo
 DOM.editor.addEventListener('scroll', () => {
-  sincronizarDesplazamiento(DOM.editor, DOM.previewContainer);
+  if (panelBajoCursor === DOM.editor) {
+    const maxOrigen = DOM.editor.scrollHeight - DOM.editor.clientHeight;
+    const pct = maxOrigen > 0 ? DOM.editor.scrollTop / maxOrigen : 0;
+    const maxDestino = DOM.previewContainer.scrollHeight - DOM.previewContainer.clientHeight;
+    DOM.previewContainer.scrollTop = pct * maxDestino;
+  }
 });
 
 DOM.previewContainer.addEventListener('scroll', () => {
-  sincronizarDesplazamiento(DOM.previewContainer, DOM.editor);
+  if (panelBajoCursor === DOM.previewContainer) {
+    const maxOrigen = DOM.previewContainer.scrollHeight - DOM.previewContainer.clientHeight;
+    const pct = maxOrigen > 0 ? DOM.previewContainer.scrollTop / maxOrigen : 0;
+    const maxDestino = DOM.editor.scrollHeight - DOM.editor.clientHeight;
+    DOM.editor.scrollTop = pct * maxDestino;
+  }
 });
 
 // Sincronización interactiva de foco por línea activa
@@ -876,9 +892,130 @@ DOM.preview.addEventListener('dblclick', (e) => {
   }
 });
 
-// Registrar eventos de teclado y ratón en el editor para el resaltado
-DOM.editor.addEventListener('keyup', sincronizarFocoElemento);
-DOM.editor.addEventListener('click', sincronizarFocoElemento);
+// ==========================================================================
+// ALGORITMO MATEMÁTICO DE CORRESPONDENCIA DE ÍNDICES MD Y SELECCIÓN DUAL
+// ==========================================================================
+
+function obtenerMapaDeIndices(original) {
+  let limpia = '';
+  let mapa = []; // mapa[i] nos dará el índice en 'original' del carácter 'i' en 'limpia'
+  
+  let i = 0;
+  while (i < original.length) {
+    const char = original[i];
+    
+    // Saltamos marcas de formato HTML
+    if (original.substring(i, i + 3) === '<u>') {
+      i += 3;
+      continue;
+    }
+    if (original.substring(i, i + 4) === '</u>') {
+      i += 4;
+      continue;
+    }
+    
+    // Saltamos marcas de formato Markdown simples
+    if (char === '*' || char === '_' || char === '~' || char === '`' || char === '#') {
+      i++;
+      continue;
+    }
+    
+    // Enlaces de Markdown: omitimos los corchetes y paréntesis/urls del texto limpio
+    if (char === '[' || char === ']') {
+      i++;
+      continue;
+    }
+    if (char === '(') {
+      const endParenthesis = original.indexOf(')', i);
+      if (endParenthesis !== -1) {
+        i = endParenthesis + 1;
+        continue;
+      }
+    }
+    
+    // Si no es ninguna marca, conservamos el carácter
+    limpia += char;
+    mapa.push(i);
+    i++;
+  }
+  
+  return { limpia, mapa };
+}
+
+function sincronizarSeleccionReaderAEditor() {
+  const selection = window.getSelection();
+  if (!selection || selection.rangeCount === 0) return;
+  
+  const selectedText = selection.toString();
+  if (!selectedText || selectedText.trim().length === 0) return;
+  
+  // Encontrar el bloque de texto contenedor directo
+  const containerElement = selection.anchorNode.parentElement.closest('.markdown-body > *');
+  if (!containerElement) return;
+  
+  const containerText = containerElement.textContent.trim();
+  if (containerText.length < 3) return;
+  
+  // Buscar el bloque correspondiente en el Editor
+  const fullText = DOM.editor.value;
+  const lines = fullText.split('\n');
+  
+  const cleanSearch = containerText.toLowerCase().substring(0, 40).replace(/[#*`~_\-[\]()]/g, '').trim();
+  if (cleanSearch.length < 3) return;
+  
+  let lineIndex = -1;
+  for (let i = 0; i < lines.length; i++) {
+    const cleanLine = lines[i].replace(/[#*`~_\-[\]()]/g, '').toLowerCase().trim();
+    if (cleanLine.includes(cleanSearch) || cleanSearch.includes(cleanLine)) {
+      lineIndex = i;
+      break;
+    }
+  }
+  
+  if (lineIndex === -1) return;
+  
+  // Calcular el desplazamiento de caracteres acumulados en el editor hasta esta línea
+  let charIndexOffset = 0;
+  for (let i = 0; i < lineIndex; i++) {
+    charIndexOffset += lines[i].length + 1; // +1 por el salto de línea \n
+  }
+  
+  const originalLineText = lines[lineIndex];
+  const { limpia, mapa } = obtenerMapaDeIndices(originalLineText);
+  
+  // Buscar el fragmento de texto seleccionado del Reader en el texto limpio de la línea
+  const cleanSelected = selectedText.trim();
+  const startInLimpia = limpia.toLowerCase().indexOf(cleanSelected.toLowerCase());
+  
+  if (startInLimpia !== -1) {
+    const startReal = mapa[startInLimpia];
+    const endLimpiaIndex = startInLimpia + cleanSelected.length - 1;
+    const endReal = mapa[Math.min(endLimpiaIndex, mapa.length - 1)] + 1;
+    
+    // Seleccionar de forma precisa y silenciosa en el editor
+    DOM.editor.focus();
+    DOM.editor.setSelectionRange(charIndexOffset + startReal, charIndexOffset + endReal);
+  }
+}
+
+// Vincular evento mouseup en el visor para disparar la selección sincronizada
+DOM.preview.addEventListener('mouseup', sincronizarSeleccionReaderAEditor);
+
+
+// Registrar eventos de teclado y ratón en el editor para el resaltado y estadísticas en tiempo real
+DOM.editor.addEventListener('keyup', () => {
+  sincronizarFocoElemento();
+  if (DOM.modalStats.classList.contains('active')) {
+    actualizarEstadisticasDetalladas();
+  }
+});
+
+DOM.editor.addEventListener('click', () => {
+  sincronizarFocoElemento();
+  if (DOM.modalStats.classList.contains('active')) {
+    actualizarEstadisticasDetalladas();
+  }
+});
 
 // ==========================================================================
 // INICIALIZACIÓN, ATADOS DE TECLADO Y ARRANQUE DE LA APP
@@ -889,6 +1026,16 @@ DOM.editor.addEventListener('input', () => {
   renderMarkdown();
   if (appState.isSaved) {
     setSavedState(false);
+  }
+  if (DOM.modalStats.classList.contains('active')) {
+    actualizarEstadisticasDetalladas();
+  }
+});
+
+// Actualizar estadísticas al vuelo al cambiar la selección en el editor o en el visor de lectura
+document.addEventListener('selectionchange', () => {
+  if (DOM.modalStats.classList.contains('active')) {
+    actualizarEstadisticasDetalladas();
   }
 });
 
@@ -909,6 +1056,54 @@ DOM.btnConfig.addEventListener('click', () => abrirModal(DOM.modalConfig));
 
 // Click sobre el nombre de archivo superior para renombrarlo
 DOM.fileNameContainer.addEventListener('click', habilitarEdicionNombre);
+
+// ==========================================================================
+// DESPLAZAMIENTO GESTUAL POR ARRASTRE (DRAG TO SCROLL) EN EL VISOR
+// ==========================================================================
+
+let isScrollingDrag = false;
+let startY = 0;
+let startScrollTop = 0;
+
+DOM.previewContainer.addEventListener('mousedown', (e) => {
+  // Solo clic izquierdo
+  if (e.button !== 0) return;
+  
+  // Si hace clic sobre enlaces, botones o elementos de entrada, no arrastramos
+  if (e.target.closest('a') || e.target.closest('button') || e.target.closest('input')) return;
+  
+  isScrollingDrag = true;
+  startY = e.clientY;
+  startScrollTop = DOM.previewContainer.scrollTop;
+  DOM.previewContainer.style.cursor = 'grab';
+});
+
+DOM.previewContainer.addEventListener('mousemove', (e) => {
+  if (!isScrollingDrag) return;
+  
+  // Si el usuario está activamente seleccionando texto, cancelamos el gesto de arrastre de fondo
+  const selection = window.getSelection();
+  if (selection && selection.toString().length > 0) {
+    isScrollingDrag = false;
+    DOM.previewContainer.style.cursor = 'auto';
+    return;
+  }
+  
+  const dy = e.clientY - startY;
+  // Multiplicador ágil de 1.5 para un desplazamiento cómodo
+  DOM.previewContainer.scrollTop = startScrollTop - dy * 1.5;
+  DOM.previewContainer.style.cursor = 'grabbing';
+});
+
+const detenerArrastreScroll = () => {
+  if (isScrollingDrag) {
+    isScrollingDrag = false;
+    DOM.previewContainer.style.cursor = 'auto';
+  }
+};
+
+DOM.previewContainer.addEventListener('mouseup', detenerArrastreScroll);
+DOM.previewContainer.addEventListener('mouseleave', detenerArrastreScroll);
 
 // Atajos globales de Teclado nativos
 window.addEventListener('keydown', (e) => {

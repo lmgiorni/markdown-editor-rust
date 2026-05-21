@@ -122,6 +122,10 @@ pub struct MarkdownApp {
 
     // Toolbar icons (optional)
     pub toolbar_texture: Option<egui::TextureHandle>,
+    
+    // Caché de índices para optimizar la conversión de bytes a caracteres O(1)
+    pub byte_to_char_cache: Vec<usize>,
+    pub cache_dirty: bool,
 }
 
 impl Default for MarkdownApp {
@@ -147,6 +151,8 @@ impl Default for MarkdownApp {
             last_editor_scroll: 0.0,
             last_preview_scroll: 0.0,
             toolbar_texture: None,
+            byte_to_char_cache: Vec::new(),
+            cache_dirty: true,
         }
     }
 }
@@ -222,6 +228,40 @@ pub fn configure_fonts(ctx: &egui::Context) {
 }
 
 impl MarkdownApp {
+    pub fn rebuild_byte_to_char_cache(&mut self) {
+        if !self.cache_dirty && !self.byte_to_char_cache.is_empty() {
+            return;
+        }
+        let len = self.text.len();
+        self.byte_to_char_cache.clear();
+        self.byte_to_char_cache.resize(len + 1, 0);
+        
+        let mut char_idx = 0;
+        for (byte_idx, _) in self.text.char_indices() {
+            self.byte_to_char_cache[byte_idx] = char_idx;
+            char_idx += 1;
+        }
+        
+        // Rellenar los huecos (bytes que forman parte de caracteres multibyte)
+        let mut last_char = 0;
+        for i in 0..=len {
+            if i > 0 && self.byte_to_char_cache[i] == 0 {
+                self.byte_to_char_cache[i] = last_char;
+            } else {
+                last_char = self.byte_to_char_cache[i];
+            }
+        }
+        self.cache_dirty = false;
+    }
+
+    pub fn cached_byte_to_char(&self, byte_idx: usize) -> usize {
+        if self.byte_to_char_cache.is_empty() {
+            return byte_to_char_index(&self.text, byte_idx);
+        }
+        let idx = byte_idx.min(self.byte_to_char_cache.len().saturating_sub(1));
+        self.byte_to_char_cache[idx]
+    }
+
     pub fn load_toolbar_icons(&mut self, ctx: &egui::Context) {
         if self.toolbar_texture.is_some() {
             return;
@@ -262,6 +302,7 @@ impl MarkdownApp {
                     self.text = content;
                     self.filename = Some(path.clone());
                     self.is_modified = false;
+                    self.cache_dirty = true;
 
                     // Actualizar display_name con el nombre del archivo
                     if let Some(name) = path.file_name() {
@@ -308,6 +349,7 @@ impl MarkdownApp {
         self.filename = None;
         self.is_modified = false;
         self.display_name = "Untitled".to_string();
+        self.cache_dirty = true;
     }
 
     // Inserta antes/después del cursor o envuelve la selección si existe.
@@ -321,6 +363,7 @@ impl MarkdownApp {
                     let replacement = format!("{}{}{}", before, selected_text, after);
                     self.text.replace_range(start_byte..end_byte, &replacement);
                     self.is_modified = true;
+                    self.cache_dirty = true;
                     // Resetear la selección para evitar aplicar el comando múltiples veces accidentalmente
                     self.last_selection = None;
                     return;
@@ -335,6 +378,7 @@ impl MarkdownApp {
         self.text.insert_str(new_byte_pos, after);
         self.last_cursor = byte_to_char_index(&self.text, new_byte_pos);
         self.is_modified = true;
+        self.cache_dirty = true;
     }
 
     pub fn apply_md_command(&mut self, cmd: &str) {

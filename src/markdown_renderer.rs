@@ -79,8 +79,8 @@ fn flush_fragments(
             
             let is_selected_any = if let Some((sel_start_char, sel_end_char)) = app.last_selection {
                 if sel_start_char < sel_end_char {
-                    let frag_start_char = crate::app::byte_to_char_index(&app.text, frag.range.start);
-                    let frag_end_char = crate::app::byte_to_char_index(&app.text, frag.range.end);
+                    let frag_start_char = app.cached_byte_to_char(frag.range.start);
+                    let frag_end_char = app.cached_byte_to_char(frag.range.end);
                     
                     let int_start = frag_start_char.max(sel_start_char);
                     let int_end = frag_end_char.min(sel_end_char);
@@ -125,47 +125,62 @@ fn flush_fragments(
             };
 
             for (text_part, is_part_selected) in sub_parts {
-                let mut rt = egui::RichText::new(&text_part)
-                    .size(app.base_font_size)
-                    .family(family.clone());
-
-                if frag.is_link.is_none() {
-                    rt = rt.color(text_color);
-                }
+                let mut font_size = app.base_font_size;
+                let mut is_strong = frag.style.strong;
 
                 if let Some(level) = frag.heading_level {
                     match level {
-                        1 => rt = rt.size(app.base_font_size * 2.0).strong(),
-                        2 => rt = rt.size(app.base_font_size * 1.6).strong(),
-                        3 => rt = rt.size(app.base_font_size * 1.3).strong(),
-                        4 => rt = rt.size(app.base_font_size * 1.15).strong(),
-                        5 => rt = rt.size(app.base_font_size).strong(),
-                        _ => rt = rt.size(app.base_font_size - 1.0).weak(),
+                        1 => { font_size = app.base_font_size * 2.0; is_strong = true; }
+                        2 => { font_size = app.base_font_size * 1.6; is_strong = true; }
+                        3 => { font_size = app.base_font_size * 1.3; is_strong = true; }
+                        4 => { font_size = app.base_font_size * 1.15; is_strong = true; }
+                        5 => { font_size = app.base_font_size; is_strong = true; }
+                        _ => { font_size = app.base_font_size - 1.0; }
                     }
                 }
 
-                if frag.style.strong {
-                    rt = rt.strong();
-                }
-                if frag.style.emphasis {
-                    rt = rt.italics();
-                }
-                if frag.style.strikethrough {
-                    rt = rt.strikethrough();
-                }
+                let color = if frag.is_link.is_some() {
+                    ui.visuals().hyperlink_color
+                } else if frag.is_inline_code {
+                    egui::Color32::from_rgb(210, 80, 80)
+                } else if is_strong {
+                    if ui.visuals().dark_mode {
+                        egui::Color32::from_rgb(255, 255, 255)
+                    } else {
+                        egui::Color32::from_rgb(0, 0, 0)
+                    }
+                } else {
+                    text_color
+                };
 
-                if frag.is_inline_code {
-                    rt = rt.monospace().color(egui::Color32::from_rgb(210, 80, 80));
-                }
+                let bg_color = if is_part_selected {
+                    egui::Color32::from_rgba_unmultiplied(100, 150, 255, 60)
+                } else if frag.is_inline_code {
+                    egui::Color32::from_black_alpha(20)
+                } else {
+                    egui::Color32::TRANSPARENT
+                };
 
-                if is_part_selected {
-                    rt = rt.background_color(egui::Color32::from_rgba_unmultiplied(100, 150, 255, 60)); // elegante fondo semi-transparente
-                }
+                let format = egui::text::TextFormat {
+                    font_id: egui::FontId {
+                        size: font_size,
+                        family: if frag.is_inline_code { egui::FontFamily::Monospace } else { family.clone() },
+                    },
+                    color,
+                    background: bg_color,
+                    italics: frag.style.emphasis,
+                    strikethrough: if frag.style.strikethrough { egui::Stroke::new(1.0, color) } else { egui::Stroke::NONE },
+                    ..Default::default()
+                };
+
+                let mut job = egui::text::LayoutJob::single_section(text_part, format);
+                job.wrap.break_anywhere = true;
+                job.wrap.max_width = ui.available_width();
 
                 let response = if let Some(ref url) = frag.is_link {
-                    ui.hyperlink_to(rt, url)
+                    ui.hyperlink_to(job, url)
                 } else {
-                    let label = egui::Label::new(rt).sense(egui::Sense::click());
+                    let label = egui::Label::new(job).sense(egui::Sense::click());
                     ui.add(label)
                 };
 
@@ -176,7 +191,7 @@ fn flush_fragments(
 
                 // Sincronización a la inversa
                 if response.clicked() {
-                    app.last_cursor = crate::app::byte_to_char_index(&app.text, frag.range.start);
+                    app.last_cursor = app.cached_byte_to_char(frag.range.start);
                     app.last_selection = None;
                     app.should_scroll_to_selection = true; // enfocar editor
                 }
@@ -461,6 +476,8 @@ pub fn render_markdown(
     app: &mut crate::app::MarkdownApp,
     _last_selection: Option<(usize, usize)>,
 ) {
+    ui.style_mut().wrap = Some(true);
+    app.rebuild_byte_to_char_cache();
     let doc_text = app.text.clone();
     let options = Options::ENABLE_STRIKETHROUGH | Options::ENABLE_TABLES;
     let parser = Parser::new_ext(&doc_text, options);

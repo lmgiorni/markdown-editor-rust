@@ -62,30 +62,36 @@ pub fn show_central_panel(app: &mut MarkdownApp, ctx: &egui::Context) {
                 cols[0].vertical(|ui| {
                     let family = app.editor_font.to_family();
                     let font_id = egui::FontId::new(app.base_font_size, family);
+                    let real_width = ui.available_width();
 
                     let scroll_output = egui::ScrollArea::vertical()
                         .id_source("editor_scroll")
+                        .max_width(real_width)
                         .show(ui, |ui| {
-                            let available_width = ui.available_width();
-                            let content_width = available_width.min(700.0);
-                            let margin = (available_width - content_width) / 2.0;
-
-                            let inner_res = ui.horizontal(|ui| {
-                                if margin > 0.0 {
+                            if real_width > 700.0 {
+                                let margin = (real_width - 700.0) / 2.0;
+                                ui.horizontal(|ui| {
                                     ui.add_space(margin);
-                                }
-                                ui.vertical(|ui| {
-                                    ui.set_max_width(content_width);
-                                    let size = egui::vec2(content_width, ui.available_height().max(400.0));
-                                    ui.add_sized(
-                                        size,
-                                        egui::TextEdit::multiline(&mut app.text)
-                                            .id(text_edit_id)
-                                            .font(font_id)
-                                    )
+                                    ui.vertical(|ui| {
+                                        ui.set_max_width(700.0);
+                                        let size = egui::vec2(700.0, ui.available_height().max(400.0));
+                                        ui.add_sized(
+                                            size,
+                                            egui::TextEdit::multiline(&mut app.text)
+                                                .id(text_edit_id)
+                                                .font(font_id)
+                                        )
+                                    }).inner
                                 }).inner
-                            });
-                            inner_res.inner
+                            } else {
+                                let size = egui::vec2(real_width - 8.0, ui.available_height().max(400.0));
+                                ui.add_sized(
+                                    size,
+                                    egui::TextEdit::multiline(&mut app.text)
+                                        .id(text_edit_id)
+                                        .font(font_id)
+                                )
+                            }
                         });
                     
                     app.editor_content_height = scroll_output.content_size.y;
@@ -93,6 +99,7 @@ pub fn show_central_panel(app: &mut MarkdownApp, ctx: &egui::Context) {
 
                     if text_edit.changed() {
                         app.is_modified = true;
+                        app.cache_dirty = true;
                     }
 
                     // Capturar el cursor y la selección en tiempo real
@@ -118,6 +125,7 @@ pub fn show_central_panel(app: &mut MarkdownApp, ctx: &egui::Context) {
                     } else {
                         egui::Color32::from_rgb(251, 249, 246) // Marfil crema (#fbf9f6)
                     };
+                    let real_width = ui.available_width();
 
                     egui::Frame::none()
                         .fill(bg_color)
@@ -125,20 +133,20 @@ pub fn show_central_panel(app: &mut MarkdownApp, ctx: &egui::Context) {
                             ui.set_min_size(ui.available_size());
                             let scroll_output = egui::ScrollArea::vertical()
                                 .id_source("preview_scroll")
+                                .max_width(real_width)
                                 .show(ui, |ui| {
-                                    let available_width = ui.available_width();
-                                    let content_width = available_width.min(700.0);
-                                    let margin = (available_width - content_width) / 2.0;
-
-                                    ui.horizontal(|ui| {
-                                        if margin > 0.0 {
+                                    if real_width > 700.0 {
+                                        let margin = (real_width - 700.0) / 2.0;
+                                        ui.horizontal(|ui| {
                                             ui.add_space(margin);
-                                        }
-                                        ui.vertical(|ui| {
-                                            ui.set_max_width(content_width);
-                                            render_markdown(ui, app, app.last_selection);
+                                            ui.vertical(|ui| {
+                                                ui.set_max_width(700.0);
+                                                render_markdown(ui, app, app.last_selection);
+                                            });
                                         });
-                                    });
+                                    } else {
+                                        render_markdown(ui, app, app.last_selection);
+                                    }
                                 });
                             app.preview_content_height = scroll_output.content_size.y;
                         });
@@ -149,34 +157,41 @@ pub fn show_central_panel(app: &mut MarkdownApp, ctx: &egui::Context) {
             ui.vertical(|ui| {
                 let family = app.editor_font.to_family();
                 let font_id = egui::FontId::new(app.base_font_size, family);
+                let real_width = ui.available_width();
 
                 let text_edit = egui::ScrollArea::vertical()
                     .id_source("focus_editor_scroll")
+                    .max_width(real_width)
                     .show(ui, |ui| {
-                        let available_width = ui.available_width();
-                        let content_width = available_width.min(700.0);
-                        let margin = (available_width - content_width) / 2.0;
-
-                        let inner_res = ui.horizontal(|ui| {
-                            if margin > 0.0 {
+                        if real_width > 700.0 {
+                            let margin = (real_width - 700.0) / 2.0;
+                            ui.horizontal(|ui| {
                                 ui.add_space(margin);
-                            }
-                            ui.vertical(|ui| {
-                                ui.set_max_width(content_width);
-                                let size = egui::vec2(content_width, ui.available_height().max(500.0));
-                                ui.add_sized(
-                                    size,
-                                    egui::TextEdit::multiline(&mut app.text)
-                                        .id(text_edit_id)
-                                        .font(font_id)
-                                )
+                                ui.vertical(|ui| {
+                                    ui.set_max_width(700.0);
+                                    let size = egui::vec2(700.0, ui.available_height().max(500.0));
+                                    ui.add_sized(
+                                        size,
+                                        egui::TextEdit::multiline(&mut app.text)
+                                            .id(text_edit_id)
+                                            .font(font_id)
+                                    )
+                                }).inner
                             }).inner
-                        });
-                        inner_res.inner
+                        } else {
+                            let size = egui::vec2(real_width, ui.available_height().max(500.0));
+                            ui.add_sized(
+                                size,
+                                egui::TextEdit::multiline(&mut app.text)
+                                    .id(text_edit_id)
+                                    .font(font_id)
+                            )
+                        }
                     }).inner;
 
                 if text_edit.changed() {
                     app.is_modified = true;
+                    app.cache_dirty = true;
                 }
 
                 // Capturar cursor y selección
@@ -202,6 +217,7 @@ pub fn show_central_panel(app: &mut MarkdownApp, ctx: &egui::Context) {
                 } else {
                     egui::Color32::from_rgb(251, 249, 246) // Marfil crema (#fbf9f6)
                 };
+                let real_width = ui.available_width();
 
                 egui::Frame::none()
                     .fill(bg_color)
@@ -209,20 +225,20 @@ pub fn show_central_panel(app: &mut MarkdownApp, ctx: &egui::Context) {
                         ui.set_min_size(ui.available_size());
                         let scroll_output = egui::ScrollArea::vertical()
                             .id_source("read_only_scroll")
+                            .max_width(real_width)
                             .show(ui, |ui| {
-                                let available_width = ui.available_width();
-                                let content_width = available_width.min(700.0);
-                                let margin = (available_width - content_width) / 2.0;
-
-                                ui.horizontal(|ui| {
-                                    if margin > 0.0 {
+                                if real_width > 700.0 {
+                                    let margin = (real_width - 700.0) / 2.0;
+                                    ui.horizontal(|ui| {
                                         ui.add_space(margin);
-                                    }
-                                    ui.vertical(|ui| {
-                                        ui.set_max_width(content_width);
-                                        render_markdown(ui, app, app.last_selection);
+                                        ui.vertical(|ui| {
+                                            ui.set_max_width(700.0);
+                                            render_markdown(ui, app, app.last_selection);
+                                        });
                                     });
-                                });
+                                } else {
+                                    render_markdown(ui, app, app.last_selection);
+                                }
                             });
                         let _ = scroll_output; // no se requiere persistir la altura del visor individual
                     });

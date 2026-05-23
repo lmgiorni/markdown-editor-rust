@@ -31,10 +31,16 @@ fn guardar_archivo(path: String, content: String) -> Result<(), String> {
 }
 
 #[tauri::command]
-fn guardar_como(content: String) -> Option<FileData> {
-    let file_path = FileDialog::new()
+fn guardar_como(default_name: String, content: String) -> Option<FileData> {
+    let mut file_path = FileDialog::new()
         .add_filter("Markdown", &["md", "markdown"])
+        .set_file_name(&default_name)
         .save_file()?;
+        
+    // Asegurarse de que termine con la extensión .md siempre
+    if file_path.extension().and_then(|ext| ext.to_str()) != Some("md") {
+        file_path.set_extension("md");
+    }
         
     fs::write(&file_path, &content).ok()?;
     

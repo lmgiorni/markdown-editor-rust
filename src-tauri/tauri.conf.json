@@ -14,14 +14,24 @@
     "windows": [
       {
         "title": "Markdown Editor",
-        "width": 1000,
-        "height": 700,
+        "width": 900,
+        "height": 1100,
+        "minWidth": 880,
+        "minHeight": 1000,
         "resizable": true,
         "fullscreen": false
       }
     ],
     "security": {
-      "csp": null
+      "csp": null,
+      "assetProtocol": {
+        "enable": true,
+        "scope": {
+          "allow": [
+            "**/*"
+          ]
+        }
+      }
     }
   },
   "bundle": {

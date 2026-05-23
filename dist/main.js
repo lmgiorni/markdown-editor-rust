@@ -8,7 +8,7 @@ const invoke = window.__TAURI__ ? window.__TAURI__.core.invoke : null;
 // Estado Global de la Aplicación (con persistencia en localStorage para configuración)
 let appState = {
   filePath: null,             // Ruta completa del archivo en disco
-  fileName: 'Sin título.md',  // Nombre visible del archivo
+  fileName: 'Sin título',     // Nombre visible del archivo (sin extensión)
   isSaved: true,              // Estado de guardado de los cambios
   activeView: 'split',        // Modo de visualización activa: 'editor', 'split' o 'preview'
   
@@ -141,7 +141,7 @@ function renderMarkdown() {
     imgs.forEach(img => {
       const src = img.getAttribute('src');
       if (src) {
-        const isAbsoluteWin = /^[a-zA-Z]:[\\/]/.test(src) || /^[a-zA-Z]:$/.test(src);
+        const isAbsoluteWin = /^[a-zA-Z]:/.test(src); // Cualquier unidad física como C:, D: en Windows
         const isRelative = src.startsWith('./') || src.startsWith('../');
         
         if (isAbsoluteWin || isRelative) {
@@ -169,13 +169,20 @@ function renderMarkdown() {
             }
           }
           
+          // Normalizar barras para URL homogénea
+          const normalized = pathCompleto.replace(/\\/g, '/');
+          
           // Convertir la ruta física a la URL del protocolo de recursos de Tauri v2
           if (window.__TAURI__ && window.__TAURI__.core && window.__TAURI__.core.convertFileSrc) {
-            img.src = window.__TAURI__.core.convertFileSrc(pathCompleto);
+            img.src = window.__TAURI__.core.convertFileSrc(normalized);
           } else {
-            // Fallback manual compatible con la estructura del protocolo seguro de Tauri v2
-            const normalized = pathCompleto.replace(/\\/g, '/');
-            img.src = `https://asset.localhost/${normalized}`;
+            // Fallback manual robusto con codificación URL por componente para evitar roturas por espacios
+            const parts = normalized.split('/');
+            const encodedParts = parts.map((part, index) => {
+              if (index === 0 && part.endsWith(':')) return part;
+              return encodeURIComponent(part);
+            });
+            img.src = `https://asset.localhost/${encodedParts.join('/')}`;
           }
         }
       }
@@ -204,10 +211,14 @@ function setSavedState(saved) {
   actualizarNombreArchivo();
 }
 
-// Actualiza el nombre que se visualiza arriba
+// Actualiza el nombre que se visualiza arriba (escondiendo .md)
 function actualizarNombreArchivo() {
   let indicator = appState.isSaved ? '' : ' *';
-  DOM.fileInfo.textContent = `${appState.fileName}${indicator}`;
+  let display = appState.fileName;
+  if (display.toLowerCase().endsWith('.md')) {
+    display = display.substring(0, display.length - 3);
+  }
+  DOM.fileInfo.textContent = `${display}${indicator}`;
   DOM.activeFilepathDisplay.textContent = appState.filePath || 'Sin archivo guardado en disco';
 }
 
@@ -219,7 +230,11 @@ function habilitarEdicionNombre() {
   // Prevenir duplicaciones de inputs
   if (DOM.fileNameContainer.querySelector('.editable-name-input')) return;
 
-  const actualName = appState.fileName;
+  let actualName = appState.fileName;
+  if (actualName.toLowerCase().endsWith('.md')) {
+    actualName = actualName.substring(0, actualName.length - 3);
+  }
+  
   DOM.fileInfo.style.display = 'none';
 
   const input = document.createElement('input');
@@ -228,24 +243,18 @@ function habilitarEdicionNombre() {
   input.className = 'editable-name-input';
   DOM.fileNameContainer.appendChild(input);
   input.focus();
-
-  // Seleccionar la parte del nombre sin la extensión para facilitar la edición
-  const dotIndex = actualName.lastIndexOf('.');
-  if (dotIndex > 0) {
-    input.setSelectionRange(0, dotIndex);
-  } else {
-    input.select();
-  }
+  input.select(); // Selecciona el nombre completo para sobreescritura directa
 
   // Guardar al pulsar Enter o salir del foco
   function guardarNombreEditado() {
     let nuevoNombre = input.value.trim();
+    
+    // Quitar extensión si fue escrita a mano
+    if (nuevoNombre.toLowerCase().endsWith('.md')) {
+      nuevoNombre = nuevoNombre.substring(0, nuevoNombre.length - 3);
+    }
+    
     if (nuevoNombre.length > 0) {
-      // Asegurar que conserva la extensión .md
-      if (!nuevoNombre.toLowerCase().endsWith('.md')) {
-        nuevoNombre += '.md';
-      }
-      
       if (nuevoNombre !== appState.fileName) {
         appState.fileName = nuevoNombre;
         
@@ -253,7 +262,7 @@ function habilitarEdicionNombre() {
         if (appState.filePath) {
           const sep = appState.filePath.includes('/') ? '/' : '\\';
           const parts = appState.filePath.split(sep);
-          parts[parts.length - 1] = nuevoNombre;
+          parts[parts.length - 1] = nuevoNombre + '.md';
           appState.filePath = parts.join(sep);
         }
         
@@ -293,7 +302,7 @@ function nuevoArchivo() {
   
   DOM.editor.value = '';
   appState.filePath = null;
-  appState.fileName = 'Sin título.md';
+  appState.fileName = 'Sin título';
   renderMarkdown();
   setSavedState(true);
 }
@@ -314,7 +323,13 @@ async function abrirArchivo() {
     if (fileData) {
       DOM.editor.value = fileData.content;
       appState.filePath = fileData.path;
-      appState.fileName = fileData.name;
+      
+      // Limpiar extensión de nombre visible
+      let name = fileData.name;
+      if (name.toLowerCase().endsWith('.md')) {
+        name = name.substring(0, name.length - 3);
+      }
+      appState.fileName = name;
       
       renderMarkdown();
       setSavedState(true);
@@ -355,11 +370,19 @@ async function guardarComo() {
 
   try {
     const contenido = DOM.editor.value;
-    const fileData = await invoke('guardar_como', { content: contenido });
+    // Pre-rellenar el diálogo con el nombre del archivo con extensión .md
+    const defaultSaveName = appState.fileName + '.md';
+    const fileData = await invoke('guardar_como', { defaultName: defaultSaveName, content: contenido });
     
     if (fileData) {
       appState.filePath = fileData.path;
-      appState.fileName = fileData.name;
+      
+      // Guardar nombre sin la extensión para la barra de menú
+      let name = fileData.name;
+      if (name.toLowerCase().endsWith('.md')) {
+        name = name.substring(0, name.length - 3);
+      }
+      appState.fileName = name;
       setSavedState(true);
     }
   } catch (error) {
@@ -863,7 +886,18 @@ DOM.previewContainer.addEventListener('scroll', () => {
   }
 });
 
-// Sincronización interactiva de foco por línea activa
+// Sincronización interactiva de foco por línea activa con resaltado temporal premium
+let highlightTimeoutId = null;
+
+function limpiarResaltadoTemporal() {
+  if (highlightTimeoutId) {
+    clearTimeout(highlightTimeoutId);
+    highlightTimeoutId = null;
+  }
+  const blocks = DOM.preview.querySelectorAll('.markdown-body > *');
+  blocks.forEach(b => b.classList.remove('highlighted-block'));
+}
+
 function sincronizarFocoElemento() {
   const text = DOM.editor.value;
   const cursorSelStart = DOM.editor.selectionStart;
@@ -876,9 +910,8 @@ function sincronizarFocoElemento() {
   if (!lines[currentLineIndex]) return;
   const currentLineText = lines[currentLineIndex].trim();
   
-  // Limpiar clases de resaltados anteriores
-  const blocks = DOM.preview.querySelectorAll('.markdown-body > *');
-  blocks.forEach(b => b.classList.remove('highlighted-block'));
+  // Limpiar clases de resaltados anteriores y cancelar cualquier temporizador anterior
+  limpiarResaltadoTemporal();
   
   if (currentLineText.length < 3) return; // Evitar disparar con líneas vacías
   
@@ -886,6 +919,7 @@ function sincronizarFocoElemento() {
   const cleanLineText = currentLineText.replace(/[#*`~_\-[\]()]/g, '').toLowerCase().trim();
   if (cleanLineText.length < 3) return;
   
+  const blocks = DOM.preview.querySelectorAll('.markdown-body > *');
   let bestMatch = null;
   let maxScore = 0;
   
@@ -904,6 +938,11 @@ function sincronizarFocoElemento() {
     bestMatch.classList.add('highlighted-block');
     // Scroll suave hasta tener el elemento visible a nivel de panel
     bestMatch.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    
+    // Iniciar temporizador de desvanecimiento (Fade-out automático de 1.5s)
+    highlightTimeoutId = setTimeout(() => {
+      if (bestMatch) bestMatch.classList.remove('highlighted-block');
+    }, 1500);
   }
 }
 
@@ -943,10 +982,13 @@ DOM.preview.addEventListener('dblclick', (e) => {
     const lineHeight = 24; // Aproximado
     DOM.editor.scrollTop = Math.max(0, (lineIndex * lineHeight) - 100);
     
-    // Resaltar visualmente el bloque del visor
-    const blocks = DOM.preview.querySelectorAll('.markdown-body > *');
-    blocks.forEach(b => b.classList.remove('highlighted-block'));
+    // Resaltar visualmente el bloque del visor y aplicar temporizador de desvanecimiento
+    limpiarResaltadoTemporal();
     targetElement.classList.add('highlighted-block');
+    
+    highlightTimeoutId = setTimeout(() => {
+      if (targetElement) targetElement.classList.remove('highlighted-block');
+    }, 1500);
   }
 });
 
@@ -1149,10 +1191,11 @@ let lastY = 0;
 let lastTime = 0;
 let scrollVelocity = 0; // Velocidad instantánea en px/ms
 let inertiaFrameId = null;
-const scrollFriction = 0.95; // Coeficiente de desaceleración (5% por fotograma)
+const scrollFriction = 0.975; // Coeficiente de desaceleración premium (deslizamiento más duradero)
+let velocityHistory = []; // Registro de velocidades recientes para suavizado
 
 function aplicarInerciaScroll() {
-  if (Math.abs(scrollVelocity) > 0.05) {
+  if (Math.abs(scrollVelocity) > 0.01) {
     scrollVelocity *= scrollFriction; // Aplicar fricción
     DOM.previewContainer.scrollTop -= scrollVelocity * 16; // 16ms por frame promedio
     inertiaFrameId = requestAnimationFrame(aplicarInerciaScroll);
@@ -1173,6 +1216,7 @@ DOM.previewContainer.addEventListener('mousedown', (e) => {
   lastY = e.clientY;
   lastTime = Date.now();
   scrollVelocity = 0;
+  velocityHistory = []; // Reiniciar historial
   
   // Cancelar inercia anterior si existe
   if (inertiaFrameId) {
@@ -1205,7 +1249,11 @@ DOM.previewContainer.addEventListener('mousemove', (e) => {
   
   // Calcular velocidad instantánea (px/ms)
   if (dt > 0) {
-    scrollVelocity = dy / dt;
+    const instVelocity = dy / dt;
+    velocityHistory.push(instVelocity);
+    if (velocityHistory.length > 5) {
+      velocityHistory.shift(); // Conservar las últimas 5 velocidades
+    }
   }
   
   lastY = currentY;
@@ -1218,8 +1266,15 @@ const detenerArrastreScroll = () => {
     isScrollingDrag = false;
     DOM.previewContainer.style.cursor = 'auto';
     
+    // Promediar el historial de velocidades recientes para dar inercia fluida y orgánica
+    if (velocityHistory.length > 0) {
+      scrollVelocity = velocityHistory.reduce((sum, v) => sum + v, 0) / velocityHistory.length;
+    } else {
+      scrollVelocity = 0;
+    }
+    
     // Iniciar física de inercia si el mouse se soltó con velocidad
-    if (Math.abs(scrollVelocity) > 0.1) {
+    if (Math.abs(scrollVelocity) > 0.02) {
       inertiaFrameId = requestAnimationFrame(aplicarInerciaScroll);
     }
   }
@@ -1227,6 +1282,94 @@ const detenerArrastreScroll = () => {
 
 DOM.previewContainer.addEventListener('mouseup', detenerArrastreScroll);
 DOM.previewContainer.addEventListener('mouseleave', detenerArrastreScroll);
+
+// ==========================================================================
+// RESTRICCIÓN FÍSICA FLUIDA DE VENTANAS FLOTANTES (MODALES RESIZE)
+// ==========================================================================
+
+function constrenirModalAPantalla(modalBox) {
+  if (!modalBox) return;
+  
+  // Si nunca se ha arrastrado (no tiene left/top definidos en el estilo en línea), se mantiene centrado por CSS nativo
+  if (!modalBox.style.left && !modalBox.style.top) return;
+  
+  const rect = modalBox.getBoundingClientRect();
+  const winWidth = window.innerWidth;
+  const winHeight = window.innerHeight;
+  
+  let left = parseFloat(modalBox.style.left) || 0;
+  let top = parseFloat(modalBox.style.top) || 0;
+  
+  // Limitar suavemente dentro del área visible de la aplicación, respetando márgenes
+  const padding = 16;
+  const maxLeft = Math.max(padding, winWidth - rect.width - padding);
+  const maxTop = Math.max(padding, winHeight - rect.height - padding);
+  
+  const newLeft = Math.max(padding, Math.min(left, maxLeft));
+  const newTop = Math.max(padding, Math.min(top, maxTop));
+  
+  // Aplicar solo si cambian los valores
+  if (newLeft !== left || newTop !== top) {
+    modalBox.style.left = `${newLeft}px`;
+    modalBox.style.top = `${newTop}px`;
+  }
+}
+
+// Escuchar el cambio de tamaño de la ventana principal de forma fluida
+window.addEventListener('resize', () => {
+  [DOM.modalMd, DOM.modalStats, DOM.modalConfig].forEach(overlay => {
+    if (overlay && overlay.classList.contains('active')) {
+      const modalBox = overlay.querySelector('.modal-box');
+      if (modalBox) {
+        constrenirModalAPantalla(modalBox);
+      }
+    }
+  });
+});
+
+// ==========================================================================
+// DETECTORES DE CURSOR INTELIGENTE EN BARRAS DE SCROLL
+// ==========================================================================
+
+function registrarCursorEnScrollbar(container) {
+  let isDraggingScroll = false;
+  
+  container.addEventListener('mousemove', (e) => {
+    if (isDraggingScroll) return;
+    
+    const rect = container.getBoundingClientRect();
+    const isOverScrollbar = (e.clientX >= rect.right - 14) && (e.clientX <= rect.right);
+    
+    if (isOverScrollbar) {
+      container.style.cursor = 'pointer';
+    } else {
+      if (container === DOM.previewContainer && isScrollingDrag) {
+        container.style.cursor = 'grabbing';
+      } else {
+        container.style.cursor = 'auto';
+      }
+    }
+  });
+  
+  container.addEventListener('mousedown', (e) => {
+    const rect = container.getBoundingClientRect();
+    const isOverScrollbar = (e.clientX >= rect.right - 14) && (e.clientX <= rect.right);
+    
+    if (isOverScrollbar) {
+      isDraggingScroll = true;
+      container.style.cursor = 'grabbing';
+      document.body.style.cursor = 'grabbing'; // Forzar cursor global durante el arrastre
+    }
+  });
+  
+  window.addEventListener('mouseup', () => {
+    if (isDraggingScroll) {
+      isDraggingScroll = false;
+      container.style.cursor = 'auto';
+      document.body.style.cursor = 'auto';
+    }
+  });
+}
 
 // Atajos globales de Teclado nativos
 window.addEventListener('keydown', (e) => {
@@ -1267,6 +1410,10 @@ window.addEventListener('DOMContentLoaded', () => {
   aplicarConfiguracionVisual();
   renderMarkdown();
   setSavedState(true);
+  
+  // Registrar cursores en las barras de scroll
+  registrarCursorEnScrollbar(DOM.editor);
+  registrarCursorEnScrollbar(DOM.previewContainer);
   
   // Añadir un mensaje explicativo al visor si el editor está vacío
   if (DOM.editor.value.trim() === '') {

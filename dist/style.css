@@ -99,15 +99,15 @@ body {
 .toolbar-group {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 8px;
 }
 
 
 
-/* Botones Premium */
+/* Botones Premium Unificados (Norma de Recuadros) */
 .toolbar-btn {
-  background: transparent;
-  border: 1px solid transparent;
+  background-color: rgba(255, 255, 255, 0.01);
+  border: 1px solid rgba(255, 255, 255, 0.04);
   color: #94a3b8; /* slate-400 */
   padding: 8px;
   width: 36px;
@@ -121,31 +121,25 @@ body {
 }
 
 .toolbar-btn:hover {
-  background-color: rgba(255, 255, 255, 0.04);
-  color: var(--text-main);
-  border-color: var(--border-subtle);
+  background-color: rgba(139, 92, 246, 0.06);
+  border-color: rgba(139, 92, 246, 0.2);
+  color: var(--accent-hover);
 }
 
 .toolbar-btn:active {
-  background-color: rgba(255, 255, 255, 0.08);
+  background-color: rgba(139, 92, 246, 0.12);
   transform: translateY(0.5px);
 }
 
 .toolbar-btn.active {
-  background: rgba(139, 92, 246, 0.12);
+  background: rgba(139, 92, 246, 0.16);
   color: var(--accent-hover);
-  border-color: rgba(139, 92, 246, 0.35);
+  border-color: rgba(139, 92, 246, 0.45);
+  box-shadow: 0 0 8px rgba(139, 92, 246, 0.15);
 }
 
 .special-btn {
-  border: 1px solid rgba(255, 255, 255, 0.03);
-  background-color: rgba(255, 255, 255, 0.01);
-}
-
-.special-btn:hover {
-  background-color: rgba(139, 92, 246, 0.06);
-  border-color: rgba(139, 92, 246, 0.2);
-  color: var(--accent-hover);
+  /* Estilos heredados consistentemente */
 }
 
 .btn-icon {
@@ -238,7 +232,7 @@ body {
    EDITOR (PANEL IZQUIERDO)
    ========================================================================== */
 #editor-container {
-  background-color: var(--bg-panel);
+  background-color: var(--bg-app);
 }
 
 #editor {
@@ -276,7 +270,7 @@ body {
 #preview {
   padding: 32px 48px;
   max-width: 800px;
-  margin: 0 auto;
+  margin: 0;
   width: 100%;
   min-height: 100%;
   box-sizing: border-box;
@@ -294,13 +288,18 @@ body {
 }
 
 /* Resaltado de Bloque Activo (Sincronizado) */
+.markdown-body > * {
+  border-left: 3px solid transparent;
+  padding-left: 12px;
+  margin-left: -15px;
+  transition: border-left-color 0.5s ease, background-color 0.5s ease;
+}
+
 .markdown-body .highlighted-block {
   border-left: 3px solid var(--accent);
   background-color: rgba(139, 92, 246, 0.05);
   border-radius: 0 6px 6px 0;
-  padding-left: 12px;
-  margin-left: -15px;
-  transition: var(--transition-normal);
+  transition: none !important; /* Aparece instantáneamente al hacer foco */
 }
 
 .markdown-body h1,
@@ -335,8 +334,10 @@ body {
 .markdown-body h5 { font-size: 1em; }
 .markdown-body h6 { font-size: 0.9em; color: var(--text-muted); }
 
+/* Reducir márgenes de párrafos para maquetación más compacta */
 .markdown-body p {
-  margin-bottom: 20px;
+  margin-top: 0;
+  margin-bottom: 1em;
 }
 
 /* Listas Premium */
@@ -455,14 +456,30 @@ body {
   margin: 32px 0;
 }
 
-/* Imágenes */
+/* ==========================================================================
+   SOPORTE DE IMÁGENES Y GALERÍA COMPACTA (BADGES)
+   ========================================================================== */
+/* Eliminar márgenes de párrafos que contienen imágenes y hacer que fluyan inline-block */
+.markdown-body p:has(img) {
+  margin-top: 0 !important;
+  margin-bottom: 0 !important;
+  display: inline-block !important;
+  vertical-align: middle !important;
+}
+
+/* Reglas de la Galería Compacta para Imágenes */
 .markdown-body img {
-  max-width: 100%;
-  height: auto;
-  border-radius: 8px;
-  margin: 16px 0;
-  display: inline-block;
-  vertical-align: middle;
+  max-width: 100% !important;
+  height: auto !important;
+  border-radius: 6px;
+  display: inline-block !important;
+  vertical-align: middle !important;
+  margin: 4px 8px !important; /* Espaciado sutil y uniforme entre imágenes */
+  transition: transform var(--transition-fast);
+}
+
+.markdown-body img:hover {
+  transform: scale(1.02);
 }
 
 /* Evitar desbordamientos en todo el Visor */
@@ -976,7 +993,7 @@ body {
 }
 
 /* ==========================================================================
-   SCROLLBARS ELEGANTES
+   SCROLLBARS ELEGANTES AUTOCULTIVABLES
    ========================================================================== */
 ::-webkit-scrollbar {
   width: 8px;
@@ -987,11 +1004,21 @@ body {
   background: transparent;
 }
 
+/* Ocultar por defecto (color transparente) con transición suave */
 ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.08);
+  background: transparent;
   border-radius: 4px;
+  transition: background-color 0.25s ease;
 }
 
-::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.16);
+/* Mostrar la barra de scroll de forma muy sutil al pasar el mouse sobre el editor o visor */
+#editor-container:hover ::-webkit-scrollbar-thumb,
+#preview-container:hover ::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+/* Resaltado dinámico en color violeta acentuado cuando el mouse se posiciona sobre el propio scroll */
+#editor-container ::-webkit-scrollbar-thumb:hover,
+#preview-container ::-webkit-scrollbar-thumb:hover {
+  background: var(--accent) !important;
 }

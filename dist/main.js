@@ -135,6 +135,51 @@ function renderMarkdown() {
     
     // Inyectar el HTML traducido en el Visor
     DOM.preview.innerHTML = marked.parse(markdownText);
+    
+    // Soporte de imágenes locales (relativas y absolutas) mediante el protocolo de activos de Tauri v2
+    const imgs = DOM.preview.querySelectorAll('img');
+    imgs.forEach(img => {
+      const src = img.getAttribute('src');
+      if (src) {
+        const isAbsoluteWin = /^[a-zA-Z]:[\\/]/.test(src) || /^[a-zA-Z]:$/.test(src);
+        const isRelative = src.startsWith('./') || src.startsWith('../');
+        
+        if (isAbsoluteWin || isRelative) {
+          let pathCompleto = src;
+          
+          if (isRelative) {
+            // Solo procesamos rutas relativas si hay un archivo abierto con ruta física
+            if (appState.filePath) {
+              const sep = appState.filePath.includes('/') ? '/' : '\\';
+              const parts = appState.filePath.split(sep);
+              parts.pop(); // Quitar nombre del archivo
+              const baseDir = parts.join(sep);
+              
+              if (src.startsWith('./')) {
+                pathCompleto = baseDir + sep + src.substring(2);
+              } else if (src.startsWith('../')) {
+                const baseParts = baseDir.split(sep);
+                baseParts.pop();
+                const parentDir = baseParts.join(sep);
+                pathCompleto = parentDir + sep + src.substring(3);
+              }
+            } else {
+              // Si no está guardado, no se puede resolver la ruta relativa
+              return;
+            }
+          }
+          
+          // Convertir la ruta física a la URL del protocolo de recursos de Tauri v2
+          if (window.__TAURI__ && window.__TAURI__.core && window.__TAURI__.core.convertFileSrc) {
+            img.src = window.__TAURI__.core.convertFileSrc(pathCompleto);
+          } else {
+            // Fallback manual compatible con la estructura del protocolo seguro de Tauri v2
+            const normalized = pathCompleto.replace(/\\/g, '/');
+            img.src = `https://asset.localhost/${normalized}`;
+          }
+        }
+      }
+    });
   } else {
     // Fallback de texto plano si no se pudo cargar la librería
     DOM.preview.textContent = markdownText;
@@ -500,12 +545,17 @@ function insertarSintaxisMarkdown(tipo) {
   const start = textarea.selectionStart;
   const end = textarea.selectionEnd;
   const originalText = textarea.value;
-  const selectedText = originalText.substring(start, end);
+  const rawSelection = originalText.substring(start, end);
+  
+  // Aislar y limpiar espacios en blanco iniciales o finales (Trim interactivo premium)
+  const leadingSpaces = rawSelection.match(/^\s*/)[0];
+  const trailingSpaces = rawSelection.match(/\s*$/)[0];
+  const selectedText = rawSelection.trim();
+  const leadingLength = leadingSpaces.length;
   
   let prefix = '';
   let suffix = '';
   let cursorOffset = 0; // Para reposicionar el cursor si no hay selección
-  let selectionOffset = 0; // Para mantener la selección del texto
   
   switch(tipo) {
     case 'bold':
@@ -541,10 +591,10 @@ function insertarSintaxisMarkdown(tipo) {
     case 'ul':
       prefix = '\n- ';
       suffix = '';
-      // Si hay varias líneas seleccionadas, anteponer el guión a cada una
       if (selectedText.includes('\n')) {
         const lineas = selectedText.split('\n').map(l => l.startsWith('- ') ? l : `- ${l}`).join('\n');
-        textarea.setRangeText(lineas, start, end, 'select');
+        const finalBlock = leadingSpaces + lineas + trailingSpaces;
+        textarea.setRangeText(finalBlock, start, end, 'select');
         renderMarkdown();
         setSavedState(false);
         DOM.editor.focus();
@@ -561,7 +611,8 @@ function insertarSintaxisMarkdown(tipo) {
           count++;
           return formatted;
         }).join('\n');
-        textarea.setRangeText(lineas, start, end, 'select');
+        const finalBlock = leadingSpaces + lineas + trailingSpaces;
+        textarea.setRangeText(finalBlock, start, end, 'select');
         renderMarkdown();
         setSavedState(false);
         DOM.editor.focus();
@@ -573,7 +624,8 @@ function insertarSintaxisMarkdown(tipo) {
       suffix = '';
       if (selectedText.includes('\n')) {
         const lineas = selectedText.split('\n').map(l => l.startsWith('- [ ] ') ? l : `- [ ] ${l}`).join('\n');
-        textarea.setRangeText(lineas, start, end, 'select');
+        const finalBlock = leadingSpaces + lineas + trailingSpaces;
+        textarea.setRangeText(finalBlock, start, end, 'select');
         renderMarkdown();
         setSavedState(false);
         DOM.editor.focus();
@@ -585,7 +637,8 @@ function insertarSintaxisMarkdown(tipo) {
       suffix = '';
       if (selectedText.includes('\n')) {
         const lineas = selectedText.split('\n').map(l => l.startsWith('> ') ? l : `> ${l}`).join('\n');
-        textarea.setRangeText(lineas, start, end, 'select');
+        const finalBlock = leadingSpaces + lineas + trailingSpaces;
+        textarea.setRangeText(finalBlock, start, end, 'select');
         renderMarkdown();
         setSavedState(false);
         DOM.editor.focus();
@@ -623,10 +676,15 @@ function insertarSintaxisMarkdown(tipo) {
       break;
   }
   
-  if (selectedText.length > 0) {
-    // Si hay texto seleccionado, envolverlo
-    const textFormatted = prefix + selectedText + suffix;
+  if (rawSelection.length > 0) {
+    // Aplicar el formato estrictamente al texto limpio, conservando los espacios por fuera
+    const textFormatted = leadingSpaces + prefix + selectedText + suffix + trailingSpaces;
     textarea.setRangeText(textFormatted, start, end, 'select');
+    
+    // Ajustar la selección final para enfocar exactamente el texto formateado
+    const newSelectStart = start + leadingLength;
+    const newSelectEnd = newSelectStart + prefix.length + selectedText.length + suffix.length;
+    textarea.setSelectionRange(newSelectStart, newSelectEnd);
   } else {
     // Si no hay texto, colocar el cursor en el punto medio exacto
     const placeholder = tipo === 'link' ? 'texto' : (tipo === 'image' ? 'texto_alternativo' : '');
@@ -1017,6 +1075,23 @@ DOM.editor.addEventListener('click', () => {
   }
 });
 
+// Ajuste automático de selección al hacer doble click en el Editor para remover espacios vacíos
+DOM.editor.addEventListener('dblclick', () => {
+  setTimeout(() => {
+    const textarea = DOM.editor;
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const text = textarea.value.substring(start, end);
+    
+    const trimmed = text.trim();
+    if (trimmed.length > 0 && trimmed !== text) {
+      const leadingCount = text.match(/^\s*/)[0].length;
+      const trailingCount = text.match(/\s*$/)[0].length;
+      textarea.setSelectionRange(start + leadingCount, end - trailingCount);
+    }
+  }, 0);
+});
+
 // ==========================================================================
 // INICIALIZACIÓN, ATADOS DE TECLADO Y ARRANQUE DE LA APP
 // ==========================================================================
@@ -1042,7 +1117,15 @@ document.addEventListener('selectionchange', () => {
 // Manejadores de los botones de la Barra superior
 DOM.btnNew.addEventListener('click', nuevoArchivo);
 DOM.btnOpen.addEventListener('click', abrirArchivo);
-DOM.btnSave.addEventListener('click', guardarArchivo);
+
+// Guardar normal, o Guardar Como si se pulsa con Ctrl+Shift
+DOM.btnSave.addEventListener('click', (e) => {
+  if (e.ctrlKey && e.shiftKey) {
+    guardarComo();
+  } else {
+    guardarArchivo();
+  }
+});
 
 // Cambios de vistas
 DOM.viewEditor.addEventListener('click', () => cambiarVista('editor'));
@@ -1058,12 +1141,26 @@ DOM.btnConfig.addEventListener('click', () => abrirModal(DOM.modalConfig));
 DOM.fileNameContainer.addEventListener('click', habilitarEdicionNombre);
 
 // ==========================================================================
-// DESPLAZAMIENTO GESTUAL POR ARRASTRE (DRAG TO SCROLL) EN EL VISOR
+// DESPLAZAMIENTO GESTUAL POR ARRASTRE FÍSICO CON INERCIA (DRAG TO SCROLL)
 // ==========================================================================
 
 let isScrollingDrag = false;
-let startY = 0;
-let startScrollTop = 0;
+let lastY = 0;
+let lastTime = 0;
+let scrollVelocity = 0; // Velocidad instantánea en px/ms
+let inertiaFrameId = null;
+const scrollFriction = 0.95; // Coeficiente de desaceleración (5% por fotograma)
+
+function aplicarInerciaScroll() {
+  if (Math.abs(scrollVelocity) > 0.05) {
+    scrollVelocity *= scrollFriction; // Aplicar fricción
+    DOM.previewContainer.scrollTop -= scrollVelocity * 16; // 16ms por frame promedio
+    inertiaFrameId = requestAnimationFrame(aplicarInerciaScroll);
+  } else {
+    scrollVelocity = 0;
+    DOM.previewContainer.style.cursor = 'auto';
+  }
+}
 
 DOM.previewContainer.addEventListener('mousedown', (e) => {
   // Solo clic izquierdo
@@ -1073,15 +1170,23 @@ DOM.previewContainer.addEventListener('mousedown', (e) => {
   if (e.target.closest('a') || e.target.closest('button') || e.target.closest('input')) return;
   
   isScrollingDrag = true;
-  startY = e.clientY;
-  startScrollTop = DOM.previewContainer.scrollTop;
+  lastY = e.clientY;
+  lastTime = Date.now();
+  scrollVelocity = 0;
+  
+  // Cancelar inercia anterior si existe
+  if (inertiaFrameId) {
+    cancelAnimationFrame(inertiaFrameId);
+    inertiaFrameId = null;
+  }
+  
   DOM.previewContainer.style.cursor = 'grab';
 });
 
 DOM.previewContainer.addEventListener('mousemove', (e) => {
   if (!isScrollingDrag) return;
   
-  // Si el usuario está activamente seleccionando texto, cancelamos el gesto de arrastre de fondo
+  // Si el usuario está seleccionando texto, cancelamos el gesto de arrastre
   const selection = window.getSelection();
   if (selection && selection.toString().length > 0) {
     isScrollingDrag = false;
@@ -1089,9 +1194,22 @@ DOM.previewContainer.addEventListener('mousemove', (e) => {
     return;
   }
   
-  const dy = e.clientY - startY;
-  // Multiplicador ágil de 1.5 para un desplazamiento cómodo
-  DOM.previewContainer.scrollTop = startScrollTop - dy * 1.5;
+  const currentY = e.clientY;
+  const currentTime = Date.now();
+  
+  const dy = currentY - lastY;
+  const dt = currentTime - lastTime;
+  
+  // Mover el panel de lectura proporcionalmente al desplazamiento relativo
+  DOM.previewContainer.scrollTop -= dy * 1.2;
+  
+  // Calcular velocidad instantánea (px/ms)
+  if (dt > 0) {
+    scrollVelocity = dy / dt;
+  }
+  
+  lastY = currentY;
+  lastTime = currentTime;
   DOM.previewContainer.style.cursor = 'grabbing';
 });
 
@@ -1099,6 +1217,11 @@ const detenerArrastreScroll = () => {
   if (isScrollingDrag) {
     isScrollingDrag = false;
     DOM.previewContainer.style.cursor = 'auto';
+    
+    // Iniciar física de inercia si el mouse se soltó con velocidad
+    if (Math.abs(scrollVelocity) > 0.1) {
+      inertiaFrameId = requestAnimationFrame(aplicarInerciaScroll);
+    }
   }
 };
 

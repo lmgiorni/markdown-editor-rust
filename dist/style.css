@@ -518,6 +518,7 @@ body {
 }
 #app-container.only-preview #preview {
   max-width: 760px; /* Ancho editorial óptimo */
+  margin: 0 auto;
 }
 
 /* ==========================================================================

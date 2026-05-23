@@ -211,12 +211,13 @@ function setSavedState(saved) {
   actualizarNombreArchivo();
 }
 
-// Actualiza el nombre que se visualiza arriba (escondiendo .md)
+// Actualiza el nombre que se visualiza arriba (escondiendo la extensión)
 function actualizarNombreArchivo() {
   let indicator = appState.isSaved ? '' : ' *';
   let display = appState.fileName;
-  if (display.toLowerCase().endsWith('.md')) {
-    display = display.substring(0, display.length - 3);
+  const lastDot = display.lastIndexOf('.');
+  if (lastDot > 0) {
+    display = display.substring(0, lastDot);
   }
   DOM.fileInfo.textContent = `${display}${indicator}`;
   DOM.activeFilepathDisplay.textContent = appState.filePath || 'Sin archivo guardado en disco';
@@ -231,8 +232,9 @@ function habilitarEdicionNombre() {
   if (DOM.fileNameContainer.querySelector('.editable-name-input')) return;
 
   let actualName = appState.fileName;
-  if (actualName.toLowerCase().endsWith('.md')) {
-    actualName = actualName.substring(0, actualName.length - 3);
+  const lastDot = actualName.lastIndexOf('.');
+  if (lastDot > 0) {
+    actualName = actualName.substring(0, lastDot);
   }
   
   DOM.fileInfo.style.display = 'none';
@@ -250,8 +252,9 @@ function habilitarEdicionNombre() {
     let nuevoNombre = input.value.trim();
     
     // Quitar extensión si fue escrita a mano
-    if (nuevoNombre.toLowerCase().endsWith('.md')) {
-      nuevoNombre = nuevoNombre.substring(0, nuevoNombre.length - 3);
+    const lastDotName = nuevoNombre.lastIndexOf('.');
+    if (lastDotName > 0) {
+      nuevoNombre = nuevoNombre.substring(0, lastDotName);
     }
     
     if (nuevoNombre.length > 0) {
@@ -326,8 +329,9 @@ async function abrirArchivo() {
       
       // Limpiar extensión de nombre visible
       let name = fileData.name;
-      if (name.toLowerCase().endsWith('.md')) {
-        name = name.substring(0, name.length - 3);
+      const lastDot = name.lastIndexOf('.');
+      if (lastDot > 0) {
+        name = name.substring(0, lastDot);
       }
       appState.fileName = name;
       
@@ -346,8 +350,8 @@ async function guardarArchivo() {
     return;
   }
 
-  // Si es un archivo nuevo sin ruta, redirige a "Guardar como" automáticamente
-  if (!appState.filePath) {
+  // Si es un archivo nuevo sin ruta, o si no es un archivo .md, redirige a "Guardar como"
+  if (!appState.filePath || !appState.filePath.toLowerCase().endsWith('.md')) {
     await guardarComo();
     return;
   }
@@ -379,8 +383,9 @@ async function guardarComo() {
       
       // Guardar nombre sin la extensión para la barra de menú
       let name = fileData.name;
-      if (name.toLowerCase().endsWith('.md')) {
-        name = name.substring(0, name.length - 3);
+      const lastDot = name.lastIndexOf('.');
+      if (lastDot > 0) {
+        name = name.substring(0, lastDot);
       }
       appState.fileName = name;
       setSavedState(true);
@@ -898,6 +903,131 @@ function limpiarResaltadoTemporal() {
   blocks.forEach(b => b.classList.remove('highlighted-block'));
 }
 
+// Divide el texto del editor en bloques con estructura Markdown
+function parseEditorBlocks(text) {
+  const lines = text.split('\n');
+  const blocks = [];
+  let i = 0;
+  
+  while (i < lines.length) {
+    const line = lines[i];
+    const trimmed = line.trim();
+    
+    // 1. Líneas vacías
+    if (trimmed === '') {
+      i++;
+      continue;
+    }
+    
+    // 2. Bloques de código (```)
+    if (trimmed.startsWith('```')) {
+      const startLine = i;
+      i++;
+      while (i < lines.length && !lines[i].trim().startsWith('```')) {
+        i++;
+      }
+      if (i < lines.length) i++; // Incluir la línea de cierre
+      blocks.push({
+        type: 'code',
+        startLine,
+        endLine: i - 1
+      });
+      continue;
+    }
+    
+    // 3. Citas de bloque (>)
+    if (trimmed.startsWith('>')) {
+      const startLine = i;
+      i++;
+      while (i < lines.length && lines[i].trim().startsWith('>')) {
+        i++;
+      }
+      blocks.push({
+        type: 'blockquote',
+        startLine,
+        endLine: i - 1
+      });
+      continue;
+    }
+    
+    // 4. Listas (viñetas o numeración con margen opcional)
+    const isList = /^\s*([\-*+]|\d+\.)\s+/.test(line);
+    if (isList) {
+      const startLine = i;
+      i++;
+      while (i < lines.length) {
+        const nextLine = lines[i];
+        const nextTrimmed = nextLine.trim();
+        if (nextTrimmed === '') {
+          let temp = i + 1;
+          while (temp < lines.length && lines[temp].trim() === '') {
+            temp++;
+          }
+          if (temp < lines.length && (/^\s*([\-*+]|\d+\.)\s+/.test(lines[temp]) || /^\s+/.test(lines[temp]))) {
+            i = temp;
+            continue;
+          } else {
+            break;
+          }
+        }
+        if (/^\s*([\-*+]|\d+\.)\s+/.test(nextLine) || /^\s+/.test(nextLine)) {
+          i++;
+        } else {
+          break;
+        }
+      }
+      blocks.push({
+        type: 'list',
+        startLine,
+        endLine: i - 1
+      });
+      continue;
+    }
+    
+    // 5. Títulos (#)
+    if (trimmed.startsWith('#')) {
+      blocks.push({
+        type: 'header',
+        startLine: i,
+        endLine: i
+      });
+      i++;
+      continue;
+    }
+    
+    // 6. Líneas divisorias (hr)
+    if (/^(?:-{3,}|\*{3,}|_{3,})$/.test(trimmed)) {
+      blocks.push({
+        type: 'hr',
+        startLine: i,
+        endLine: i
+      });
+      i++;
+      continue;
+    }
+    
+    // 7. Párrafos / Tablas (agrupación de líneas no vacías consecutivas)
+    const startLine = i;
+    i++;
+    while (i < lines.length) {
+      const nextLine = lines[i];
+      const nextTrimmed = nextLine.trim();
+      if (nextTrimmed === '') break;
+      if (/^\s*([\-*+]|\d+\.)\s+/.test(nextLine) || nextTrimmed.startsWith('#') || nextTrimmed.startsWith('>') || nextTrimmed.startsWith('```')) {
+        break;
+      }
+      i++;
+    }
+    blocks.push({
+      type: 'paragraph',
+      startLine,
+      endLine: i - 1
+    });
+  }
+  
+  return blocks;
+}
+
 function sincronizarFocoElemento() {
   const text = DOM.editor.value;
   const cursorSelStart = DOM.editor.selectionStart;
@@ -905,34 +1035,42 @@ function sincronizarFocoElemento() {
   // Encontrar la línea actual del cursor
   const linesBefore = text.substring(0, cursorSelStart).split('\n');
   const currentLineIndex = linesBefore.length - 1;
-  const lines = text.split('\n');
-  
-  if (!lines[currentLineIndex]) return;
-  const currentLineText = lines[currentLineIndex].trim();
   
   // Limpiar clases de resaltados anteriores y cancelar cualquier temporizador anterior
   limpiarResaltadoTemporal();
   
-  if (currentLineText.length < 3) return; // Evitar disparar con líneas vacías
+  const editorBlocks = parseEditorBlocks(text);
+  if (editorBlocks.length === 0) return;
   
-  // Remover sintaxis Markdown de la línea para hacer una búsqueda limpia
-  const cleanLineText = currentLineText.replace(/[#*`~_\-[\]()]/g, '').toLowerCase().trim();
-  if (cleanLineText.length < 3) return;
+  // Encontrar qué bloque de editor contiene la línea actual del cursor
+  let activeBlockIndex = -1;
+  for (let i = 0; i < editorBlocks.length; i++) {
+    const block = editorBlocks[i];
+    if (currentLineIndex >= block.startLine && currentLineIndex <= block.endLine) {
+      activeBlockIndex = i;
+      break;
+    }
+  }
   
-  const blocks = DOM.preview.querySelectorAll('.markdown-body > *');
-  let bestMatch = null;
-  let maxScore = 0;
-  
-  blocks.forEach(block => {
-    const blockText = block.textContent.toLowerCase();
-    if (blockText.includes(cleanLineText)) {
-      const score = cleanLineText.length / blockText.length;
-      if (score > maxScore) {
-        maxScore = score;
-        bestMatch = block;
+  // Si no se encuentra un bloque activo directo, usamos el más cercano
+  if (activeBlockIndex === -1) {
+    for (let i = 0; i < editorBlocks.length; i++) {
+      if (currentLineIndex < editorBlocks[i].startLine) {
+        activeBlockIndex = Math.max(0, i - 1);
+        break;
       }
     }
-  });
+    if (activeBlockIndex === -1) {
+      activeBlockIndex = editorBlocks.length - 1;
+    }
+  }
+  
+  const blocks = DOM.preview.querySelectorAll('.markdown-body > *');
+  if (blocks.length === 0) return;
+  
+  // Mapear el índice del bloque al visor, garantizando límites
+  const targetIndex = Math.min(activeBlockIndex, blocks.length - 1);
+  const bestMatch = blocks[targetIndex];
   
   if (bestMatch) {
     bestMatch.classList.add('highlighted-block');
@@ -951,36 +1089,44 @@ DOM.preview.addEventListener('dblclick', (e) => {
   const targetElement = e.target.closest('.markdown-body > *');
   if (!targetElement) return;
   
-  const textToSearch = targetElement.textContent.trim();
-  if (textToSearch.length < 4) return;
-  
-  const cleanSearch = textToSearch.toLowerCase().substring(0, 30); // Usamos las primeras letras para buscar
-  const fullText = DOM.editor.value;
-  const lines = fullText.split('\n');
-  
-  let lineIndex = -1;
-  for (let i = 0; i < lines.length; i++) {
-    const cleanLine = lines[i].replace(/[#*`~_\-[\]()]/g, '').toLowerCase().trim();
-    if (cleanLine.includes(cleanSearch) || cleanSearch.includes(cleanLine)) {
-      lineIndex = i;
+  const blocks = DOM.preview.querySelectorAll('.markdown-body > *');
+  let targetIndex = -1;
+  for (let i = 0; i < blocks.length; i++) {
+    if (blocks[i] === targetElement) {
+      targetIndex = i;
       break;
     }
   }
   
-  if (lineIndex !== -1) {
-    // Calcular el inicio de esa línea
-    let charIndex = 0;
-    for (let i = 0; i < lineIndex; i++) {
-      charIndex += lines[i].length + 1;
+  if (targetIndex === -1) return;
+  
+  const text = DOM.editor.value;
+  const editorBlocks = parseEditorBlocks(text);
+  if (editorBlocks.length === 0) return;
+  
+  const matchedBlock = editorBlocks[Math.min(targetIndex, editorBlocks.length - 1)];
+  if (matchedBlock) {
+    const lines = text.split('\n');
+    
+    // Calcular el inicio en caracteres del bloque
+    let startChar = 0;
+    for (let i = 0; i < matchedBlock.startLine; i++) {
+      startChar += lines[i].length + 1;
     }
     
-    // Seleccionar la línea en el Editor y hacer foco
+    // Calcular el fin en caracteres del bloque
+    let endChar = startChar;
+    for (let i = matchedBlock.startLine; i <= matchedBlock.endLine; i++) {
+      endChar += lines[i].length + (i === matchedBlock.endLine ? 0 : 1);
+    }
+    
+    // Seleccionar el bloque en el Editor y hacer foco
     DOM.editor.focus();
-    DOM.editor.setSelectionRange(charIndex, charIndex + lines[lineIndex].length);
+    DOM.editor.setSelectionRange(startChar, endChar);
     
     // Desplazar suavemente el textarea
     const lineHeight = 24; // Aproximado
-    DOM.editor.scrollTop = Math.max(0, (lineIndex * lineHeight) - 100);
+    DOM.editor.scrollTop = Math.max(0, (matchedBlock.startLine * lineHeight) - 100);
     
     // Resaltar visualmente el bloque del visor y aplicar temporizador de desvanecimiento
     limpiarResaltadoTemporal();

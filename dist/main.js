@@ -72,7 +72,190 @@ const DOM = {
 };
 
 // ==========================================================================
+// GESTOR DE HISTORIAL DE CAMBIOS (UNDO / REDO STACK CON DEBOUNCE PREMIUM)
+// ==========================================================================
+
+class HistorialCambios {
+  constructor(textarea, onRestore) {
+    this.textarea = textarea;
+    this.onRestore = onRestore;
+    
+    // Lista indexada de estados para Deshacer / Rehacer
+    this.historial = [];
+    this.indiceActual = -1;
+    this.maxStates = 150; // Límite de seguridad
+    
+    // Control de debounce para atajos rápidos de formato
+    this.ultimoFormatoTiempo = 0;
+    this.debeConsolidarFormato = false;
+    
+    // Control de consolidación para escritura ordinaria de teclado
+    this.typingTimer = null;
+    this.estaEscribiendo = false;
+    
+    // Registrar estado inicial al cargar
+    this.guardarEstado(textarea.value, textarea.selectionStart, textarea.selectionEnd, false);
+  }
+
+  // Guardar un nuevo estado en la pila
+  guardarEstado(value, selectionStart, selectionEnd, esFormato = false, consolidar = false) {
+    // Si el usuario realiza una nueva acción estando en medio del historial (tras varios Deshacer),
+    // eliminamos los estados futuros (limpiar Redo)
+    if (this.indiceActual < this.historial.length - 1) {
+      this.historial = this.historial.slice(0, this.indiceActual + 1);
+    }
+    
+    // Evitar guardar valores de texto idénticos consecutivos
+    const ultimoEstado = this.historial[this.indiceActual];
+    if (ultimoEstado && ultimoEstado.value === value) {
+      // Solo actualizamos la posición del cursor para mantener la fidelidad de la navegación
+      ultimoEstado.selectionStart = selectionStart;
+      ultimoEstado.selectionEnd = selectionEnd;
+      return;
+    }
+    
+    // Si se activa la consolidación y el estado anterior fue un formato, sobrescribimos para agruparlos
+    if (consolidar && ultimoEstado && ultimoEstado.esFormato) {
+      ultimoEstado.value = value;
+      ultimoEstado.selectionStart = selectionStart;
+      ultimoEstado.selectionEnd = selectionEnd;
+      ultimoEstado.timestamp = Date.now();
+      return;
+    }
+    
+    const nuevoEstado = {
+      value,
+      selectionStart,
+      selectionEnd,
+      timestamp: Date.now(),
+      esFormato
+    };
+    
+    this.historial.push(nuevoEstado);
+    
+    // Mantener bajo el límite de memoria máximo
+    if (this.historial.length > this.maxStates) {
+      this.historial.shift();
+    } else {
+      this.indiceActual++;
+    }
+  }
+
+  // Se ejecuta ANTES de aplicar un formato por botón
+  registrarCambioAntesDeFormato() {
+    this.finalizarSesionEscritura();
+    
+    const ahora = Date.now();
+    // Debounce de 1.5 segundos (1500 ms) para agrupar formatos consecutivos rápidos
+    this.debeConsolidarFormato = (ahora - this.ultimoFormatoTiempo < 1500);
+    
+    if (!this.debeConsolidarFormato) {
+      // Guardar el estado limpio antes del nuevo bloque de formatos
+      this.guardarEstado(
+        this.textarea.value,
+        this.textarea.selectionStart,
+        this.textarea.selectionEnd,
+        true
+      );
+    }
+    
+    this.ultimoFormatoTiempo = ahora;
+  }
+
+  // Se ejecuta DESPUÉS de aplicar el formato
+  registrarCambioDespuesDeFormato() {
+    this.guardarEstado(
+      this.textarea.value,
+      this.textarea.selectionStart,
+      this.textarea.selectionEnd,
+      true,
+      this.debeConsolidarFormato
+    );
+  }
+
+  // Monitorear entrada del teclado ordinaria (input)
+  registrarEscritura() {
+    if (!this.estaEscribiendo) {
+      this.estaEscribiendo = true;
+    }
+    
+    // Temporizador de 1 segundo para consolidar la escritura fluida
+    if (this.typingTimer) clearTimeout(this.typingTimer);
+    this.typingTimer = setTimeout(() => {
+      this.finalizarSesionEscritura();
+    }, 1000);
+  }
+
+  // Finalizar sesión activa de escritura y confirmar el estado
+  finalizarSesionEscritura() {
+    if (this.typingTimer) {
+      clearTimeout(this.typingTimer);
+      this.typingTimer = null;
+    }
+    
+    if (this.estaEscribiendo) {
+      this.estaEscribiendo = false;
+      this.guardarEstado(
+        this.textarea.value,
+        this.textarea.selectionStart,
+        this.textarea.selectionEnd,
+        false
+      );
+    }
+  }
+
+  // Deshacer (Ctrl + Z)
+  deshacer() {
+    this.finalizarSesionEscritura();
+    
+    if (this.indiceActual > 0) {
+      this.indiceActual--;
+      const estado = this.historial[this.indiceActual];
+      this.aplicarEstado(estado);
+    }
+  }
+
+  // Rehacer (Ctrl + Y)
+  rehacer() {
+    this.finalizarSesionEscritura();
+    
+    if (this.indiceActual < this.historial.length - 1) {
+      this.indiceActual++;
+      const estado = this.historial[this.indiceActual];
+      this.aplicarEstado(estado);
+    }
+  }
+
+  // Aplicar el estado al editor físico y sincronizar
+  aplicarEstado(estado) {
+    this.textarea.value = estado.value;
+    this.textarea.selectionStart = estado.selectionStart;
+    this.textarea.selectionEnd = estado.selectionEnd;
+    
+    if (this.onRestore) {
+      this.onRestore();
+    }
+  }
+}
+
+// Instancia global del historial
+let historial = null;
+
+function inicializarHistorial() {
+  if (DOM.editor) {
+    historial = new HistorialCambios(DOM.editor, () => {
+      renderMarkdown();
+      setSavedState(false);
+      if (DOM.modalStats && DOM.modalStats.classList.contains('active')) {
+        actualizarEstadisticasDetalladas();
+      }
+    });
+  }
+}
+
+// ==========================================================================
 // CONFIGURACIÓN DE APARIENCIA Y VARIABLES TIPOGRÁFICAS (CSS CUSTOM PROPERTIES)
+// ==========================================================================
 // ==========================================================================
 
 function aplicarConfiguracionVisual() {
@@ -308,6 +491,7 @@ function nuevoArchivo() {
   appState.fileName = 'Sin título';
   renderMarkdown();
   setSavedState(true);
+  inicializarHistorial();
 }
 
 async function abrirArchivo() {
@@ -337,6 +521,7 @@ async function abrirArchivo() {
       
       renderMarkdown();
       setSavedState(true);
+      inicializarHistorial();
     }
   } catch (error) {
     console.error('Error al abrir:', error);
@@ -569,6 +754,11 @@ window.addEventListener('DOMContentLoaded', () => {
 // ==========================================================================
 
 function insertarSintaxisMarkdown(tipo) {
+  // Registrar estado previo antes del formateo
+  if (historial) {
+    historial.registrarCambioAntesDeFormato();
+  }
+
   const textarea = DOM.editor;
   const start = textarea.selectionStart;
   const end = textarea.selectionEnd;
@@ -613,11 +803,11 @@ function insertarSintaxisMarkdown(tipo) {
       cursorOffset = 12; // Posicionar dentro de 'url_imagen'
       break;
     case 'table':
-      prefix = '\n| Encabezado 1 | Encabezado 2 |\n| ------------ | ------------ |\n| Celda 1      | Celda 2      |\n';
+      prefix = '| Encabezado 1 | Encabezado 2 |\n| ------------ | ------------ |\n| Celda 1      | Celda 2      |';
       suffix = '';
       break;
     case 'ul':
-      prefix = '\n- ';
+      prefix = '- ';
       suffix = '';
       if (selectedText.includes('\n')) {
         const lineas = selectedText.split('\n').map(l => l.startsWith('- ') ? l : `- ${l}`).join('\n');
@@ -626,11 +816,14 @@ function insertarSintaxisMarkdown(tipo) {
         renderMarkdown();
         setSavedState(false);
         DOM.editor.focus();
+        if (historial) {
+          historial.registrarCambioDespuesDeFormato();
+        }
         return;
       }
       break;
     case 'ol':
-      prefix = '\n1. ';
+      prefix = '1. ';
       suffix = '';
       if (selectedText.includes('\n')) {
         let count = 1;
@@ -644,11 +837,14 @@ function insertarSintaxisMarkdown(tipo) {
         renderMarkdown();
         setSavedState(false);
         DOM.editor.focus();
+        if (historial) {
+          historial.registrarCambioDespuesDeFormato();
+        }
         return;
       }
       break;
     case 'task':
-      prefix = '\n- [ ] ';
+      prefix = '- [ ] ';
       suffix = '';
       if (selectedText.includes('\n')) {
         const lineas = selectedText.split('\n').map(l => l.startsWith('- [ ] ') ? l : `- [ ] ${l}`).join('\n');
@@ -657,11 +853,14 @@ function insertarSintaxisMarkdown(tipo) {
         renderMarkdown();
         setSavedState(false);
         DOM.editor.focus();
+        if (historial) {
+          historial.registrarCambioDespuesDeFormato();
+        }
         return;
       }
       break;
     case 'blockquote':
-      prefix = '\n> ';
+      prefix = '> ';
       suffix = '';
       if (selectedText.includes('\n')) {
         const lineas = selectedText.split('\n').map(l => l.startsWith('> ') ? l : `> ${l}`).join('\n');
@@ -670,6 +869,9 @@ function insertarSintaxisMarkdown(tipo) {
         renderMarkdown();
         setSavedState(false);
         DOM.editor.focus();
+        if (historial) {
+          historial.registrarCambioDespuesDeFormato();
+        }
         return;
       }
       break;
@@ -678,29 +880,30 @@ function insertarSintaxisMarkdown(tipo) {
       suffix = '`';
       break;
     case 'code-block':
-      prefix = '\n```javascript\n';
-      suffix = '\n```\n';
+      prefix = '```javascript\n';
+      suffix = '\n```';
       break;
     case 'inline-math':
       prefix = '$';
       suffix = '$';
       break;
     case 'block-math':
-      prefix = '\n$$\n';
-      suffix = '\n$$\n';
+      prefix = '$$\n';
+      suffix = '\n$$';
       break;
-    case 'h1': prefix = '\n# '; break;
-    case 'h2': prefix = '\n## '; break;
-    case 'h3': prefix = '\n### '; break;
-    case 'h4': prefix = '\n#### '; break;
-    case 'h5': prefix = '\n##### '; break;
-    case 'h6': prefix = '\n###### '; break;
+    case 'h1': prefix = '# '; break;
+    case 'h2': prefix = '## '; break;
+    case 'h3': prefix = '### '; break;
+    case 'h4': prefix = '#### '; break;
+    case 'h5': prefix = '##### '; break;
+    case 'h6': prefix = '###### '; break;
     case 'paragraph':
-      prefix = '\n\n';
-      suffix = '\n\n';
+      prefix = '';
+      suffix = '';
       break;
     case 'hr':
-      prefix = '\n---\n';
+      prefix = '---';
+      suffix = '';
       break;
   }
   
@@ -733,6 +936,11 @@ function insertarSintaxisMarkdown(tipo) {
   renderMarkdown();
   setSavedState(false);
   DOM.editor.focus();
+
+  // Registrar el estado final del formateo
+  if (historial) {
+    historial.registrarCambioDespuesDeFormato();
+  }
 }
 
 // Registrar eventos en la cuadrícula de botones Markdown
@@ -1280,6 +1488,15 @@ DOM.editor.addEventListener('dblclick', () => {
   }, 0);
 });
 
+// Finalizar sesión de escritura al pulsar espacios, saltos de línea o tabuladores (consolidación por palabra)
+DOM.editor.addEventListener('keydown', (e) => {
+  if (e.key === ' ' || e.key === 'Enter' || e.key === 'Tab') {
+    if (historial) {
+      historial.finalizarSesionEscritura();
+    }
+  }
+});
+
 // ==========================================================================
 // INICIALIZACIÓN, ATADOS DE TECLADO Y ARRANQUE DE LA APP
 // ==========================================================================
@@ -1289,6 +1506,9 @@ DOM.editor.addEventListener('input', () => {
   renderMarkdown();
   if (appState.isSaved) {
     setSavedState(false);
+  }
+  if (historial) {
+    historial.registrarEscritura();
   }
   if (DOM.modalStats.classList.contains('active')) {
     actualizarEstadisticasDetalladas();
@@ -1521,6 +1741,28 @@ function registrarCursorEnScrollbar(container) {
 window.addEventListener('keydown', (e) => {
   const isCtrl = e.ctrlKey || e.metaKey;
   
+  // Ctrl + Z: Deshacer (solo si el editor está enfocado)
+  if (isCtrl && !e.shiftKey && e.key.toLowerCase() === 'z') {
+    if (document.activeElement === DOM.editor) {
+      e.preventDefault();
+      if (historial) {
+        historial.deshacer();
+      }
+      return;
+    }
+  }
+  
+  // Ctrl + Y o Ctrl + Shift + Z: Rehacer (solo si el editor está enfocado)
+  if (isCtrl && (e.key.toLowerCase() === 'y' || (e.shiftKey && e.key.toLowerCase() === 'z'))) {
+    if (document.activeElement === DOM.editor) {
+      e.preventDefault();
+      if (historial) {
+        historial.rehacer();
+      }
+      return;
+    }
+  }
+
   // Ctrl + N: Nuevo
   if (isCtrl && e.key.toLowerCase() === 'n') {
     e.preventDefault();
@@ -1577,4 +1819,7 @@ Este es tu nuevo espacio de escritura histórica y gestión. Todo lo que escriba
 *¡Comienza a escribir y experimenta una fluidez absoluta!*`;
     renderMarkdown();
   }
+
+  // Inicializar el historial unificado una vez cargados todos los contenidos
+  inicializarHistorial();
 });

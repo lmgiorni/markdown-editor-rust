@@ -2,6 +2,11 @@
 // LÓGICA INTERACTIVA PREMIUM - FRONTEND DEL EDITOR DE MARKDOWN (TAURI v2)
 // ==========================================================================
 
+import { HistorialCambios } from './utils/history-manager.js';
+import { parseMarkdownToJSON, convertJSONToXML, buildTreeHTML } from './utils/data-parser.js';
+import { BLOQUES_MODULOS, escanearVariablesDePlantilla, obtenerTextoModuloConSangria } from './utils/template-engine.js';
+import { exportarDocumentoAHTML, exportarDocumentoAPDF } from './utils/export-service.js';
+
 // Configuración y Acceso Seguro al Puente de Tauri
 const invoke = window.__TAURI__ ? window.__TAURI__.core.invoke : null;
 
@@ -11,6 +16,9 @@ let appState = {
   fileName: 'Sin título',     // Nombre visible del archivo (sin extensión)
   isSaved: true,              // Estado de guardado de los cambios
   activeView: 'split',        // Modo de visualización activa: 'editor', 'split' o 'preview'
+  
+  structuredModeActive: false, // Indica si la visualización en árbol de datos está activa
+  currentTemplateText: '',    // Almacena la plantilla en espera de rellenado de variables
   
   // Configuración visual (valores iniciales elegantes)
   editorFont: localStorage.getItem('md-editor-font') || 'Fira Code',
@@ -36,6 +44,15 @@ const DOM = {
   btnOpen: document.getElementById('btn-open'),
   btnSave: document.getElementById('btn-save'),
   
+  // Nuevos botones de exportación y desplegable
+  btnExport: document.getElementById('btn-export'),
+  exportDropdown: document.getElementById('export-dropdown'),
+  optExportHtml: document.getElementById('opt-export-html'),
+  optExportPdf: document.getElementById('opt-export-pdf'),
+  optSaveTemplate: document.getElementById('opt-save-template'),
+  optLoadTemplate: document.getElementById('opt-load-template'),
+  optInsertModule: document.getElementById('opt-insert-module'),
+  
   // Botones de vistas
   viewEditor: document.getElementById('view-editor'),
   viewSplit: document.getElementById('view-split'),
@@ -50,6 +67,11 @@ const DOM = {
   modalMd: document.getElementById('modal-md'),
   modalStats: document.getElementById('modal-stats'),
   modalConfig: document.getElementById('modal-config'),
+  modalTemplateVars: document.getElementById('modal-template-vars'),
+  modalModules: document.getElementById('modal-modules'),
+  formTemplateVars: document.getElementById('form-template-vars'),
+  btnCancelVars: document.getElementById('btn-cancel-vars'),
+  btnApplyVars: document.getElementById('btn-apply-vars'),
   
   // Selectores e Inputs de Configuración
   selectEditorFont: document.getElementById('select-editor-font'),
@@ -74,169 +96,6 @@ const DOM = {
 // ==========================================================================
 // GESTOR DE HISTORIAL DE CAMBIOS (UNDO / REDO STACK CON DEBOUNCE PREMIUM)
 // ==========================================================================
-
-class HistorialCambios {
-  constructor(textarea, onRestore) {
-    this.textarea = textarea;
-    this.onRestore = onRestore;
-    
-    // Lista indexada de estados para Deshacer / Rehacer
-    this.historial = [];
-    this.indiceActual = -1;
-    this.maxStates = 150; // Límite de seguridad
-    
-    // Control de debounce para atajos rápidos de formato
-    this.ultimoFormatoTiempo = 0;
-    this.debeConsolidarFormato = false;
-    
-    // Control de consolidación para escritura ordinaria de teclado
-    this.typingTimer = null;
-    this.estaEscribiendo = false;
-    
-    // Registrar estado inicial al cargar
-    this.guardarEstado(textarea.value, textarea.selectionStart, textarea.selectionEnd, false);
-  }
-
-  // Guardar un nuevo estado en la pila
-  guardarEstado(value, selectionStart, selectionEnd, esFormato = false, consolidar = false) {
-    // Si el usuario realiza una nueva acción estando en medio del historial (tras varios Deshacer),
-    // eliminamos los estados futuros (limpiar Redo)
-    if (this.indiceActual < this.historial.length - 1) {
-      this.historial = this.historial.slice(0, this.indiceActual + 1);
-    }
-    
-    // Evitar guardar valores de texto idénticos consecutivos
-    const ultimoEstado = this.historial[this.indiceActual];
-    if (ultimoEstado && ultimoEstado.value === value) {
-      // Solo actualizamos la posición del cursor para mantener la fidelidad de la navegación
-      ultimoEstado.selectionStart = selectionStart;
-      ultimoEstado.selectionEnd = selectionEnd;
-      return;
-    }
-    
-    // Si se activa la consolidación y el estado anterior fue un formato, sobrescribimos para agruparlos
-    if (consolidar && ultimoEstado && ultimoEstado.esFormato) {
-      ultimoEstado.value = value;
-      ultimoEstado.selectionStart = selectionStart;
-      ultimoEstado.selectionEnd = selectionEnd;
-      ultimoEstado.timestamp = Date.now();
-      return;
-    }
-    
-    const nuevoEstado = {
-      value,
-      selectionStart,
-      selectionEnd,
-      timestamp: Date.now(),
-      esFormato
-    };
-    
-    this.historial.push(nuevoEstado);
-    
-    // Mantener bajo el límite de memoria máximo
-    if (this.historial.length > this.maxStates) {
-      this.historial.shift();
-    } else {
-      this.indiceActual++;
-    }
-  }
-
-  // Se ejecuta ANTES de aplicar un formato por botón
-  registrarCambioAntesDeFormato() {
-    this.finalizarSesionEscritura();
-    
-    const ahora = Date.now();
-    // Debounce de 1.5 segundos (1500 ms) para agrupar formatos consecutivos rápidos
-    this.debeConsolidarFormato = (ahora - this.ultimoFormatoTiempo < 1500);
-    
-    if (!this.debeConsolidarFormato) {
-      // Guardar el estado limpio antes del nuevo bloque de formatos
-      this.guardarEstado(
-        this.textarea.value,
-        this.textarea.selectionStart,
-        this.textarea.selectionEnd,
-        true
-      );
-    }
-    
-    this.ultimoFormatoTiempo = ahora;
-  }
-
-  // Se ejecuta DESPUÉS de aplicar el formato
-  registrarCambioDespuesDeFormato() {
-    this.guardarEstado(
-      this.textarea.value,
-      this.textarea.selectionStart,
-      this.textarea.selectionEnd,
-      true,
-      this.debeConsolidarFormato
-    );
-  }
-
-  // Monitorear entrada del teclado ordinaria (input)
-  registrarEscritura() {
-    if (!this.estaEscribiendo) {
-      this.estaEscribiendo = true;
-    }
-    
-    // Temporizador de 1 segundo para consolidar la escritura fluida
-    if (this.typingTimer) clearTimeout(this.typingTimer);
-    this.typingTimer = setTimeout(() => {
-      this.finalizarSesionEscritura();
-    }, 1000);
-  }
-
-  // Finalizar sesión activa de escritura y confirmar el estado
-  finalizarSesionEscritura() {
-    if (this.typingTimer) {
-      clearTimeout(this.typingTimer);
-      this.typingTimer = null;
-    }
-    
-    if (this.estaEscribiendo) {
-      this.estaEscribiendo = false;
-      this.guardarEstado(
-        this.textarea.value,
-        this.textarea.selectionStart,
-        this.textarea.selectionEnd,
-        false
-      );
-    }
-  }
-
-  // Deshacer (Ctrl + Z)
-  deshacer() {
-    this.finalizarSesionEscritura();
-    
-    if (this.indiceActual > 0) {
-      this.indiceActual--;
-      const estado = this.historial[this.indiceActual];
-      this.aplicarEstado(estado);
-    }
-  }
-
-  // Rehacer (Ctrl + Y)
-  rehacer() {
-    this.finalizarSesionEscritura();
-    
-    if (this.indiceActual < this.historial.length - 1) {
-      this.indiceActual++;
-      const estado = this.historial[this.indiceActual];
-      this.aplicarEstado(estado);
-    }
-  }
-
-  // Aplicar el estado al editor físico y sincronizar
-  aplicarEstado(estado) {
-    this.textarea.value = estado.value;
-    this.textarea.selectionStart = estado.selectionStart;
-    this.textarea.selectionEnd = estado.selectionEnd;
-    
-    if (this.onRestore) {
-      this.onRestore();
-    }
-  }
-}
 
 // Instancia global del historial
 let historial = null;
@@ -305,6 +164,13 @@ function aplicarConfiguracionVisual() {
 
 function renderMarkdown() {
   const markdownText = DOM.editor.value;
+  
+  // FASE 12: Si el modo estructurado está activo, renderizar el árbol en tiempo real
+  if (appState.structuredModeActive) {
+    const arbol = parseMarkdownToJSON(markdownText);
+    renderStructuredTreeVisual(arbol);
+    return;
+  }
   
   // Validar si la biblioteca de conversión se cargó de forma correcta y offline
   if (typeof marked !== 'undefined') {
@@ -770,6 +636,74 @@ function insertarSintaxisMarkdown(tipo) {
   const trailingSpaces = rawSelection.match(/\s*$/)[0];
   const selectedText = rawSelection.trim();
   const leadingLength = leadingSpaces.length;
+  
+  // LÓGICA DE HEADINGS CONTEXTUALES PREMIUM
+  const esHeading = ['h1', 'h2', 'h3', 'h4', 'h5', 'h6'].includes(tipo);
+  if (esHeading) {
+    let headingPrefix = '';
+    switch(tipo) {
+      case 'h1': headingPrefix = '# '; break;
+      case 'h2': headingPrefix = '## '; break;
+      case 'h3': headingPrefix = '### '; break;
+      case 'h4': headingPrefix = '#### '; break;
+      case 'h5': headingPrefix = '##### '; break;
+      case 'h6': headingPrefix = '###### '; break;
+    }
+    
+    if (rawSelection.length > 0) {
+      // Caso 2: Hay selección. Insertar salto de línea si es necesario y aplicar Heading
+      const caracterAnterior = start > 0 ? originalText.charAt(start - 1) : '\n';
+      const necesitaSalto = caracterAnterior !== '\n';
+      const prefijoConSalto = necesitaSalto ? ('\n' + headingPrefix) : headingPrefix;
+      
+      const textFormatted = leadingSpaces + prefijoConSalto + selectedText + trailingSpaces;
+      textarea.setRangeText(textFormatted, start, end, 'select');
+      
+      const newSelectStart = start + leadingLength + (necesitaSalto ? 1 : 0) + headingPrefix.length;
+      const newSelectEnd = newSelectStart + selectedText.length;
+      textarea.setSelectionRange(newSelectStart, newSelectEnd);
+    } else {
+      // Caso 1: No hay selección. Aplicar al inicio del párrafo actual
+      let inicioParrafo = originalText.lastIndexOf('\n', start - 1);
+      if (inicioParrafo === -1) {
+        inicioParrafo = 0;
+      } else {
+        inicioParrafo += 1;
+      }
+      let finParrafo = originalText.indexOf('\n', start);
+      if (finParrafo === -1) {
+        finParrafo = originalText.length;
+      }
+      
+      const textoParrafo = originalText.substring(inicioParrafo, finParrafo);
+      const regexHeading = /^(#{1,6}\s+)/;
+      const match = textoParrafo.match(regexHeading);
+      
+      let nuevoTextoParrafo = '';
+      let offsetCursor = 0;
+      
+      if (match) {
+        const anteriorPrefix = match[1];
+        nuevoTextoParrafo = headingPrefix + textoParrafo.substring(anteriorPrefix.length);
+        offsetCursor = headingPrefix.length - anteriorPrefix.length;
+      } else {
+        nuevoTextoParrafo = headingPrefix + textoParrafo;
+        offsetCursor = headingPrefix.length;
+      }
+      
+      textarea.setRangeText(nuevoTextoParrafo, inicioParrafo, finParrafo, 'select');
+      const nuevaPosCursor = Math.max(inicioParrafo, Math.min(finParrafo + offsetCursor, start + offsetCursor));
+      textarea.setSelectionRange(nuevaPosCursor, nuevaPosCursor);
+    }
+    
+    renderMarkdown();
+    setSavedState(false);
+    DOM.editor.focus();
+    if (historial) {
+      historial.registrarCambioDespuesDeFormato();
+    }
+    return;
+  }
   
   let prefix = '';
   let suffix = '';
@@ -1803,6 +1737,113 @@ window.addEventListener('DOMContentLoaded', () => {
   registrarCursorEnScrollbar(DOM.editor);
   registrarCursorEnScrollbar(DOM.previewContainer);
   
+  // FUNCIONALIDAD PREMIUM TAB-TO-INDENT
+  DOM.editor.addEventListener('keydown', (e) => {
+    if (e.key === 'Tab') {
+      e.preventDefault();
+      
+      const textarea = DOM.editor;
+      const start = textarea.selectionStart;
+      const end = textarea.selectionEnd;
+      const originalText = textarea.value;
+      
+      // Registrar estado en el historial antes del cambio
+      if (historial) {
+        historial.registrarCambioAntesDeFormato();
+      }
+      
+      const isShift = e.shiftKey;
+      
+      if (start !== end) {
+        // Caso 1: Bloque seleccionado (Indentación/Desindentación multilínea)
+        let inicioSeleccion = originalText.lastIndexOf('\n', start - 1);
+        if (inicioSeleccion === -1) {
+          inicioSeleccion = 0;
+        } else {
+          inicioSeleccion += 1;
+        }
+        
+        let finSeleccion = originalText.indexOf('\n', end);
+        if (finSeleccion === -1) {
+          finSeleccion = originalText.length;
+        }
+        
+        const textoSeleccionado = originalText.substring(inicioSeleccion, finSeleccion);
+        const lineas = textoSeleccionado.split('\n');
+        
+        let lineasProcesadas = [];
+        let cambiosLongitud = 0;
+        
+        if (!isShift) {
+          // Indentar: añadir un \t a cada línea
+          lineasProcesadas = lineas.map(linea => {
+            if (linea.length > 0 || lineas.length === 1) {
+              cambiosLongitud += 1;
+              return '\t' + linea;
+            }
+            return linea;
+          });
+        } else {
+          // Desindentar: quitar un \t o hasta 4 espacios
+          lineasProcesadas = lineas.map(linea => {
+            if (linea.startsWith('\t')) {
+              cambiosLongitud -= 1;
+              return linea.substring(1);
+            } else if (linea.startsWith('    ')) {
+              cambiosLongitud -= 4;
+              return linea.substring(4);
+            } else {
+              const espacios = linea.match(/^ {1,3}/);
+              if (espacios) {
+                const len = espacios[0].length;
+                cambiosLongitud -= len;
+                return linea.substring(len);
+              }
+            }
+            return linea;
+          });
+        }
+        
+        const nuevoTextoBloque = lineasProcesadas.join('\n');
+        textarea.setRangeText(nuevoTextoBloque, inicioSeleccion, finSeleccion, 'select');
+        
+        // Reajustar la selección manteniendo el bloque enfocado de forma óptima
+        const offsetInicio = !isShift ? 1 : (lineas[0].startsWith('\t') ? -1 : (lineas[0].startsWith('    ') ? -4 : 0));
+        textarea.setSelectionRange(Math.max(inicioSeleccion, start + offsetInicio), Math.max(inicioSeleccion, end + cambiosLongitud));
+        
+      } else {
+        // Caso 2: Sin selección (Insertar un único tabulador \t en posición del cursor)
+        if (!isShift) {
+          textarea.setRangeText('\t', start, start, 'end');
+        } else {
+          // Shift + Tab sin selección: Quitar sangría de la línea actual
+          let inicioLinea = originalText.lastIndexOf('\n', start - 1);
+          if (inicioLinea === -1) {
+            inicioLinea = 0;
+          } else {
+            inicioLinea += 1;
+          }
+          
+          const lineaActual = originalText.substring(inicioLinea, start);
+          if (lineaActual.startsWith('\t')) {
+            textarea.setRangeText('', inicioLinea, inicioLinea + 1, 'select');
+            textarea.setSelectionRange(Math.max(inicioLinea, start - 1), Math.max(inicioLinea, start - 1));
+          } else if (lineaActual.startsWith('    ')) {
+            textarea.setRangeText('', inicioLinea, inicioLinea + 4, 'select');
+            textarea.setSelectionRange(Math.max(inicioLinea, start - 4), Math.max(inicioLinea, start - 4));
+          }
+        }
+      }
+      
+      renderMarkdown();
+      setSavedState(false);
+      
+      if (historial) {
+        historial.registrarCambioDespuesDeFormato();
+      }
+    }
+  });
+  
   // Añadir un mensaje explicativo al visor si el editor está vacío
   if (DOM.editor.value.trim() === '') {
     DOM.editor.value = `# ¡Bienvenido a tu Editor de Markdown Premium! 🚀
@@ -1822,4 +1863,423 @@ Este es tu nuevo espacio de escritura histórica y gestión. Todo lo que escriba
 
   // Inicializar el historial unificado una vez cargados todos los contenidos
   inicializarHistorial();
+  
+  // Inicializar menú contextual del Visor e integraciones (Fases 11 & 12)
+  inicializarMenuContextualVisor();
+  inicializarExportacionesYTemplates();
 });
+
+// ==========================================================================
+// ==========================================================================
+// DELEGACIÓN LIMPIA DE EXPORTACIONES, MOTOR DE DATOS ESTRUCTURADOS Y PLANTILLAS
+// ==========================================================================
+
+// 1. FUNCIONES DE EXPORTACIÓN (FASE 11) - DELEGADAS EN EXPORT-SERVICE
+async function exportarAHTML() {
+  await exportarDocumentoAHTML(
+    appState.fileName,
+    DOM.editor.value,
+    appState.readerFont,
+    invoke,
+    alertNotification
+  );
+}
+
+function exportarAPDF() {
+  exportarDocumentoAPDF(alertNotification);
+}
+
+// 2. RENDERS DEL MODO ESTRUCTURADO (FASE 12) - DELEGADAS EN DATA-PARSER
+function renderStructuredTreeVisual(obj) {
+  let html = `<div class="structured-tree-viewer">
+    <div class="structured-tree-header">
+      <div class="header-left">
+        <span class="structured-badge">Modo Estructurado Activo</span>
+      </div>
+      <div class="header-right">
+        <button class="tree-header-btn" id="btn-tree-to-md">
+          <svg viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="2" width="13" height="13"><path d="M12 20h9M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>
+          Modo Lectura
+        </button>
+        <button class="tree-header-btn" id="btn-tree-copy-json">
+          📋 Copiar JSON
+        </button>
+        <button class="tree-header-btn" id="btn-tree-copy-xml">
+          📋 Copiar XML
+        </button>
+      </div>
+    </div>
+    <div class="structured-tree-content">
+      <div class="tree-root-container">
+        ${buildTreeHTML(obj)}
+      </div>
+    </div>
+  </div>`;
+  
+  DOM.preview.innerHTML = html;
+  
+  // Registrar listeners en los botones del Visor Estructurado
+  document.getElementById('btn-tree-to-md').addEventListener('click', () => {
+    appState.structuredModeActive = false;
+    renderMarkdown();
+  });
+  
+  document.getElementById('btn-tree-copy-json').addEventListener('click', () => {
+    const jsonStr = JSON.stringify(obj, null, 2).replace(/\\"/g, '"');
+    navigator.clipboard.writeText(jsonStr);
+    alertNotification('JSON copiado al portapapeles');
+  });
+  
+  document.getElementById('btn-tree-copy-xml').addEventListener('click', () => {
+    const xmlStr = convertJSONToXML(obj);
+    navigator.clipboard.writeText(xmlStr);
+    alertNotification('XML copiado al portapapeles');
+  });
+}
+
+// 3. ALERTA FLOTANTE PREMIUM
+function alertNotification(mensaje) {
+  const oldToast = document.getElementById('premium-toast');
+  if (oldToast) oldToast.remove();
+  
+  const toast = document.createElement('div');
+  toast.id = 'premium-toast';
+  toast.style.position = 'fixed';
+  toast.style.bottom = '40px';
+  toast.style.right = '40px';
+  toast.style.background = 'rgba(15, 15, 20, 0.95)';
+  toast.style.border = '1px solid rgba(139, 92, 246, 0.4)';
+  toast.style.borderRadius = '10px';
+  toast.style.padding = '12px 24px';
+  toast.style.color = '#ffffff';
+  toast.style.fontFamily = 'Inter, sans-serif';
+  toast.style.fontSize = '13px';
+  toast.style.boxShadow = '0 10px 25px rgba(0,0,0,0.5)';
+  toast.style.backdropFilter = 'blur(8px)';
+  toast.style.zIndex = '9999';
+  toast.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
+  toast.style.transform = 'translateY(10px)';
+  toast.style.opacity = '0';
+  
+  toast.innerHTML = `<span style="margin-right:8px;">✨</span> ${mensaje}`;
+  document.body.appendChild(toast);
+  
+  setTimeout(() => {
+    toast.style.transform = 'translateY(0)';
+    toast.style.opacity = '1';
+  }, 10);
+  
+  setTimeout(() => {
+    toast.style.transform = 'translateY(10px)';
+    toast.style.opacity = '0';
+    setTimeout(() => {
+      toast.remove();
+    }, 300);
+  }, 3000);
+}
+
+// 4. MENÚ CONTEXTUAL PERSONALIZADO (CLIC DERECHO VISOR)
+function inicializarMenuContextualVisor() {
+  let menu = document.getElementById('visor-context-menu');
+  if (!menu) {
+    menu = document.createElement('div');
+    menu.id = 'visor-context-menu';
+    menu.className = 'custom-context-menu';
+    menu.style.display = 'none';
+    document.body.appendChild(menu);
+  }
+  
+  DOM.preview.addEventListener('contextmenu', (e) => {
+    e.preventDefault();
+    if (appState.activeView === 'editor') return;
+    
+    const seleccion = window.getSelection().toString();
+    const tieneSeleccion = seleccion.trim().length > 0;
+    
+    const label = appState.structuredModeActive ? "Desactivar Modo Estructurado" : "Activar Modo Estructurado";
+    const icon = appState.structuredModeActive 
+      ? `<svg viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="2"><path d="M12 20h9M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>`
+      : `<svg viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="9" y1="21" x2="9" y2="9"></line><line x1="3" y1="9" x2="21" y2="9"></line></svg>`;
+      
+    menu.innerHTML = `
+      <button class="context-menu-item" id="ctx-copy" ${tieneSeleccion ? '' : 'disabled style="opacity: 0.4; cursor: not-allowed;"'}>
+        <svg viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+        <span>Copiar</span>
+      </button>
+      <button class="context-menu-item" id="ctx-select-all">
+        <svg viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect></svg>
+        <span>Seleccionar todo</span>
+      </button>
+      <div class="dropdown-divider"></div>
+      <button class="context-menu-item" id="ctx-toggle-structured">
+        ${icon}
+        <span>${label}</span>
+      </button>
+      <div class="dropdown-divider"></div>
+      <button class="context-menu-item" id="ctx-export-html">
+        <svg viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>
+        <span>Exportar HTML Autónomo...</span>
+      </button>
+      <button class="context-menu-item" id="ctx-export-pdf">
+        <svg viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><path d="M16 13H8v4h8v-4z"></path></svg>
+        <span>Exportar PDF Premium (Imprimir)...</span>
+      </button>
+    `;
+    
+    menu.style.left = `${e.clientX}px`;
+    menu.style.top = `${e.clientY}px`;
+    menu.style.display = 'flex';
+    
+    if (tieneSeleccion) {
+      document.getElementById('ctx-copy').addEventListener('click', () => {
+        menu.style.display = 'none';
+        navigator.clipboard.writeText(seleccion);
+        alertNotification('Texto copiado al portapapeles');
+      });
+    }
+    
+    document.getElementById('ctx-select-all').addEventListener('click', () => {
+      menu.style.display = 'none';
+      const range = document.createRange();
+      range.selectNodeContents(DOM.preview);
+      const sel = window.getSelection();
+      sel.removeAllRanges();
+      sel.addRange(range);
+      alertNotification('Contenido del visor seleccionado');
+    });
+    
+    document.getElementById('ctx-toggle-structured').addEventListener('click', () => {
+      menu.style.display = 'none';
+      appState.structuredModeActive = !appState.structuredModeActive;
+      if (appState.structuredModeActive) {
+        const arbol = parseMarkdownToJSON(DOM.editor.value);
+        renderStructuredTreeVisual(arbol);
+      } else {
+        renderMarkdown();
+      }
+    });
+    
+    document.getElementById('ctx-export-html').addEventListener('click', () => {
+      menu.style.display = 'none';
+      exportarAHTML();
+    });
+    
+    document.getElementById('ctx-export-pdf').addEventListener('click', () => {
+      menu.style.display = 'none';
+      exportarAPDF();
+    });
+  });
+  
+  document.addEventListener('click', () => {
+    menu.style.display = 'none';
+  });
+}
+
+// 5. EVENT LISTENERS DE EXPORTACIONES, DESPLEGABLE Y PLANTILLAS (INTERFAZ)
+function inicializarExportacionesYTemplates() {
+  DOM.btnExport.addEventListener('click', (e) => {
+    e.stopPropagation();
+    DOM.exportDropdown.classList.toggle('show');
+  });
+  
+  document.addEventListener('click', () => {
+    DOM.exportDropdown.classList.remove('show');
+  });
+  
+  DOM.optExportHtml.addEventListener('click', () => {
+    DOM.exportDropdown.classList.remove('show');
+    exportarAHTML();
+  });
+  
+  DOM.optExportPdf.addEventListener('click', () => {
+    DOM.exportDropdown.classList.remove('show');
+    exportarAPDF();
+  });
+  
+  // Guardar Plantilla
+  DOM.optSaveTemplate.addEventListener('click', async () => {
+    DOM.exportDropdown.classList.remove('show');
+    const content = DOM.editor.value;
+    if (content.trim() === '') {
+      alertNotification('Escribe algo en tu editor antes de guardarlo como plantilla');
+      return;
+    }
+    
+    if (invoke) {
+      const defaultSaveName = appState.fileName + '.md';
+      const fileData = await invoke('guardar_como', { defaultName: defaultSaveName, content: content });
+      if (fileData) {
+        alertNotification('Plantilla guardada con éxito');
+      }
+    } else {
+      const blob = new Blob([content], { type: 'text/markdown' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = appState.fileName + '.md';
+      a.click();
+      URL.revokeObjectURL(url);
+      alertNotification('Plantilla descargada con éxito');
+    }
+  });
+  
+  // Cargar Plantilla
+  DOM.optLoadTemplate.addEventListener('click', async () => {
+    DOM.exportDropdown.classList.remove('show');
+    if (invoke) {
+      const fileData = await invoke('abrir_archivo');
+      if (fileData) {
+        procesarCargaDePlantillaText(fileData.content);
+      }
+    } else {
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = '.md,.markdown,.txt';
+      input.onchange = (e) => {
+        const file = e.target.files[0];
+        const reader = new FileReader();
+        reader.onload = (evt) => {
+          procesarCargaDePlantillaText(evt.target.result);
+        };
+        reader.readAsText(file);
+      };
+      input.click();
+    }
+  });
+  
+  // Insertar Módulo
+  DOM.optInsertModule.addEventListener('click', () => {
+    DOM.exportDropdown.classList.remove('show');
+    DOM.modalModules.classList.add('active');
+  });
+  
+  document.querySelectorAll('.module-card-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const modKey = btn.getAttribute('data-module');
+      const moduloTexto = BLOQUES_MODULOS[modKey];
+      
+      if (moduloTexto) {
+        DOM.modalModules.classList.remove('active');
+        insertarTextoModuloConSangria(moduloTexto);
+      }
+    });
+  });
+  
+  DOM.modalTemplateVars.querySelector('.modal-close-btn').addEventListener('click', () => {
+    DOM.modalTemplateVars.classList.remove('active');
+  });
+  
+  DOM.btnCancelVars.addEventListener('click', () => {
+    DOM.modalTemplateVars.classList.remove('active');
+  });
+  
+  DOM.modalModules.querySelector('.modal-close-btn').addEventListener('click', () => {
+    DOM.modalModules.classList.remove('active');
+  });
+  
+  DOM.modalTemplateVars.addEventListener('click', (e) => {
+    if (e.target === DOM.modalTemplateVars) DOM.modalTemplateVars.classList.remove('active');
+  });
+  DOM.modalModules.addEventListener('click', (e) => {
+    if (e.target === DOM.modalModules) DOM.modalModules.classList.remove('active');
+  });
+  
+  DOM.btnApplyVars.addEventListener('click', () => {
+    let replacedText = appState.currentTemplateText;
+    const inputs = DOM.formTemplateVars.querySelectorAll('.config-input-text');
+    inputs.forEach(input => {
+      const varName = input.getAttribute('data-var');
+      const varVal = input.value;
+      const regex = new RegExp(`\\{\\{\\s*${varName}\\s*\\}\\}`, 'g');
+      replacedText = replacedText.replace(regex, varVal);
+    });
+    
+    if (historial) {
+      historial.registrarCambioAntesDeFormato();
+    }
+    
+    DOM.editor.value = replacedText;
+    renderMarkdown();
+    setSavedState(false);
+    DOM.modalTemplateVars.classList.remove('active');
+    alertNotification('Plantilla inyectada con éxito');
+    
+    if (historial) {
+      historial.registrarCambioDespuesDeFormato();
+    }
+  });
+}
+
+function procesarCargaDePlantillaText(text) {
+  const variables = escanearVariablesDePlantilla(text);
+  
+  if (variables.length > 0) {
+    appState.currentTemplateText = text;
+    DOM.formTemplateVars.innerHTML = '';
+    variables.forEach(vName => {
+      const row = document.createElement('div');
+      row.className = 'config-row';
+      row.style.flexDirection = 'column';
+      row.style.alignItems = 'flex-start';
+      row.style.gap = '6px';
+      
+      const label = document.createElement('label');
+      label.textContent = vName.replace(/_/g, ' ');
+      label.style.fontSize = '12px';
+      label.style.fontWeight = '600';
+      
+      const input = document.createElement('input');
+      input.type = 'text';
+      input.className = 'config-select config-input-text';
+      input.setAttribute('data-var', vName);
+      input.placeholder = `Ingresa valor para ${vName}`;
+      input.style.width = '100%';
+      input.style.boxSizing = 'border-box';
+      input.style.padding = '8px 12px';
+      input.style.borderRadius = '8px';
+      input.style.border = '1px solid rgba(255,255,255,0.08)';
+      input.style.background = 'rgba(255,255,255,0.02)';
+      input.style.color = '#ffffff';
+      
+      row.appendChild(label);
+      row.appendChild(input);
+      DOM.formTemplateVars.appendChild(row);
+    });
+    
+    DOM.modalTemplateVars.classList.add('active');
+  } else {
+    if (historial) {
+      historial.registrarCambioAntesDeFormato();
+    }
+    DOM.editor.value = text;
+    renderMarkdown();
+    setSavedState(false);
+    alertNotification('Plantilla cargada con éxito');
+    if (historial) {
+      historial.registrarCambioDespuesDeFormato();
+    }
+  }
+}
+
+function insertarTextoModuloConSangria(moduloTexto) {
+  const alignedText = obtenerTextoModuloConSangria(moduloTexto, DOM.editor.value, DOM.editor.selectionStart);
+  
+  if (historial) {
+    historial.registrarCambioAntesDeFormato();
+  }
+  
+  const textarea = DOM.editor;
+  const start = textarea.selectionStart;
+  textarea.setRangeText(alignedText, start, start, 'select');
+  const nuevaPosCursor = start + alignedText.length;
+  textarea.setSelectionRange(nuevaPosCursor, nuevaPosCursor);
+  
+  renderMarkdown();
+  setSavedState(false);
+  textarea.focus();
+  alertNotification('Módulo integrado con éxito en la jerarquía');
+  
+  if (historial) {
+    historial.registrarCambioDespuesDeFormato();
+  }
+}

@@ -54,6 +54,21 @@ fn guardar_como(default_name: String, content: String) -> Option<FileData> {
     })
 }
 
+#[tauri::command]
+fn exportar_html(default_name: String, content: String) -> Option<String> {
+    let mut file_path = FileDialog::new()
+        .add_filter("HTML", &["html"])
+        .set_file_name(&default_name)
+        .save_file()?;
+        
+    if file_path.extension().and_then(|ext| ext.to_str()) != Some("html") {
+        file_path.set_extension("html");
+    }
+        
+    fs::write(&file_path, &content).ok()?;
+    Some(file_path.to_string_lossy().to_string())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
   tauri::Builder::default()
@@ -67,7 +82,7 @@ pub fn run() {
       }
       Ok(())
     })
-    .invoke_handler(tauri::generate_handler![abrir_archivo, guardar_archivo, guardar_como])
+    .invoke_handler(tauri::generate_handler![abrir_archivo, guardar_archivo, guardar_como, exportar_html])
     .run(tauri::generate_context!())
     .expect("error while running tauri application");
 }

@@ -98,6 +98,23 @@ export function parseMarkdownToJSON(text) {
         } else {
           currentNode[key] = parsedVal;
         }
+      } else {
+        // C. Contenido Narrativo (Línea sin separador ':')
+        if (content.length > 0) {
+          const currentNode = stack[stack.length - 1].data;
+          
+          // Verificación inteligente de colisiones sugerida por el usuario
+          let keyToUse = "contenido";
+          if (currentNode[keyToUse] !== undefined && typeof currentNode[keyToUse] !== 'string') {
+            keyToUse = "descripcion";
+          }
+          
+          if (currentNode[keyToUse] !== undefined) {
+            currentNode[keyToUse] += '\n' + content;
+          } else {
+            currentNode[keyToUse] = content;
+          }
+        }
       }
     }
   }
@@ -105,10 +122,57 @@ export function parseMarkdownToJSON(text) {
   return root;
 }
 
-// 2. CONVERTIDOR DE OBJETO JSON A XML LIMPIO
-export function convertJSONToXML(obj, rootName = "Monstruos") {
+// 2. SANITIZADOR ROBUSTO PARA ETIQUETAS XML
+export function sanitizeXMLTagName(name) {
+  if (!name) return "Documento";
+  
+  // Quitar la extensión .md o .xml si existe
+  let cleanName = name;
+  if (cleanName.toLowerCase().endsWith('.md')) {
+    cleanName = cleanName.substring(0, cleanName.length - 4);
+  } else if (cleanName.toLowerCase().endsWith('.xml')) {
+    cleanName = cleanName.substring(0, cleanName.length - 4);
+  }
+  
+  cleanName = cleanName.trim();
+  
+  // Si está vacío o es el default "Sin título" o similar, fallback
+  const lowerName = cleanName.toLowerCase();
+  if (lowerName === "" || lowerName === "sin título" || lowerName === "sin titulo" || lowerName === "untitled") {
+    return "Documento";
+  }
+  
+  // Normalizar acentos y eñes quitándolos para evitar problemas con parsers XML estrictos
+  cleanName = cleanName.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  
+  // Reemplazar espacios y caracteres especiales por guiones bajos
+  cleanName = cleanName.replace(/[^a-zA-Z0-9_.-]/g, '_');
+  
+  // Reemplazar múltiples guiones bajos seguidos por uno solo
+  cleanName = cleanName.replace(/_+/g, '_');
+  
+  // Quitar guiones o puntos al inicio o al final
+  cleanName = cleanName.replace(/^[-_.]+|[-_.]+$/g, '');
+  
+  // Si empieza por un número o carácter inválido, anteponer "Node_" (sugerencia de diseño de software)
+  if (/^[0-9.-]/.test(cleanName) || cleanName.length === 0) {
+    cleanName = "Node_" + cleanName;
+  }
+  
+  // Si empieza con "xml" de forma insensible a mayúsculas/minúsculas, anteponer "doc_"
+  if (cleanName.toLowerCase().startsWith('xml')) {
+    cleanName = "doc_" + cleanName;
+  }
+  
+  return cleanName || "Documento";
+}
+
+// 3. CONVERTIDOR DE OBJETO JSON A XML LIMPIO Y DINÁMICO
+export function convertJSONToXML(obj, rootName = "Documento") {
+  const sanitizedRoot = sanitizeXMLTagName(rootName);
+  
   function serialize(node, name) {
-    const tagName = name.replace(/\s+/g, '_').replace(/[^a-zA-Z0-9_.-]/g, '');
+    const tagName = sanitizeXMLTagName(name);
     
     if (node === null || node === undefined) {
       return `<${tagName}/>`;
@@ -137,16 +201,11 @@ export function convertJSONToXML(obj, rootName = "Monstruos") {
   }
   
   let finalXml = '<?xml version="1.0" encoding="UTF-8"?>\n';
-  const keys = Object.keys(obj);
-  if (keys.length === 1) {
-    finalXml += serialize(obj[keys[0]], keys[0]);
-  } else {
-    let combined = "";
-    for (let key in obj) {
-      combined += serialize(obj[key], key) + "\n";
-    }
-    finalXml += `<${rootName}>\n${combined}</${rootName}>`;
+  let combined = "";
+  for (let key in obj) {
+    combined += serialize(obj[key], key) + "\n";
   }
+  finalXml += `<${sanitizedRoot}>\n${combined}</${sanitizedRoot}>`;
   
   return finalXml;
 }

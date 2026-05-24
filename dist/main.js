@@ -1931,7 +1931,7 @@ function renderStructuredTreeVisual(obj) {
   });
   
   document.getElementById('btn-tree-copy-xml').addEventListener('click', () => {
-    const xmlStr = convertJSONToXML(obj);
+    const xmlStr = convertJSONToXML(obj, appState.fileName);
     navigator.clipboard.writeText(xmlStr);
     alertNotification('XML copiado al portapapeles');
   });

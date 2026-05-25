@@ -3,24 +3,8 @@
  * Motor Premium de Plantillas, Variables Dinámicas {{}} e Inserción Modular - Fase 12
  */
 
-// Módulos predefinidos integrables
-export const BLOQUES_MODULOS = {
-  atributos: `# Atributos
-	**Vida:** 100i
-	**Fuerza:** 10i
-	**Agilidad:** 5.5f
-	**Activo:** Sí`,
-  inventario: `# Inventario
-	**Item:** Espada Corta
-	**Item:** Escudo Pequeño
-	**Item:** Raciones de Viaje`,
-  habilidad: `# Habilidad
-	**Nombre:** Ráfaga Feroz
-	**Costo:** 15i
-	**Multiplicador:** 1.5f`,
-  historia: `# Historia
-	Este guerrero proviene de las tierras frías del norte. Su clan ha custodiado los secretos del metal durante generaciones.`
-};
+// Módulos dinámicos integrables (anteriormente BLOQUES_MODULOS fijos)
+// Ahora se leen dinámicamente mediante el sistema de archivos de Tauri de forma robusta.
 
 // 1. ESCANEAR VARIABLES DINÁMICAS {{variable}} EN TEXTO
 export function escanearVariablesDePlantilla(text) {

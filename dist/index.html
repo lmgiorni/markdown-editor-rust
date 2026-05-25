@@ -352,32 +352,27 @@
     </div>
   </div>
 
-  <!-- 5. Modal Selector de Módulos Componibles -->
-  <div id="modal-modules" class="modal-overlay">
-    <div class="modal-box">
+  <!-- 5. Modal Selector de Activos Dinámicos (Plantillas / Módulos) v2.0 -->
+  <div id="modal-file-selector" class="modal-overlay">
+    <div class="modal-box modal-box-wide">
       <header class="modal-header">
-        <h3>Insertar Módulo Componible</h3>
+        <h3 id="file-selector-title">Seleccionar Activo</h3>
         <button class="modal-close-btn">&times;</button>
       </header>
       <div class="modal-body">
-        <p class="modal-desc">Selecciona un fragmento prediseñado. Se integrará de forma perfecta heredando la sangría relativa del cursor:</p>
-        <div class="modules-grid">
-          <button class="module-card-btn" data-module="atributos">
-            <h4>🛡️ Bloque de Atributos</h4>
-            <p>Vida, Fuerza, Agilidad y otros parámetros iniciales.</p>
-          </button>
-          <button class="module-card-btn" data-module="inventario">
-            <h4>🎒 Bloque de Inventario</h4>
-            <p>Lista de items equipables iniciales.</p>
-          </button>
-          <button class="module-card-btn" data-module="habilidad">
-            <h4>⚡ Habilidad Especial</h4>
-            <p>Estructura de clave-valor para definir costes y efectos.</p>
-          </button>
-          <button class="module-card-btn" data-module="historia">
-            <h4>📖 Contexto Histórico</h4>
-            <p>Bloque de descripción narrativa y mitología.</p>
-          </button>
+        <p id="file-selector-desc" class="modal-desc">Cargando activos...</p>
+        
+        <!-- Barra de búsqueda e integración de filtros interactivos -->
+        <div class="selector-controls">
+          <input type="text" id="selector-search-input" placeholder="Buscar por nombre o descripción..." class="config-input-text search-bar-premium">
+          <div id="selector-chips-container" class="chips-container-premium">
+            <!-- Chips de categorías generados dinámicamente -->
+          </div>
+        </div>
+        
+        <!-- Grid dinámico de tarjetas -->
+        <div id="selector-grid" class="assets-grid-premium">
+          <!-- Tarjetas de activos inyectadas dinámicamente -->
         </div>
       </div>
     </div>

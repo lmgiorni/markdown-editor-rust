@@ -10,9 +10,16 @@ export function parseMarkdownToJSON(text) {
   const stack = [{ level: -1, data: root }];
   
   for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
+    let line = lines[i];
     
     if (line.trim().length === 0) continue;
+    
+    // Limpieza en caliente de metadatos de módulo/plantilla v2.0
+    // Si la línea coincide con "# Categoria `Descripcion`", removemos la descripción para que sirva de nodo raíz
+    const metaRegex = /^#\s*([a-zA-Z0-9_#-]+)\s*`([^`]+)`/;
+    if (metaRegex.test(line.trim())) {
+      line = line.replace(/\s*`[^`]+`/, ''); // Dejar solo "# Categoria"
+    }
     
     // Contar sangría (tabs y grupos de 4 espacios)
     const matchSpaces = line.match(/^([ \t]*)/);

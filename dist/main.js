@@ -4,7 +4,7 @@
 
 import { HistorialCambios } from './utils/history-manager.js';
 import { parseMarkdownToJSON, convertJSONToXML, buildTreeHTML } from './utils/data-parser.js';
-import { BLOQUES_MODULOS, escanearVariablesDePlantilla, obtenerTextoModuloConSangria } from './utils/template-engine.js';
+import { escanearVariablesDePlantilla, obtenerTextoModuloConSangria } from './utils/template-engine.js';
 import { exportarDocumentoAHTML, exportarDocumentoAPDF } from './utils/export-service.js';
 
 // Configuración y Acceso Seguro al Puente de Tauri
@@ -68,7 +68,12 @@ const DOM = {
   modalStats: document.getElementById('modal-stats'),
   modalConfig: document.getElementById('modal-config'),
   modalTemplateVars: document.getElementById('modal-template-vars'),
-  modalModules: document.getElementById('modal-modules'),
+  modalFileSelector: document.getElementById('modal-file-selector'),
+  fileSelectorTitle: document.getElementById('file-selector-title'),
+  fileSelectorDesc: document.getElementById('file-selector-desc'),
+  selectorSearchInput: document.getElementById('selector-search-input'),
+  selectorChipsContainer: document.getElementById('selector-chips-container'),
+  selectorGrid: document.getElementById('selector-grid'),
   formTemplateVars: document.getElementById('form-template-vars'),
   btnCancelVars: document.getElementById('btn-cancel-vars'),
   btnApplyVars: document.getElementById('btn-apply-vars'),
@@ -2123,15 +2128,14 @@ function inicializarExportacionesYTemplates() {
     }
   });
   
-  // Cargar Plantilla
+
+  // Cargar Plantilla (Dinámico v2.0)
   DOM.optLoadTemplate.addEventListener('click', async () => {
     DOM.exportDropdown.classList.remove('show');
     if (invoke) {
-      const fileData = await invoke('abrir_archivo');
-      if (fileData) {
-        procesarCargaDePlantillaText(fileData.content);
-      }
+      abrirSelectorDeActivos('templates');
     } else {
+      // Fallback web sin Tauri
       const input = document.createElement('input');
       input.type = 'file';
       input.accept = '.md,.markdown,.txt';
@@ -2146,44 +2150,34 @@ function inicializarExportacionesYTemplates() {
       input.click();
     }
   });
-  
-  // Insertar Módulo
+
+  // Insertar Módulo (Dinámico v2.0)
   DOM.optInsertModule.addEventListener('click', () => {
     DOM.exportDropdown.classList.remove('show');
-    DOM.modalModules.classList.add('active');
+    if (invoke) {
+      abrirSelectorDeActivos('modules');
+    } else {
+      alertNotification('La inserción de módulos dinámicos requiere ejecución en escritorio.');
+    }
   });
-  
-  document.querySelectorAll('.module-card-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const modKey = btn.getAttribute('data-module');
-      const moduloTexto = BLOQUES_MODULOS[modKey];
-      
-      if (moduloTexto) {
-        DOM.modalModules.classList.remove('active');
-        insertarTextoModuloConSangria(moduloTexto);
-      }
-    });
-  });
-  
+
+  // Listeners de Cierre de Modales
   DOM.modalTemplateVars.querySelector('.modal-close-btn').addEventListener('click', () => {
     DOM.modalTemplateVars.classList.remove('active');
   });
-  
   DOM.btnCancelVars.addEventListener('click', () => {
     DOM.modalTemplateVars.classList.remove('active');
   });
-  
-  DOM.modalModules.querySelector('.modal-close-btn').addEventListener('click', () => {
-    DOM.modalModules.classList.remove('active');
+  DOM.modalFileSelector.querySelector('.modal-close-btn').addEventListener('click', () => {
+    DOM.modalFileSelector.classList.remove('active');
   });
-  
   DOM.modalTemplateVars.addEventListener('click', (e) => {
     if (e.target === DOM.modalTemplateVars) DOM.modalTemplateVars.classList.remove('active');
   });
-  DOM.modalModules.addEventListener('click', (e) => {
-    if (e.target === DOM.modalModules) DOM.modalModules.classList.remove('active');
+  DOM.modalFileSelector.addEventListener('click', (e) => {
+    if (e.target === DOM.modalFileSelector) DOM.modalFileSelector.classList.remove('active');
   });
-  
+
   DOM.btnApplyVars.addEventListener('click', () => {
     let replacedText = appState.currentTemplateText;
     const inputs = DOM.formTemplateVars.querySelectorAll('.config-input-text');
@@ -2282,4 +2276,173 @@ function insertarTextoModuloConSangria(moduloTexto) {
   if (historial) {
     historial.registrarCambioDespuesDeFormato();
   }
+}
+
+// ==========================================================================
+// SISTEMA DINÁMICO DE ACTIVOS (PLANTILLAS Y MÓDULOS v2.0)
+// ==========================================================================
+let listadoActivosEnriquecidos = [];
+let categoriaActivaSelector = 'Todos';
+
+async function abrirSelectorDeActivos(tipo) {
+  // 1. Configurar textos dinámicos
+  DOM.fileSelectorTitle.textContent = tipo === 'templates' ? 'Cargar Plantilla de Juego' : 'Insertar Módulo Componible';
+  DOM.fileSelectorDesc.textContent = tipo === 'templates' 
+    ? 'Selecciona una plantilla base para sobreescribir tu editor. Las variables {{}} se completarán mediante un asistente:' 
+    : 'Selecciona un módulo componible para integrarlo de forma perfecta en tu jerarquía, heredando la sangría de tu cursor:';
+
+  // 2. Limpiar e inicializar UI
+  DOM.selectorSearchInput.value = '';
+  DOM.selectorChipsContainer.innerHTML = '';
+  DOM.selectorGrid.innerHTML = '<div style="color: #64748b; font-size: 13px; padding: 20px;">Cargando activos...</div>';
+  DOM.modalFileSelector.classList.add('active');
+
+  categoriaActivaSelector = 'Todos';
+  listadoActivosEnriquecidos = [];
+
+  try {
+    // 3. Consultar backend Rust
+    const activos = await invoke('listar_activos', { tipo: tipo });
+    
+    if (!activos || activos.length === 0) {
+      DOM.selectorGrid.innerHTML = `<div style="color: #64748b; font-size: 13px; padding: 20px;">No se encontraron activos en la carpeta /assets/${tipo}/.</div>`;
+      return;
+    }
+
+    // 4. Leer contenidos y procesar metadatos en paralelo
+    const promesas = activos.map(async (activo) => {
+      try {
+        const text = await invoke('leer_activo', { filePath: activo.filePath });
+        
+        // Procesar línea de metadatos (# Categoria `Descripcion`)
+        const lines = text.split('\n');
+        let firstLine = '';
+        for (let line of lines) {
+          if (line.trim().length > 0) {
+            firstLine = line.trim();
+            break;
+          }
+        }
+
+        let categoria = 'General';
+        let descripcion = 'Sin descripción disponible.';
+        const metaRegex = /^#\s*([a-zA-Z0-9_#-]+)\s*`([^`]+)`/;
+        const match = firstLine.match(metaRegex);
+        if (match) {
+          categoria = match[1].replace(/_/g, ' '); // Formatear categoría quitando guiones bajos
+          descripcion = match[2];
+        }
+
+        // Formatear nombre legible (ej: Ficha_Personaje -> Ficha Personaje)
+        const nombreMenu = activo.fileName.replace(/_/g, ' ').replace(/([A-Z])/g, ' $1').replace(/\s+/g, ' ').trim();
+
+        // Calcular tamaño UTF-8 en bytes en el cliente
+        const sizeInBytes = new Blob([text]).size;
+        let formattedSize = sizeInBytes + ' B';
+        if (sizeInBytes >= 1024) {
+          formattedSize = (sizeInBytes / 1024).toFixed(1) + ' KB';
+        }
+
+        return {
+          fileName: activo.fileName,
+          filePath: activo.filePath,
+          nombreMenu,
+          categoria,
+          descripcion,
+          text,
+          size: formattedSize
+        };
+      } catch (err) {
+        console.error('Error procesando activo individual:', err);
+        return null;
+      }
+    });
+
+    const resultados = await Promise.all(promesas);
+    listadoActivosEnriquecidos = resultados.filter(r => r !== null);
+
+    if (listadoActivosEnriquecidos.length === 0) {
+      DOM.selectorGrid.innerHTML = `<div style="color: #64748b; font-size: 13px; padding: 20px;">Error al leer el contenido de los activos.</div>`;
+      return;
+    }
+
+    // 5. Generar chips de categorías dinámicas
+    const categoriasUnicas = ['Todos', ...new Set(listadoActivosEnriquecidos.map(a => a.categoria))];
+    DOM.selectorChipsContainer.innerHTML = '';
+    
+    categoriasUnicas.forEach(cat => {
+      const chip = document.createElement('button');
+      chip.className = `category-chip ${cat === 'Todos' ? 'active' : ''}`;
+      chip.textContent = cat;
+      chip.addEventListener('click', () => {
+        DOM.selectorChipsContainer.querySelectorAll('.category-chip').forEach(c => c.classList.remove('active'));
+        chip.classList.add('active');
+        categoriaActivaSelector = cat;
+        renderizarTarjetasFiltradas(tipo);
+      });
+      DOM.selectorChipsContainer.appendChild(chip);
+    });
+
+    // 6. Configurar el buscador en tiempo real
+    DOM.selectorSearchInput.oninput = () => {
+      renderizarTarjetasFiltradas(tipo);
+    };
+
+    // 7. Renderizado inicial de tarjetas
+    renderizarTarjetasFiltradas(tipo);
+
+  } catch (err) {
+    console.error('Error al cargar activos desde Rust:', err);
+    DOM.selectorGrid.innerHTML = `<div style="color: #ef4444; font-size: 13px; padding: 20px;">Error del sistema: ${err}</div>`;
+  }
+}
+
+function renderizarTarjetasFiltradas(tipo) {
+  const query = DOM.selectorSearchInput.value.toLowerCase().trim();
+  DOM.selectorGrid.innerHTML = '';
+
+  const filtrados = listadoActivosEnriquecidos.filter(activo => {
+    // A. Filtrado por chip de categoría
+    if (categoriaActivaSelector !== 'Todos' && activo.categoria !== categoriaActivaSelector) {
+      return false;
+    }
+    // B. Filtrado por texto en buscador
+    if (query.length > 0) {
+      const coincideNombre = activo.nombreMenu.toLowerCase().includes(query);
+      const coincideDesc = activo.descripcion.toLowerCase().includes(query);
+      return coincideNombre || coincideDesc;
+    }
+    return true;
+  });
+
+  if (filtrados.length === 0) {
+    DOM.selectorGrid.innerHTML = `<div style="color: #64748b; font-size: 13px; padding: 20px; grid-column: 1 / -1; text-align: center;">No hay activos que coincidan con tu búsqueda.</div>`;
+    return;
+  }
+
+  filtrados.forEach(activo => {
+    const card = document.createElement('button');
+    card.className = 'asset-card-premium';
+    card.innerHTML = `
+      <div class="asset-card-content">
+        <h4>${activo.nombreMenu}</h4>
+        <p>${activo.descripcion}</p>
+      </div>
+      <div class="asset-card-footer">
+        <span class="asset-badge-category">${activo.categoria}</span>
+        <span class="asset-size-label">${activo.size}</span>
+      </div>
+    `;
+
+    card.addEventListener('click', () => {
+      DOM.modalFileSelector.classList.remove('active');
+      if (tipo === 'templates') {
+        procesarCargaDePlantillaText(activo.text);
+      } else {
+        insertarTextoModuloConSangria(activo.text);
+      }
+    });
+
+    DOM.selectorGrid.appendChild(card);
+  });
 }

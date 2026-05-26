@@ -393,16 +393,17 @@ async function abrirArchivo() {
       renderMarkdown();
       setSavedState(true);
       inicializarHistorial();
+      alertNotification('Archivo abierto con éxito', 'success');
     }
   } catch (error) {
     console.error('Error al abrir:', error);
-    alert('No se pudo abrir el archivo seleccionado.');
+    alertNotification('Error al abrir el archivo: ' + error, 'error');
   }
 }
 
 async function guardarArchivo() {
   if (!invoke) {
-    alert('La comunicación con Tauri no está activa.');
+    alertNotification('La comunicación con Tauri no está activa.', 'error');
     return;
   }
 
@@ -416,15 +417,16 @@ async function guardarArchivo() {
     const contenido = DOM.editor.value;
     await invoke('guardar_archivo', { path: appState.filePath, content: contenido });
     setSavedState(true);
+    alertNotification('Cambios guardados con éxito', 'success');
   } catch (error) {
     console.error('Error al guardar:', error);
-    alert('Ocurrió un error al intentar guardar los cambios: ' + error);
+    alertNotification('Error al guardar los cambios: ' + error, 'error');
   }
 }
 
 async function guardarComo() {
   if (!invoke) {
-    alert('La comunicación con Tauri no está activa.');
+    alertNotification('La comunicación con Tauri no está activa.', 'error');
     return;
   }
 
@@ -445,10 +447,11 @@ async function guardarComo() {
       }
       appState.fileName = name;
       setSavedState(true);
+      alertNotification('Archivo guardado con éxito', 'success');
     }
   } catch (error) {
     console.error('Error al guardar como:', error);
-    alert('No se pudo guardar el archivo bajo esa ubicación.');
+    alertNotification('Error al guardar el archivo: ' + error, 'error');
   }
 }
 
@@ -1943,7 +1946,7 @@ function renderStructuredTreeVisual(obj) {
 }
 
 // 3. ALERTA FLOTANTE PREMIUM
-function alertNotification(mensaje) {
+function alertNotification(mensaje, tipo = 'info') {
   const oldToast = document.getElementById('premium-toast');
   if (oldToast) oldToast.remove();
   
@@ -1953,7 +1956,15 @@ function alertNotification(mensaje) {
   toast.style.bottom = '40px';
   toast.style.right = '40px';
   toast.style.background = 'rgba(15, 15, 20, 0.95)';
-  toast.style.border = '1px solid rgba(139, 92, 246, 0.4)';
+  
+  if (tipo === 'error') {
+    toast.style.border = '1px solid rgba(239, 68, 68, 0.6)';
+  } else if (tipo === 'success') {
+    toast.style.border = '1px solid rgba(16, 185, 129, 0.6)';
+  } else {
+    toast.style.border = '1px solid rgba(139, 92, 246, 0.4)';
+  }
+  
   toast.style.borderRadius = '10px';
   toast.style.padding = '12px 24px';
   toast.style.color = '#ffffff';
@@ -1966,7 +1977,8 @@ function alertNotification(mensaje) {
   toast.style.transform = 'translateY(10px)';
   toast.style.opacity = '0';
   
-  toast.innerHTML = `<span style="margin-right:8px;">✨</span> ${mensaje}`;
+  const icon = tipo === 'error' ? '❌' : tipo === 'success' ? '✅' : '✨';
+  toast.innerHTML = `<span style="margin-right:8px;">${icon}</span> ${mensaje}`;
   document.body.appendChild(toast);
   
   setTimeout(() => {

@@ -1597,6 +1597,11 @@ body {
    ESTILOS DE IMPRESIÓN Y PDF DE ALTA FIDELIDAD
    ========================================================================== */
 @media print {
+  @page {
+    size: A4;
+    margin: 15mm 15mm 15mm 15mm;
+  }
+
   /* Ocultar interfaz del editor y controles */
   #toolbar, 
   #statusbar, 
@@ -1605,7 +1610,8 @@ body {
   .modal-overlay, 
   .custom-context-menu,
   .dropdown-menu,
-  .dropdown-container {
+  .dropdown-container,
+  #premium-toast {
     display: none !important;
   }
   
@@ -1637,6 +1643,9 @@ body {
     padding: 0 !important;
     margin: 0 !important;
     background: transparent !important;
+    font-family: var(--reader-font-family, 'Inter', sans-serif) !important;
+    font-size: var(--reader-font-size, 15px) !important;
+    line-height: 1.6 !important;
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
   }

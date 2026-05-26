@@ -1,5 +1,6 @@
 use std::fs;
 use rfd::FileDialog;
+use tauri::Manager;
 
 #[derive(serde::Serialize)]
 pub struct FileData {
@@ -17,49 +18,66 @@ pub struct ActivoMetadata {
 }
 
 #[tauri::command]
-fn abrir_archivo() -> Option<FileData> {
-    let file_path = FileDialog::new()
+fn abrir_archivo() -> Result<Option<FileData>, String> {
+    let file_path = match FileDialog::new()
         .add_filter("Markdown", &["md", "markdown", "txt"])
-        .pick_file()?;
+        .pick_file() {
+            Some(path) => path,
+            None => return Ok(None),
+        };
     
     let path_str = file_path.to_string_lossy().to_string();
-    let name_str = file_path.file_name()?.to_string_lossy().to_string();
-    let content = fs::read_to_string(&file_path).ok()?;
+    let name_str = file_path.file_name()
+        .ok_or_else(|| "No se pudo obtener el nombre del archivo de la ruta seleccionada.".to_string())?
+        .to_string_lossy()
+        .to_string();
+        
+    let content = fs::read_to_string(&file_path)
+        .map_err(|e| format!("Error de lectura en '{}': {}", path_str, e))?;
     
-    Some(FileData {
+    Ok(Some(FileData {
         path: path_str,
         name: name_str,
         content,
-    })
+    }))
 }
 
 #[tauri::command]
 fn guardar_archivo(path: String, content: String) -> Result<(), String> {
-    fs::write(&path, content).map_err(|e| e.to_string())
+    fs::write(&path, content)
+        .map_err(|e| format!("Error de escritura en '{}': {}", path, e))
 }
 
 #[tauri::command]
-fn guardar_como(default_name: String, content: String) -> Option<FileData> {
-    let mut file_path = FileDialog::new()
+fn guardar_como(default_name: String, content: String) -> Result<Option<FileData>, String> {
+    let mut file_path = match FileDialog::new()
         .add_filter("Markdown", &["md", "markdown"])
         .set_file_name(&default_name)
-        .save_file()?;
+        .save_file() {
+            Some(path) => path,
+            None => return Ok(None),
+        };
         
     // Asegurarse de que termine con la extensión .md siempre
     if file_path.extension().and_then(|ext| ext.to_str()) != Some("md") {
         file_path.set_extension("md");
     }
         
-    fs::write(&file_path, &content).ok()?;
-    
     let path_str = file_path.to_string_lossy().to_string();
-    let name_str = file_path.file_name()?.to_string_lossy().to_string();
     
-    Some(FileData {
+    fs::write(&file_path, &content)
+        .map_err(|e| format!("Error de escritura en '{}': {}", path_str, e))?;
+    
+    let name_str = file_path.file_name()
+        .ok_or_else(|| "No se pudo obtener el nombre del archivo de la ruta seleccionada.".to_string())?
+        .to_string_lossy()
+        .to_string();
+    
+    Ok(Some(FileData {
         path: path_str,
         name: name_str,
         content,
-    })
+    }))
 }
 
 #[tauri::command]
@@ -78,9 +96,9 @@ fn exportar_html(default_name: String, content: String) -> Option<String> {
 }
 
 #[tauri::command]
-fn listar_activos(tipo: String) -> Result<Vec<ActivoMetadata>, String> {
-    let base_dir = std::env::current_dir()
-        .map_err(|e| format!("No se pudo obtener el directorio actual: {}", e))?;
+fn listar_activos(app_handle: tauri::AppHandle, tipo: String) -> Result<Vec<ActivoMetadata>, String> {
+    let base_dir = app_handle.path().app_data_dir()
+        .map_err(|e| format!("No se pudo obtener el directorio de datos de la app: {}", e))?;
     
     let path = base_dir.join("assets").join(&tipo);
     
@@ -127,8 +145,9 @@ fn leer_activo(file_path: String) -> Result<String, String> {
 pub fn run() {
   tauri::Builder::default()
     .setup(|app| {
-      // Inicializar y asegurar carpetas de assets locales
-      let base_dir = std::env::current_dir().unwrap_or_default();
+      // Inicializar y asegurar carpetas de assets locales en app_data_dir
+      let base_dir = app.path().app_data_dir()
+          .map_err(|e| format!("No se pudo obtener el directorio de datos de la app: {}", e))?;
       let assets_dir = base_dir.join("assets");
       let templates_dir = assets_dir.join("templates");
       let modules_dir = assets_dir.join("modules");

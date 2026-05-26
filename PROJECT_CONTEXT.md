@@ -5,10 +5,10 @@ Editor de Markdown moderno y ligero desarrollado en Rust para Windows, enfocado 
 
 ## Stack Tecnológico
 - **Lenguaje**: Rust
-- **GUI Framework**: `egui` / `eframe` (Immediate Mode GUI)
-- **Markdown Parser**: `pulldown-cmark`
-- **Diálogos de Archivo**: `rfd`
-- **Imágenes**: `image`
+- **Lenguaje**: Rust / JavaScript / HTML / CSS
+- **GUI Framework**: Tauri (WebView)
+- **Frontend**: Vanilla JS (ES6+) con CSS nativo y Glassmorphism
+- **Backend (Rust)**: Manejo de archivos, parseo avanzado e interacción con el OS
 
 ## Características Implementadas
 - **Vistas de Interfaz**: 
@@ -21,13 +21,12 @@ Editor de Markdown moderno y ligero desarrollado en Rust para Windows, enfocado 
 - **Estadísticas**: Conteo de palabras, caracteres y enlaces.
 
 ## Estructura del Código
-- `src/main.rs`: Punto de entrada y bucle principal de la aplicación.
-- `src/app.rs`: Estado global (`MarkdownApp`) y configuración de fuentes.
-- `src/markdown_renderer.rs`: Lógica de conversión de Markdown a elementos visuales.
-- `src/ui/`: Componentes de interfaz:
-  - `toolbar_ui.rs`: Barra de herramientas superior.
-  - `panels_ui.rs`: Paneles laterales, estadísticas y configuración.
-  - `editor_preview_ui.rs`: Panel central de edición y previsualización.
+- `src-tauri/src/main.rs` y `lib.rs`: Backend en Rust, configuración de Tauri y comandos IPC.
+- `dist/`: Frontend de la aplicación.
+  - `index.html`: Estructura principal y UI (Layout, Modal).
+  - `style.css`: Estilos de la aplicación.
+  - `main.js`: Lógica principal del editor y comunicación con Rust.
+  - `utils/`: Módulos de lógica (ej. `data-parser.js`, `template-engine.js`).
 
 ## Roadmap / Pendientes
 - Exportación a PDF y HTML.

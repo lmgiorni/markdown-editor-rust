@@ -52,10 +52,10 @@ La interfaz ha sido estructurada de izquierda a derecha de forma lógica y balan
 
 ## 🚀 Stack Tecnológico
 
-- **Lenguaje**: [Rust](https://www.rust-lang.org/) (Garantiza seguridad de memoria y velocidad de ejecución).
-- **Interfaz Gráfica**: `egui` / `eframe` (Framework inmediato y ligero para aplicaciones nativas).
-- **Procesamiento de Texto**: `pulldown-cmark` (Parser de Markdown eficiente conforme a los estándares).
-
+- **Backend**: [Rust](https://www.rust-lang.org/) (Garantiza seguridad de memoria y velocidad de ejecución).
+- **Framework de Aplicación**: [Tauri](https://tauri.app/) (Aplicaciones de escritorio ligeras y nativas usando tecnologías web).
+- **Frontend**: HTML5, CSS3 (Glassmorphism), Vanilla JavaScript (ES6+).
+- **Procesamiento de Texto**: `pulldown-cmark` (Parser de Markdown eficiente conforme a los estándares en Rust) e integraciones personalizadas en JS.
 ## 🛠️ Instalación y Ejecución
 
 ### Requisitos previos

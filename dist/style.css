@@ -1659,7 +1659,7 @@ body {
     height: auto !important;
     overflow: visible !important;
     display: block !important;
-    padding: 20px !important;
+    padding: 0 !important;
   }
   
   /* Reglas de corte de página limpias */
@@ -1673,5 +1673,12 @@ body {
   }
   blockquote, pre, table {
     page-break-inside: avoid;
+  }
+}
+
+  /* Anti-página vacía: Elimina márgenes residuales del último elemento */
+  .markdown-body > *:last-child {
+    margin-bottom: 0 !important;
+    padding-bottom: 0 !important;
   }
 }

@@ -17,6 +17,23 @@ pub struct ActivoMetadata {
     file_path: String,
 }
 
+#[derive(serde::Serialize)]
+pub struct TemaMetadata {
+    #[serde(rename = "themeName")]
+    theme_name: String,
+    #[serde(rename = "filePath")]
+    file_path: String,
+}
+
+// Utilidad para sanitizar nombres de archivo reemplazando espacios por guiones bajos
+fn sanitizar_nombre_archivo(path: std::path::PathBuf) -> std::path::PathBuf {
+    if let Some(file_name) = path.file_name().and_then(|s| s.to_str()) {
+        let sanitized = file_name.replace(" ", "_");
+        return path.with_file_name(sanitized);
+    }
+    path
+}
+
 #[tauri::command]
 fn abrir_archivo() -> Result<Option<FileData>, String> {
     let file_path = match FileDialog::new()
@@ -43,9 +60,15 @@ fn abrir_archivo() -> Result<Option<FileData>, String> {
 }
 
 #[tauri::command]
-fn guardar_archivo(path: String, content: String) -> Result<(), String> {
-    fs::write(&path, content)
-        .map_err(|e| format!("Error de escritura en '{}': {}", path, e))
+fn guardar_archivo(path: String, content: String) -> Result<String, String> {
+    let original_path = std::path::PathBuf::from(path);
+    let sanitized_path = sanitizar_nombre_archivo(original_path);
+    let path_str = sanitized_path.to_string_lossy().to_string();
+    
+    fs::write(&sanitized_path, content)
+        .map_err(|e| format!("Error de escritura en '{}': {}", path_str, e))?;
+        
+    Ok(path_str)
 }
 
 #[tauri::command]
@@ -62,7 +85,9 @@ fn guardar_como(default_name: String, content: String) -> Result<Option<FileData
     if file_path.extension().and_then(|ext| ext.to_str()) != Some("md") {
         file_path.set_extension("md");
     }
-        
+    
+    // Sanitizar el nombre del archivo (reemplazar espacios por _)
+    let file_path = sanitizar_nombre_archivo(file_path);
     let path_str = file_path.to_string_lossy().to_string();
     
     fs::write(&file_path, &content)
@@ -141,6 +166,50 @@ fn leer_activo(file_path: String) -> Result<String, String> {
     fs::read_to_string(&file_path).map_err(|e| e.to_string())
 }
 
+#[tauri::command]
+fn listar_temas(app_handle: tauri::AppHandle) -> Result<Vec<TemaMetadata>, String> {
+    let base_dir = app_handle.path().app_data_dir()
+        .map_err(|e| format!("No se pudo obtener el directorio de datos de la app: {}", e))?;
+    
+    let path = base_dir.join("assets").join("themes");
+    
+    if !path.exists() {
+        return Ok(Vec::new());
+    }
+    
+    let mut temas = Vec::new();
+    let entries = fs::read_dir(path).map_err(|e| e.to_string())?;
+    
+    for entry in entries {
+        if let Ok(entry) = entry {
+            let path_buf = entry.path();
+            if path_buf.is_file() {
+                if let Some(ext) = path_buf.extension() {
+                        if ext == "md" {
+                            let file_stem = path_buf.file_stem()
+                                .and_then(|s| s.to_str())
+                                .unwrap_or("")
+                                .to_string();
+                            let file_path = path_buf.to_string_lossy().to_string();
+                            temas.push(TemaMetadata {
+                                theme_name: file_stem,
+                                file_path,
+                            });
+                        }
+                }
+            }
+        }
+    }
+    
+    temas.sort_by(|a, b| a.theme_name.to_lowercase().cmp(&b.theme_name.to_lowercase()));
+    Ok(temas)
+}
+
+#[tauri::command]
+fn leer_tema(file_path: String) -> Result<String, String> {
+    fs::read_to_string(&file_path).map_err(|e| e.to_string())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
   tauri::Builder::default()
@@ -151,9 +220,11 @@ pub fn run() {
       let assets_dir = base_dir.join("assets");
       let templates_dir = assets_dir.join("templates");
       let modules_dir = assets_dir.join("modules");
+      let themes_dir = assets_dir.join("themes");
 
       fs::create_dir_all(&templates_dir).unwrap_or_default();
       fs::create_dir_all(&modules_dir).unwrap_or_default();
+      fs::create_dir_all(&themes_dir).unwrap_or_default();
 
       // Inyectar activos base en modules si está vacío
       if let Ok(mut entries) = fs::read_dir(&modules_dir) {
@@ -177,6 +248,57 @@ pub fn run() {
           }
       }
 
+      // Inyectar/Actualizar temas por defecto con el formato de Markdown estructurado
+      let cyberpunk_content = r##"# Tema `Esquema de colores Cyberpunk-Dark para la interfaz`
+	**themeName**: Cyberpunk-Dark
+
+	# colors `Paleta cromática de alta gama`
+		**bg-app**: #0b0b0e
+		**bg-panel**: #111116
+		**bg-toolbar**: #0c0e16
+		**bg-sidebar**: #111116
+		**bg-modal**: rgba(23, 28, 42, 0.95)
+		**bg-input**: rgba(255, 255, 255, 0.02)
+		**bg-code**: #161b29
+		**border-subtle**: rgba(255, 255, 255, 0.08)
+		**border-focus**: rgba(188, 19, 254, 0.45)
+		**text-main**: #f1f5f9
+		**text-muted**: #64748b
+		**text-editor**: #cbd5e1
+		**bg-reader**: #0b0b0e
+		**text-reader**: #cbd5e1
+		**accent**: #bc13fe
+		**accent-color**: #bc13fe
+		**accent-hover**: #d946ef"##;
+      fs::write(themes_dir.join("Cyberpunk-Dark.md"), cyberpunk_content).unwrap_or_default();
+
+      let light_content = r##"# Tema `Esquema de colores Classic-Light para la interfaz`
+	**themeName**: Classic-Light
+
+	# colors `Paleta de colores clara y premium`
+		**bg-app**: #ffffff
+		**bg-panel**: #ffffff
+		**bg-toolbar**: #e2e8f0
+		**bg-sidebar**: #f1f5f9
+		**bg-modal**: #ffffff
+		**bg-input**: rgba(0, 0, 0, 0.03)
+		**bg-code**: #f1f5f9
+		**border-subtle**: rgba(0, 0, 0, 0.08)
+		**border-focus**: rgba(99, 102, 241, 0.45)
+		**text-main**: #0f172a
+		**text-muted**: #475569
+		**text-editor**: #1e293b
+		**bg-reader**: #ffffff
+		**text-reader**: #1e293b
+		**accent**: #6366f1
+		**accent-color**: #6366f1
+		**accent-hover**: #4f46e5"##;
+      fs::write(themes_dir.join("Classic-Light.md"), light_content).unwrap_or_default();
+
+      // Limpiar antiguos archivos JSON obsoletos si existen
+      let _ = fs::remove_file(themes_dir.join("Cyberpunk-Dark.json"));
+      let _ = fs::remove_file(themes_dir.join("Classic-Light.json"));
+
       if cfg!(debug_assertions) {
         app.handle().plugin(
           tauri_plugin_log::Builder::default()
@@ -192,7 +314,9 @@ pub fn run() {
         guardar_como, 
         exportar_html,
         listar_activos,
-        leer_activo
+        leer_activo,
+        listar_temas,
+        leer_tema
     ])
     .run(tauri::generate_context!())
     .expect("error while running tauri application");

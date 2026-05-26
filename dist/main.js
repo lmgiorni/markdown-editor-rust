@@ -24,7 +24,8 @@ let appState = {
   editorFont: localStorage.getItem('md-editor-font') || 'Fira Code',
   readerFont: localStorage.getItem('md-reader-font') || 'Inter',
   editorFontSize: parseInt(localStorage.getItem('md-editor-font-size')) || 14,
-  readerFontSize: parseInt(localStorage.getItem('md-reader-font-size')) || 15
+  readerFontSize: parseInt(localStorage.getItem('md-reader-font-size')) || 15,
+  activeTheme: localStorage.getItem('md-theme') || 'Cyberpunk-Dark'
 };
 
 // Referencias seguras y completas a Elementos del DOM
@@ -50,8 +51,6 @@ const DOM = {
   optExportHtml: document.getElementById('opt-export-html'),
   optExportPdf: document.getElementById('opt-export-pdf'),
   optSaveTemplate: document.getElementById('opt-save-template'),
-  optLoadTemplate: document.getElementById('opt-load-template'),
-  optInsertModule: document.getElementById('opt-insert-module'),
   
   // Botones de vistas
   viewEditor: document.getElementById('view-editor'),
@@ -68,15 +67,20 @@ const DOM = {
   modalStats: document.getElementById('modal-stats'),
   modalConfig: document.getElementById('modal-config'),
   modalTemplateVars: document.getElementById('modal-template-vars'),
-  modalFileSelector: document.getElementById('modal-file-selector'),
-  fileSelectorTitle: document.getElementById('file-selector-title'),
-  fileSelectorDesc: document.getElementById('file-selector-desc'),
-  selectorSearchInput: document.getElementById('selector-search-input'),
-  selectorChipsContainer: document.getElementById('selector-chips-container'),
-  selectorGrid: document.getElementById('selector-grid'),
   formTemplateVars: document.getElementById('form-template-vars'),
   btnCancelVars: document.getElementById('btn-cancel-vars'),
   btnApplyVars: document.getElementById('btn-apply-vars'),
+  
+  // Barra Lateral de Componentes (Biblioteca)
+  btnComponentsToggle: document.getElementById('btn-components-toggle'),
+  componentsSidebar: document.getElementById('components-sidebar'),
+  sidebarSearch: document.getElementById('sidebar-search'),
+  sidebarList: document.getElementById('sidebar-list'),
+  tabModules: document.getElementById('tab-modules'),
+  tabTemplates: document.getElementById('tab-templates'),
+  
+  // Selector de tema
+  selectTheme: document.getElementById('select-theme'),
   
   // Selectores e Inputs de Configuración
   selectEditorFont: document.getElementById('select-editor-font'),
@@ -415,7 +419,18 @@ async function guardarArchivo() {
 
   try {
     const contenido = DOM.editor.value;
-    await invoke('guardar_archivo', { path: appState.filePath, content: contenido });
+    const pathEscrito = await invoke('guardar_archivo', { path: appState.filePath, content: contenido });
+    appState.filePath = pathEscrito;
+    
+    // Actualizar nombre de archivo por si se sanitizó en disco
+    let name = pathEscrito.substring(pathEscrito.lastIndexOf('\\') + 1);
+    if (name.includes('/')) name = pathEscrito.substring(pathEscrito.lastIndexOf('/') + 1);
+    const lastDot = name.lastIndexOf('.');
+    if (lastDot > 0) {
+      name = name.substring(0, lastDot);
+    }
+    appState.fileName = name;
+    
     setSavedState(true);
     alertNotification('Cambios guardados con éxito', 'success');
   } catch (error) {
@@ -1875,6 +1890,8 @@ Este es tu nuevo espacio de escritura histórica y gestión. Todo lo que escriba
   // Inicializar menú contextual del Visor e integraciones (Fases 11 & 12)
   inicializarMenuContextualVisor();
   inicializarExportacionesYTemplates();
+  inicializarSidebarComponentes();
+  inicializarTemas();
 });
 
 // ==========================================================================
@@ -2141,38 +2158,6 @@ function inicializarExportacionesYTemplates() {
   });
   
 
-  // Cargar Plantilla (Dinámico v2.0)
-  DOM.optLoadTemplate.addEventListener('click', async () => {
-    DOM.exportDropdown.classList.remove('show');
-    if (invoke) {
-      abrirSelectorDeActivos('templates');
-    } else {
-      // Fallback web sin Tauri
-      const input = document.createElement('input');
-      input.type = 'file';
-      input.accept = '.md,.markdown,.txt';
-      input.onchange = (e) => {
-        const file = e.target.files[0];
-        const reader = new FileReader();
-        reader.onload = (evt) => {
-          procesarCargaDePlantillaText(evt.target.result);
-        };
-        reader.readAsText(file);
-      };
-      input.click();
-    }
-  });
-
-  // Insertar Módulo (Dinámico v2.0)
-  DOM.optInsertModule.addEventListener('click', () => {
-    DOM.exportDropdown.classList.remove('show');
-    if (invoke) {
-      abrirSelectorDeActivos('modules');
-    } else {
-      alertNotification('La inserción de módulos dinámicos requiere ejecución en escritorio.');
-    }
-  });
-
   // Listeners de Cierre de Modales
   DOM.modalTemplateVars.querySelector('.modal-close-btn').addEventListener('click', () => {
     DOM.modalTemplateVars.classList.remove('active');
@@ -2180,14 +2165,8 @@ function inicializarExportacionesYTemplates() {
   DOM.btnCancelVars.addEventListener('click', () => {
     DOM.modalTemplateVars.classList.remove('active');
   });
-  DOM.modalFileSelector.querySelector('.modal-close-btn').addEventListener('click', () => {
-    DOM.modalFileSelector.classList.remove('active');
-  });
   DOM.modalTemplateVars.addEventListener('click', (e) => {
     if (e.target === DOM.modalTemplateVars) DOM.modalTemplateVars.classList.remove('active');
-  });
-  DOM.modalFileSelector.addEventListener('click', (e) => {
-    if (e.target === DOM.modalFileSelector) DOM.modalFileSelector.classList.remove('active');
   });
 
   DOM.btnApplyVars.addEventListener('click', () => {
@@ -2291,42 +2270,59 @@ function insertarTextoModuloConSangria(moduloTexto) {
 }
 
 // ==========================================================================
-// SISTEMA DINÁMICO DE ACTIVOS (PLANTILLAS Y MÓDULOS v2.0)
+// BIBLIOTECA LATERAL DE COMPONENTES (PLANTILLAS Y MÓDULOS v4.0)
 // ==========================================================================
-let listadoActivosEnriquecidos = [];
-let categoriaActivaSelector = 'Todos';
+let listadoComponentesEnriquecidos = [];
+let sidebarActiveType = 'modules'; // 'modules' o 'templates'
 
-async function abrirSelectorDeActivos(tipo) {
-  // 1. Configurar textos dinámicos
-  DOM.fileSelectorTitle.textContent = tipo === 'templates' ? 'Cargar Plantilla de Juego' : 'Insertar Módulo Componible';
-  DOM.fileSelectorDesc.textContent = tipo === 'templates' 
-    ? 'Selecciona una plantilla base para sobreescribir tu editor. Las variables {{}} se completarán mediante un asistente:' 
-    : 'Selecciona un módulo componible para integrarlo de forma perfecta en tu jerarquía, heredando la sangría de tu cursor:';
+function inicializarSidebarComponentes() {
+  if (!DOM.btnComponentsToggle) return;
 
-  // 2. Limpiar e inicializar UI
-  DOM.selectorSearchInput.value = '';
-  DOM.selectorChipsContainer.innerHTML = '';
-  DOM.selectorGrid.innerHTML = '<div style="color: #64748b; font-size: 13px; padding: 20px;">Cargando activos...</div>';
-  DOM.modalFileSelector.classList.add('active');
+  DOM.btnComponentsToggle.addEventListener('click', () => {
+    DOM.componentsSidebar.classList.toggle('collapsed');
+    const isCollapsed = DOM.componentsSidebar.classList.contains('collapsed');
+    if (!isCollapsed) {
+      cargarComponentesSidebar();
+    }
+  });
 
-  categoriaActivaSelector = 'Todos';
-  listadoActivosEnriquecidos = [];
+  DOM.tabModules.addEventListener('click', () => {
+    DOM.tabTemplates.classList.remove('active');
+    DOM.tabModules.classList.add('active');
+    sidebarActiveType = 'modules';
+    cargarComponentesSidebar();
+  });
+
+  DOM.tabTemplates.addEventListener('click', () => {
+    DOM.tabModules.classList.remove('active');
+    DOM.tabTemplates.classList.add('active');
+    sidebarActiveType = 'templates';
+    cargarComponentesSidebar();
+  });
+
+  DOM.sidebarSearch.addEventListener('input', () => {
+    renderizarComponentesFiltrados();
+  });
+}
+
+async function cargarComponentesSidebar() {
+  if (!invoke) return;
+
+  DOM.sidebarList.innerHTML = '<div style="color: #64748b; font-size: 12px; padding: 12px; text-align: center;">Cargando biblioteca...</div>';
+  listadoComponentesEnriquecidos = [];
 
   try {
-    // 3. Consultar backend Rust
-    const activos = await invoke('listar_activos', { tipo: tipo });
-    
+    const activos = await invoke('listar_activos', { tipo: sidebarActiveType });
     if (!activos || activos.length === 0) {
-      DOM.selectorGrid.innerHTML = `<div style="color: #64748b; font-size: 13px; padding: 20px;">No se encontraron activos en la carpeta /assets/${tipo}/.</div>`;
+      DOM.sidebarList.innerHTML = `<div style="color: #64748b; font-size: 12px; padding: 12px; text-align: center;">No hay activos en /assets/${sidebarActiveType}/</div>`;
       return;
     }
 
-    // 4. Leer contenidos y procesar metadatos en paralelo
     const promesas = activos.map(async (activo) => {
       try {
         const text = await invoke('leer_activo', { filePath: activo.filePath });
         
-        // Procesar línea de metadatos (# Categoria `Descripcion`)
+        // Extraer categoría y descripción
         const lines = text.split('\n');
         let firstLine = '';
         for (let line of lines) {
@@ -2341,19 +2337,11 @@ async function abrirSelectorDeActivos(tipo) {
         const metaRegex = /^#\s*([a-zA-Z0-9_#-]+)\s*`([^`]+)`/;
         const match = firstLine.match(metaRegex);
         if (match) {
-          categoria = match[1].replace(/_/g, ' '); // Formatear categoría quitando guiones bajos
+          categoria = match[1].replace(/_/g, ' ');
           descripcion = match[2];
         }
 
-        // Formatear nombre legible (ej: Ficha_Personaje -> Ficha Personaje)
         const nombreMenu = activo.fileName.replace(/_/g, ' ').replace(/([A-Z])/g, ' $1').replace(/\s+/g, ' ').trim();
-
-        // Calcular tamaño UTF-8 en bytes en el cliente
-        const sizeInBytes = new Blob([text]).size;
-        let formattedSize = sizeInBytes + ' B';
-        if (sizeInBytes >= 1024) {
-          formattedSize = (sizeInBytes / 1024).toFixed(1) + ' KB';
-        }
 
         return {
           fileName: activo.fileName,
@@ -2361,100 +2349,131 @@ async function abrirSelectorDeActivos(tipo) {
           nombreMenu,
           categoria,
           descripcion,
-          text,
-          size: formattedSize
+          text
         };
       } catch (err) {
-        console.error('Error procesando activo individual:', err);
+        console.error('Error individual de componente:', err);
         return null;
       }
     });
 
     const resultados = await Promise.all(promesas);
-    listadoActivosEnriquecidos = resultados.filter(r => r !== null);
-
-    if (listadoActivosEnriquecidos.length === 0) {
-      DOM.selectorGrid.innerHTML = `<div style="color: #64748b; font-size: 13px; padding: 20px;">Error al leer el contenido de los activos.</div>`;
-      return;
-    }
-
-    // 5. Generar chips de categorías dinámicas
-    const categoriasUnicas = ['Todos', ...new Set(listadoActivosEnriquecidos.map(a => a.categoria))];
-    DOM.selectorChipsContainer.innerHTML = '';
-    
-    categoriasUnicas.forEach(cat => {
-      const chip = document.createElement('button');
-      chip.className = `category-chip ${cat === 'Todos' ? 'active' : ''}`;
-      chip.textContent = cat;
-      chip.addEventListener('click', () => {
-        DOM.selectorChipsContainer.querySelectorAll('.category-chip').forEach(c => c.classList.remove('active'));
-        chip.classList.add('active');
-        categoriaActivaSelector = cat;
-        renderizarTarjetasFiltradas(tipo);
-      });
-      DOM.selectorChipsContainer.appendChild(chip);
-    });
-
-    // 6. Configurar el buscador en tiempo real
-    DOM.selectorSearchInput.oninput = () => {
-      renderizarTarjetasFiltradas(tipo);
-    };
-
-    // 7. Renderizado inicial de tarjetas
-    renderizarTarjetasFiltradas(tipo);
+    listadoComponentesEnriquecidos = resultados.filter(r => r !== null);
+    renderizarComponentesFiltrados();
 
   } catch (err) {
-    console.error('Error al cargar activos desde Rust:', err);
-    DOM.selectorGrid.innerHTML = `<div style="color: #ef4444; font-size: 13px; padding: 20px;">Error del sistema: ${err}</div>`;
+    console.error('Error al listar componentes:', err);
+    DOM.sidebarList.innerHTML = `<div style="color: #ef4444; font-size: 12px; padding: 12px; text-align: center;">Error: ${err}</div>`;
   }
 }
 
-function renderizarTarjetasFiltradas(tipo) {
-  const query = DOM.selectorSearchInput.value.toLowerCase().trim();
-  DOM.selectorGrid.innerHTML = '';
+function renderizarComponentesFiltrados() {
+  const query = DOM.sidebarSearch.value.toLowerCase().trim();
+  DOM.sidebarList.innerHTML = '';
 
-  const filtrados = listadoActivosEnriquecidos.filter(activo => {
-    // A. Filtrado por chip de categoría
-    if (categoriaActivaSelector !== 'Todos' && activo.categoria !== categoriaActivaSelector) {
-      return false;
-    }
-    // B. Filtrado por texto en buscador
+  const filtrados = listadoComponentesEnriquecidos.filter(comp => {
     if (query.length > 0) {
-      const coincideNombre = activo.nombreMenu.toLowerCase().includes(query);
-      const coincideDesc = activo.descripcion.toLowerCase().includes(query);
-      return coincideNombre || coincideDesc;
+      const coincideNombre = comp.nombreMenu.toLowerCase().includes(query);
+      const coincideDesc = comp.descripcion.toLowerCase().includes(query);
+      const coincideCat = comp.categoria.toLowerCase().includes(query);
+      return coincideNombre || coincideDesc || coincideCat;
     }
     return true;
   });
 
   if (filtrados.length === 0) {
-    DOM.selectorGrid.innerHTML = `<div style="color: #64748b; font-size: 13px; padding: 20px; grid-column: 1 / -1; text-align: center;">No hay activos que coincidan con tu búsqueda.</div>`;
+    DOM.sidebarList.innerHTML = '<div style="color: #64748b; font-size: 12px; padding: 12px; text-align: center;">No hay coincidencias.</div>';
     return;
   }
 
-  filtrados.forEach(activo => {
-    const card = document.createElement('button');
-    card.className = 'asset-card-premium';
+  filtrados.forEach(comp => {
+    const card = document.createElement('div');
+    card.className = 'sidebar-card';
     card.innerHTML = `
-      <div class="asset-card-content">
-        <h4>${activo.nombreMenu}</h4>
-        <p>${activo.descripcion}</p>
-      </div>
-      <div class="asset-card-footer">
-        <span class="asset-badge-category">${activo.categoria}</span>
-        <span class="asset-size-label">${activo.size}</span>
-      </div>
+      <span class="sidebar-card-title">${comp.nombreMenu}</span>
+      <span class="sidebar-card-category">${comp.categoria}</span>
+      <span class="sidebar-card-desc">${comp.descripcion}</span>
     `;
 
     card.addEventListener('click', () => {
-      DOM.modalFileSelector.classList.remove('active');
-      if (tipo === 'templates') {
-        procesarCargaDePlantillaText(activo.text);
+      if (sidebarActiveType === 'templates') {
+        procesarCargaDePlantillaText(comp.text);
       } else {
-        insertarTextoModuloConSangria(activo.text);
+        insertarTextoModuloConSangria(comp.text);
       }
     });
 
-    DOM.selectorGrid.appendChild(card);
+    DOM.sidebarList.appendChild(card);
   });
+}
+
+// ==========================================================================
+// SISTEMA DINÁMICO DE TEMAS (JSON v4.0)
+// ==========================================================================
+async function inicializarTemas() {
+  if (!DOM.selectTheme) return;
+
+  try {
+    const temas = await invoke('listar_temas');
+    DOM.selectTheme.innerHTML = '';
+
+    if (!temas || temas.length === 0) {
+      DOM.selectTheme.innerHTML = '<option value="">Sin temas disponibles</option>';
+      return;
+    }
+
+    temas.forEach(tema => {
+      const opt = document.createElement('option');
+      opt.value = tema.filePath;
+      opt.textContent = tema.themeName.replace(/-/g, ' ');
+      if (tema.themeName === appState.activeTheme) {
+        opt.selected = true;
+      }
+      DOM.selectTheme.appendChild(opt);
+    });
+
+    DOM.selectTheme.addEventListener('change', async (e) => {
+      const filePath = e.target.value;
+      if (filePath) {
+        await cargarYAplicarTema(filePath);
+      }
+    });
+
+    // Cargar y aplicar el tema guardado al iniciar
+    const temaActivo = temas.find(t => t.themeName === appState.activeTheme) || temas[0];
+    if (temaActivo) {
+      await cargarYAplicarTema(temaActivo.filePath);
+    }
+
+  } catch (err) {
+    console.error('Error al inicializar temas:', err);
+  }
+}
+
+async function cargarYAplicarTema(filePath) {
+  try {
+    const mdText = await invoke('leer_tema', { filePath });
+    const parsedData = parseMarkdownToJSON(mdText);
+    
+    // Buscar de manera tolerante a fallos el nodo del tema y su paleta de colores
+    const tema = parsedData.Tema || parsedData.tema || parsedData;
+    const colors = tema.colors || tema.Colores || tema.colores || tema;
+    const themeName = tema.themeName || tema.themename || appState.activeTheme;
+    
+    if (colors) {
+      const root = document.documentElement;
+      Object.entries(colors).forEach(([variable, valor]) => {
+        // Enlazar solo valores directos (strings de color) y omitir nodos u objetos hijos
+        if (typeof valor === 'string') {
+          root.style.setProperty(`--${variable}`, valor);
+        }
+      });
+
+      appState.activeTheme = themeName;
+      localStorage.setItem('md-theme', themeName);
+    }
+  } catch (err) {
+    console.error('Error al aplicar el tema:', err);
+    alertNotification('No se pudo aplicar el tema seleccionado: ' + err, 'error');
+  }
 }

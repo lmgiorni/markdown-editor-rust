@@ -1,6 +1,6 @@
-# Premium Markdown Editor ✍️
+# Summa Scriptura ✍️
 
-Un editor de Markdown moderno, ligero y de alto rendimiento en Rust, diseñado para ofrecer una experiencia de escritura fluida y libre de distracciones con integración nativa en Windows.
+Un entorno de redacción moderno, ultra-ligero y de alto rendimiento en Rust, diseñado especialmente para diseñadores de juegos y creadores de contenido que buscan una escritura fluida y libre de distracciones, con la capacidad única de traducir texto jerárquico directamente a datos estructurados (JSON/XML) en tiempo real.
 
 ![Estado del Proyecto](https://img.shields.io/badge/Status-In--Development-yellow)
 ![Plataforma](https://img.shields.io/badge/Platform-Windows-blue)
@@ -8,7 +8,7 @@ Un editor de Markdown moderno, ligero y de alto rendimiento en Rust, diseñado p
 
 ## 🌟 Descripción General
 
-Este proyecto nace de la necesidad de crear una herramienta de escritura que sea **ágil, eficiente y compilada**, evitando el consumo excesivo de recursos común en editores basados en tecnologías web (como Electron). Su enfoque principal es proporcionar un entorno de alta fidelidad donde puedas concentrarte en la creación del contenido mientras dispones de una visualización en tiempo real elegante, robusta y con tipografía premium.
+Este proyecto nace de la necesidad de crear una herramienta de escritura y forjado de datos que sea **ágil, eficiente y compilada**, evitando el consumo excesivo de recursos común en editores basados en tecnologías web (como Electron). Su enfoque principal es proporcionar un entorno de alta fidelidad donde puedas concentrarte en la creación del contenido y el lore, mientras dispones de una visualización en tiempo real elegante, robusta, con tipografía premium y con un visualizador interactivo de datos estructurados.
 
 ## ✨ Características Principales
 

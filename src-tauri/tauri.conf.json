@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "markdown-editor",
+  "productName": "SummaScriptura",
   "version": "0.1.0",
-  "identifier": "com.idolatria.markdowneditor",
+  "identifier": "com.summascriptura.editor",
   "build": {
     "frontendDist": "../dist",
     "devUrl": null,
@@ -13,7 +13,7 @@
     "withGlobalTauri": true,
     "windows": [
       {
-        "title": "Markdown Editor",
+        "title": "Summa Scriptura",
         "width": 900,
         "height": 1100,
         "minWidth": 880,

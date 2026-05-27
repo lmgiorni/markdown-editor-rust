@@ -262,11 +262,20 @@ function setSavedState(saved) {
   if (saved) {
     DOM.statusDot.className = 'dot-saved';
     DOM.statusDot.setAttribute('title', 'Todos los cambios están guardados en tu disco');
+    // Si guardamos un tema, refrescar el Playground de forma instantánea
+    if (typeof refrescarPlaygroundLocal === 'function') {
+      refrescarPlaygroundLocal();
+    }
   } else {
     DOM.statusDot.className = 'dot-unsaved';
     DOM.statusDot.setAttribute('title', 'Tienes cambios sin guardar en tu editor');
   }
   actualizarNombreArchivo();
+  
+  // Actualizar visibilidad del Playground si cambió el archivo activo
+  if (typeof actualizarEstadoThemePlayground === 'function') {
+    actualizarEstadoThemePlayground();
+  }
 }
 
 // Actualiza el nombre que se visualiza arriba (escondiendo la extensión)
@@ -1892,6 +1901,7 @@ Este es tu nuevo espacio de escritura histórica y gestión. Todo lo que escriba
   inicializarExportacionesYTemplates();
   inicializarSidebarComponentes();
   inicializarTemas();
+  inicializarThemePlayground();
 });
 
 // ==========================================================================
@@ -2455,18 +2465,31 @@ async function cargarYAplicarTema(filePath) {
     const mdText = await invoke('leer_tema', { filePath });
     const parsedData = parseMarkdownToJSON(mdText);
     
-    // Buscar de manera tolerante a fallos el nodo del tema y su paleta de colores
+    // Buscar de manera tolerante a fallos el nodo del tema y su sección de colores
     const tema = parsedData.Tema || parsedData.tema || parsedData;
-    const colors = tema.colors || tema.Colores || tema.colores || tema;
+    const colorsSection = tema.colors || tema.Colores || tema.colores || tema;
     const themeName = tema.themeName || tema.themename || appState.activeTheme;
     
-    if (colors) {
-      const root = document.documentElement;
-      Object.entries(colors).forEach(([variable, valor]) => {
-        // Enlazar solo valores directos (strings de color) y omitir nodos u objetos hijos
-        if (typeof valor === 'string') {
-          root.style.setProperty(`--${variable}`, valor);
+    if (colorsSection) {
+      // Función recursiva para aplanar cualquier agrupación jerárquica hecha por el usuario
+      const extractedColors = {};
+      const extractLeafs = (current) => {
+        if (current && typeof current === 'object' && !Array.isArray(current)) {
+          Object.entries(current).forEach(([k, v]) => {
+            if (typeof v === 'string') {
+              extractedColors[k] = v;
+            } else {
+              extractLeafs(v);
+            }
+          });
         }
+      };
+      
+      extractLeafs(colorsSection);
+      
+      const root = document.documentElement;
+      Object.entries(extractedColors).forEach(([variable, valor]) => {
+        root.style.setProperty(`--${variable}`, valor);
       });
 
       appState.activeTheme = themeName;
@@ -2475,5 +2498,275 @@ async function cargarYAplicarTema(filePath) {
   } catch (err) {
     console.error('Error al aplicar el tema:', err);
     alertNotification('No se pudo aplicar el tema seleccionado: ' + err, 'error');
+  }
+}
+
+// ==========================================================================
+// ENTORNO DE DISEÑO FLOTANTE: THEME PLAYGROUND (v4.4)
+// ==========================================================================
+function inicializarThemePlayground() {
+  const btnEditTheme = document.getElementById('btn-edit-theme');
+  const playgroundBox = document.getElementById('modal-theme-playground');
+  const btnClosePlayground = document.getElementById('btn-close-playground');
+  const dragHandle = document.getElementById('playground-drag-handle');
+  const resizeHandle = document.getElementById('playground-resize-handle');
+  const btnApplyThemeGlobal = document.getElementById('btn-apply-theme-global');
+  
+  if (!btnEditTheme || !playgroundBox) return;
+
+  // 1. Botón Lápiz: Carga directa del tema en el editor
+  btnEditTheme.addEventListener('click', async () => {
+    const selectedThemePath = DOM.selectTheme.value;
+    if (!selectedThemePath) {
+      alertNotification('Por favor, selecciona un tema primero', 'info');
+      return;
+    }
+
+    // Advertencia de cambios sin guardar
+    if (!appState.isSaved) {
+      const confirmacion = confirm('Tienes cambios sin guardar en tu documento actual.\n¿Deseas guardarlos antes de abrir el tema para edición?\n\n[Aceptar] Guardará y abrirá el tema.\n[Cancelar] Abrirá el tema descartando cambios actuales.');
+      if (confirmacion) {
+        await guardarArchivo();
+      }
+    }
+
+    try {
+      const mdText = await invoke('leer_tema', { filePath: selectedThemePath });
+      
+      // Cargar en el editor
+      DOM.editor.value = mdText;
+      
+      // Obtener el nombre del tema
+      const sep = selectedThemePath.includes('/') ? '/' : '\\';
+      const parts = selectedThemePath.split(sep);
+      const themeFileName = parts[parts.length - 1];
+      
+      // Actualizar estado del archivo abierto
+      appState.filePath = selectedThemePath;
+      appState.fileName = themeFileName;
+      
+      setSavedState(true);
+      renderMarkdown();
+      
+      // Cerrar el modal de configuración de apariencia
+      if (DOM.modalConfig) {
+        DOM.modalConfig.classList.remove('active');
+      }
+      
+      alertNotification('Tema cargado en el editor. Se ha abierto el Theme Playground.', 'success');
+      
+      // Forzar mostrar el Playground
+      actualizarEstadoThemePlayground();
+      
+    } catch (err) {
+      console.error('Error al editar el tema:', err);
+      alertNotification('No se pudo cargar el tema para edición: ' + err, 'error');
+    }
+  });
+
+  // 2. Botón de cerrar visualizador
+  btnClosePlayground.addEventListener('click', () => {
+    playgroundBox.classList.remove('active');
+  });
+
+  // 3. Arrastre de la ventana flotante (Mousedown, Mousemove, Mouseup)
+  let isDragging = false;
+  let startX, startY, initialLeft, initialTop;
+
+  dragHandle.addEventListener('mousedown', (e) => {
+    if (e.target.closest('.playground-close-btn')) return; // Evitar arrastre si pulsas cerrar
+    isDragging = true;
+    startX = e.clientX;
+    startY = e.clientY;
+    
+    const rect = playgroundBox.getBoundingClientRect();
+    initialLeft = rect.left;
+    initialTop = rect.top;
+    
+    playgroundBox.style.left = `${initialLeft}px`;
+    playgroundBox.style.top = `${initialTop}px`;
+    playgroundBox.style.right = 'auto'; // Cancelar anclaje de la derecha
+    
+    dragHandle.style.cursor = 'grabbing';
+    e.preventDefault();
+  });
+
+  document.addEventListener('mousemove', (e) => {
+    if (!isDragging) return;
+    const dx = e.clientX - startX;
+    const dy = e.clientY - startY;
+    playgroundBox.style.left = `${initialLeft + dx}px`;
+    playgroundBox.style.top = `${initialTop + dy}px`;
+  });
+
+  document.addEventListener('mouseup', () => {
+    if (isDragging) {
+      isDragging = false;
+      dragHandle.style.cursor = 'move';
+    }
+  });
+
+  // 4. Redimensionado de la ventana flotante (Escalado manual)
+  let isResizing = false;
+  let startWidth, startHeight;
+
+  resizeHandle.addEventListener('mousedown', (e) => {
+    isResizing = true;
+    startX = e.clientX;
+    startY = e.clientY;
+    
+    const rect = playgroundBox.getBoundingClientRect();
+    startWidth = rect.width;
+    startHeight = rect.height;
+    
+    e.preventDefault();
+  });
+
+  document.addEventListener('mousemove', (e) => {
+    if (!isResizing) return;
+    const dx = e.clientX - startX;
+    const dy = e.clientY - startY;
+    
+    const newWidth = Math.max(320, Math.min(600, startWidth + dx));
+    const newHeight = Math.max(400, Math.min(800, startHeight + dy));
+    
+    playgroundBox.style.width = `${newWidth}px`;
+    playgroundBox.style.height = `${newHeight}px`;
+  });
+
+  document.addEventListener('mouseup', () => {
+    if (isResizing) {
+      isResizing = false;
+    }
+  });
+
+  // 5. Botón de aplicar tema globalmente
+  btnApplyThemeGlobal.addEventListener('click', () => {
+    if (appState.filePath && appState.filePath.includes('themes')) {
+      cargarYAplicarTema(appState.filePath);
+      alertNotification('¡Tema aplicado globalmente al sistema!', 'success');
+    }
+  });
+
+  // 6. Listener del editor para foco contextual
+  DOM.editor.addEventListener('keyup', () => {
+    actualizarFocoContextualPlayground();
+  });
+
+  DOM.editor.addEventListener('click', () => {
+    actualizarFocoContextualPlayground();
+  });
+}
+
+// Verifica si estamos editando un tema y muestra/oculta el Playground
+function actualizarEstadoThemePlayground() {
+  const playgroundBox = document.getElementById('modal-theme-playground');
+  if (!playgroundBox) return;
+
+  if (appState.filePath && appState.filePath.includes('themes')) {
+    playgroundBox.classList.add('active');
+    refrescarPlaygroundLocal();
+  } else {
+    playgroundBox.classList.remove('active');
+  }
+}
+
+// Inteligencia de foco: Resalta el elemento en la ventana flotante según la línea del cursor
+function actualizarFocoContextualPlayground() {
+  const playgroundBox = document.getElementById('modal-theme-playground');
+  if (!playgroundBox || !playgroundBox.classList.contains('active')) return;
+
+  const textarea = DOM.editor;
+  const text = textarea.value;
+  const cursorPosition = textarea.selectionStart;
+  
+  // Encontrar la línea actual
+  const linesBefore = text.substring(0, cursorPosition).split('\n');
+  const currentLineIndex = linesBefore.length - 1;
+  const lines = text.split('\n');
+  const currentLineText = lines[currentLineIndex] || '';
+
+  // Limpiar resaltados previos en el Playground
+  const highlighted = playgroundBox.querySelectorAll('.playground-highlight-pulse');
+  highlighted.forEach(el => el.classList.remove('playground-highlight-pulse'));
+
+  // Buscar coincidencia de variable en la línea
+  const propRegex = /\*\*(bg-[a-zA-Z-]+|text-[a-zA-Z-]+|border-[a-zA-Z-]+|accent[a-zA-Z-]*)\*\*/i;
+  const match = currentLineText.match(propRegex);
+  if (match) {
+    const variableName = match[1].toLowerCase().trim();
+    
+    // Mapear variables específicas a elementos specimen
+    let specimenId = null;
+
+    if (variableName.includes('badge-int')) specimenId = 'specimen-badge-int';
+    else if (variableName.includes('badge-float')) specimenId = 'specimen-badge-float';
+    else if (variableName.includes('badge-bool')) specimenId = 'specimen-badge-bool';
+    else if (variableName.includes('badge-str')) specimenId = 'specimen-badge-str';
+    else if (variableName.includes('code-inline')) specimenId = 'specimen-code';
+    else if (variableName.includes('blockquote')) specimenId = 'specimen-blockquote';
+    else if (variableName.includes('table-header')) specimenId = 'specimen-th';
+    else if (variableName.includes('table-zebra')) specimenId = 'specimen-tr-even';
+    else if (variableName.includes('strong')) specimenId = 'specimen-strong';
+    else if (variableName.includes('reader') || variableName === 'text-reader') specimenId = 'specimen-p';
+    else if (variableName === 'bg-app' || variableName === 'bg-panel') specimenId = 'specimen-reader';
+    else if (variableName.includes('accent') || variableName.includes('accent-color')) specimenId = 'specimen-accent-btn';
+    else if (variableName.includes('input')) specimenId = 'specimen-input';
+
+    if (specimenId) {
+      const element = document.getElementById(specimenId);
+      if (element) {
+        element.classList.add('playground-highlight-pulse');
+        element.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }
+    }
+  }
+}
+
+// Refresca los estilos de forma local ÚNICAMENTE para la ventana flotante
+function refrescarPlaygroundLocal() {
+  const playgroundBox = document.getElementById('modal-theme-playground');
+  if (!playgroundBox || !playgroundBox.classList.contains('active')) return;
+
+  try {
+    const mdText = DOM.editor.value;
+    const parsedData = parseMarkdownToJSON(mdText);
+    
+    const tema = parsedData.Tema || parsedData.tema || parsedData;
+    const colorsSection = tema.colors || tema.Colores || tema.colores || tema;
+    
+    if (colorsSection) {
+      const extractedColors = {};
+      const extractLeafs = (current) => {
+        if (current && typeof current === 'object' && !Array.isArray(current)) {
+          Object.entries(current).forEach(([k, v]) => {
+            if (typeof v === 'string') {
+              extractedColors[k] = v;
+            } else {
+              extractLeafs(v);
+            }
+          });
+        }
+      };
+      
+      extractLeafs(colorsSection);
+      
+      // Aplicar variables CSS de forma local ÚNICAMENTE en el contenedor del Playground
+      Object.entries(extractedColors).forEach(([variable, valor]) => {
+        playgroundBox.style.setProperty(`--${variable}`, valor);
+      });
+      
+      const indicator = document.getElementById('playground-status-text');
+      if (indicator) {
+        indicator.textContent = 'Borrador local actualizado';
+        indicator.style.color = '#10b981'; // Verde suave
+        setTimeout(() => {
+          indicator.textContent = 'Visualizando borrador local';
+          indicator.style.color = '';
+        }, 2000);
+      }
+    }
+  } catch (err) {
+    console.error('Error al refrescar localmente el Playground:', err);
   }
 }

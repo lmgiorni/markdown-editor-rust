@@ -248,51 +248,101 @@ pub fn run() {
           }
       }
 
-      // Inyectar/Actualizar temas por defecto con el formato de Markdown estructurado
+      // Inyectar/Actualizar temas por defecto con el formato de Markdown estructurado jerárquico
       let cyberpunk_content = r##"# Tema `Esquema de colores Cyberpunk-Dark para la interfaz`
 	**themeName**: Cyberpunk-Dark
 
-	# colors `Paleta cromática de alta gama`
-		**bg-app**: #0b0b0e
-		**bg-panel**: #111116
-		**bg-toolbar**: #0c0e16
-		**bg-sidebar**: #111116
-		**bg-modal**: rgba(23, 28, 42, 0.95)
-		**bg-input**: rgba(255, 255, 255, 0.02)
-		**bg-code**: #161b29
-		**border-subtle**: rgba(255, 255, 255, 0.08)
-		**border-focus**: rgba(188, 19, 254, 0.45)
-		**text-main**: #f1f5f9
-		**text-muted**: #64748b
-		**text-editor**: #cbd5e1
-		**bg-reader**: #0b0b0e
-		**text-reader**: #cbd5e1
-		**accent**: #bc13fe
-		**accent-color**: #bc13fe
-		**accent-hover**: #d946ef"##;
+	# colors `Parámetros de estilo estructurados`
+		
+		## Interfaz General `Fondo, bordes y acento de la app`
+			**bg-app**: #0b0b0e
+			**bg-panel**: #111116
+			**bg-toolbar**: #0c0e16
+			**bg-sidebar**: #111116
+			**bg-modal**: rgba(23, 28, 42, 0.95)
+			**bg-input**: rgba(255, 255, 255, 0.02)
+			**bg-code**: #161b29
+			**border-subtle**: rgba(255, 255, 255, 0.08)
+			**border-focus**: rgba(188, 19, 254, 0.45)
+			**accent**: #bc13fe
+			**accent-color**: #bc13fe
+			**accent-hover**: #d946ef
+
+		## Textos de Edición `Colores para la interfaz del cromo y editor`
+			**text-main**: #f1f5f9
+			**text-muted**: #64748b
+			**text-editor**: #cbd5e1
+
+		## Visor de Lectura `Colores aplicables en el modo Read`
+			**bg-reader**: #0b0b0e
+			**text-reader**: #cbd5e1
+			**text-strong**: #f1f5f9
+			**text-code-inline**: #f472b6
+			**bg-blockquote**: rgba(139, 92, 246, 0.03)
+			**bg-table-header**: rgba(255, 255, 255, 0.02)
+			**bg-table-zebra**: rgba(255, 255, 255, 0.01)
+
+		## Badges de Datos `Insignias de tipo de dato en modo estructurado`
+			**bg-badge-int**: rgba(16, 185, 129, 0.1)
+			**text-badge-int**: #34d399
+			**border-badge-int**: rgba(16, 185, 129, 0.2)
+			**bg-badge-float**: rgba(6, 182, 212, 0.1)
+			**text-badge-float**: #22d3ee
+			**border-badge-float**: rgba(6, 182, 212, 0.2)
+			**bg-badge-bool**: rgba(139, 92, 246, 0.1)
+			**text-badge-bool**: #a78bfa
+			**border-badge-bool**: rgba(139, 92, 246, 0.2)
+			**bg-badge-str**: rgba(59, 130, 246, 0.1)
+			**text-badge-str**: #60a5fa
+			**border-badge-str**: rgba(59, 130, 246, 0.2)"##;
       fs::write(themes_dir.join("Cyberpunk-Dark.md"), cyberpunk_content).unwrap_or_default();
 
       let light_content = r##"# Tema `Esquema de colores Classic-Light para la interfaz`
 	**themeName**: Classic-Light
 
-	# colors `Paleta de colores clara y premium`
-		**bg-app**: #ffffff
-		**bg-panel**: #ffffff
-		**bg-toolbar**: #e2e8f0
-		**bg-sidebar**: #f1f5f9
-		**bg-modal**: #ffffff
-		**bg-input**: rgba(0, 0, 0, 0.03)
-		**bg-code**: #f1f5f9
-		**border-subtle**: rgba(0, 0, 0, 0.08)
-		**border-focus**: rgba(99, 102, 241, 0.45)
-		**text-main**: #0f172a
-		**text-muted**: #475569
-		**text-editor**: #1e293b
-		**bg-reader**: #ffffff
-		**text-reader**: #1e293b
-		**accent**: #6366f1
-		**accent-color**: #6366f1
-		**accent-hover**: #4f46e5"##;
+	# colors `Parámetros de estilo estructurados`
+		
+		## Interfaz General `Fondo, bordes y acento de la app`
+			**bg-app**: #ffffff
+			**bg-panel**: #ffffff
+			**bg-toolbar**: #e2e8f0
+			**bg-sidebar**: #f1f5f9
+			**bg-modal**: #ffffff
+			**bg-input**: rgba(0, 0, 0, 0.03)
+			**bg-code**: #f1f5f9
+			**border-subtle**: rgba(0, 0, 0, 0.08)
+			**border-focus**: rgba(99, 102, 241, 0.45)
+			**accent**: #6366f1
+			**accent-color**: #6366f1
+			**accent-hover**: #4f46e5
+
+		## Textos de Edición `Colores para la interfaz del cromo y editor`
+			**text-main**: #0f172a
+			**text-muted**: #475569
+			**text-editor**: #1e293b
+
+		## Visor de Lectura `Colores aplicables en el modo Read`
+			**bg-reader**: #ffffff
+			**text-reader**: #1e293b
+			**text-strong**: #0f172a
+			**text-code-inline**: #be185d
+			**bg-blockquote**: rgba(99, 102, 241, 0.03)
+			**bg-table-header**: rgba(0, 0, 0, 0.02)
+			**bg-table-zebra**: rgba(0, 0, 0, 0.01)
+
+		## Badges de Datos `Insignias de tipo de dato en modo estructurado`
+			**bg-badge-int**: rgba(16, 185, 129, 0.08)
+			**text-badge-int**: #047857
+			**border-badge-int**: rgba(16, 185, 129, 0.15)
+			**bg-badge-float**: rgba(6, 182, 212, 0.08)
+			**text-badge-float**: #0369a1
+			**border-badge-float**: rgba(6, 182, 212, 0.15)
+			**bg-badge-bool**: rgba(139, 92, 246, 0.08)
+			**text-badge-bool**: #6d28d9
+			**border-badge-bool**: rgba(139, 92, 246, 0.15)
+			**bg-badge-str**: rgba(59, 130, 246, 0.08)
+			**text-badge-str**: #1d4ed8
+			**border-badge-str**: rgba(59, 130, 246, 0.15)"##;
       fs::write(themes_dir.join("Classic-Light.md"), light_content).unwrap_or_default();
 
       // Limpiar antiguos archivos JSON obsoletos si existen

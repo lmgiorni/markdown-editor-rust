@@ -346,9 +346,12 @@
           <!-- Tema Dinámico de la Interfaz -->
           <div class="config-row">
             <label for="select-theme">Tema de Interfaz</label>
-            <select id="select-theme" class="config-select">
-              <!-- Se cargará dinámicamente desde assets/themes -->
-            </select>
+            <div style="display: flex; gap: 8px; align-items: center; width: 100%;">
+              <select id="select-theme" class="config-select" style="flex: 1; min-width: 0;">
+                <!-- Se cargará dinámicamente desde assets/themes -->
+              </select>
+              <button id="btn-edit-theme" title="Editar Tema Seleccionado" class="config-action-btn" style="margin-top: 0; height: 38px; width: 38px; display: flex; align-items: center; justify-content: center; padding: 0; flex-shrink: 0;">✏️</button>
+            </div>
           </div>
         </div>
       </div>
@@ -373,6 +376,74 @@
         </div>
       </div>
     </div>
+  </div>
+
+  <!-- 5. Ventana Flotante: Theme Playground (Lienzo de Previsualización y Diseño) -->
+  <div id="modal-theme-playground" class="modal-playground-box">
+    <header class="playground-header" id="playground-drag-handle">
+      <div class="playground-title-container">
+        <span class="playground-icon">🎨</span>
+        <h3>Theme Playground</h3>
+      </div>
+      <button id="btn-close-playground" class="playground-close-btn" title="Ocultar Visualizador">&times;</button>
+    </header>
+    <div class="playground-body">
+      <!-- Sección 1: Cromo e Interfaz en Miniatura -->
+      <div class="playground-section">
+        <h4>Interfaz & Controles</h4>
+        <div class="playground-specimen-row">
+          <button class="playground-btn-specimen" id="specimen-accent-btn">Botón Acento</button>
+          <input type="text" class="playground-input-specimen" id="specimen-input" placeholder="Campo de búsqueda..." value="Ejemplo de texto">
+        </div>
+      </div>
+
+      <!-- Sección 2: Muestras del Visor de Lectura -->
+      <div class="playground-section">
+        <h4>Elementos del Visor de Lectura</h4>
+        <div class="playground-reader-specimen" id="specimen-reader">
+          <h1 class="playground-h1-specimen" id="specimen-h1">Título Principal</h1>
+          <p class="playground-p-specimen" id="specimen-p">Este es un párrafo de muestra para visualizar la tipografía y el color general de lectura del tema. Aquí puedes observar una palabra en <strong class="playground-strong-specimen" id="specimen-strong">negrita destacada</strong> que resalta en el texto, y por otro lado, un fragmento de <code class="playground-code-specimen" id="specimen-code">código inline</code> para resaltar variables rápidas.</p>
+          <blockquote class="playground-blockquote-specimen" id="specimen-blockquote">
+            <p>«Esta es una cita en bloque (blockquote) con fuente en cursiva estilizada para lore o explicaciones de sistemas de juego».</p>
+          </blockquote>
+          <table class="playground-table-specimen" id="specimen-table">
+            <thead>
+              <tr>
+                <th class="playground-th-specimen" id="specimen-th">Atributo</th>
+                <th class="playground-th-specimen">Valor</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="playground-td-specimen">Fuerza</td>
+                <td class="playground-td-specimen">15i</td>
+              </tr>
+              <tr class="playground-tr-even-specimen" id="specimen-tr-even">
+                <td class="playground-td-specimen">Agilidad</td>
+                <td class="playground-td-specimen">8.5f</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Sección 3: Insignias de Base de Datos RPG -->
+      <div class="playground-section">
+        <h4>Insignias de Datos RPG (Badges)</h4>
+        <div class="playground-badges-row">
+          <span class="playground-badge-specimen type-int" id="specimen-badge-int">Entero</span>
+          <span class="playground-badge-specimen type-float" id="specimen-badge-float">Decimal</span>
+          <span class="playground-badge-specimen type-bool" id="specimen-badge-bool">Booleano</span>
+          <span class="playground-badge-specimen type-str" id="specimen-badge-str">Texto</span>
+        </div>
+      </div>
+    </div>
+    <footer class="playground-footer">
+      <span class="playground-status-indicator" id="playground-status-text">Visualizando borrador local</span>
+      <button id="btn-apply-theme-global" class="config-action-btn btn-primary-premium" style="margin-top: 0; padding: 6px 14px; font-size: 12px; font-weight: 600;">Aplicar Tema al Sistema</button>
+    </footer>
+    <!-- Tirador para redimensionar en la esquina inferior derecha -->
+    <div class="playground-resizer" id="playground-resize-handle"></div>
   </div>
 
   </div>

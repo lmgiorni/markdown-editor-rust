@@ -86,7 +86,11 @@ export function parseMarkdownToJSON(text) {
         } else if (/^-?\d+\.\d+$/.test(rawVal)) {
           parsedVal = parseFloat(rawVal);
         }
-        // IV. Cadenas de Texto (Strings) con escape de comillas
+        // IV. Array Vacío (Listas vacías RPG)
+        else if (rawVal === '[]') {
+          parsedVal = [];
+        }
+        // V. Cadenas de Texto (Strings) con escape de comillas
         else {
           parsedVal = rawVal;
           if (typeof parsedVal === 'string') {
@@ -420,6 +424,7 @@ function parseTypedValue(val) {
   const lowerVal = val.toLowerCase();
   if (lowerVal === 'sí' || lowerVal === 'si' || lowerVal === 'true') return true;
   if (lowerVal === 'no' || lowerVal === 'false') return false;
+  if (val === '[]') return [];
   if (/^-?\d+i$/.test(val)) return parseInt(val.slice(0, -1), 10);
   if (/^-?\d+(\.\d+)?f$/.test(val)) return parseFloat(val.slice(0, -1));
   if (/^-?\d+\.\d+$/.test(val)) return parseFloat(val);

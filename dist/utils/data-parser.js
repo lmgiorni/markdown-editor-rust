@@ -293,3 +293,110 @@ export function buildTreeHTML(node) {
   
   return html;
 }
+
+// 4. CONVERTIDOR DE OBJETO JSON A MARKDOWN JERÁRQUICO
+export function convertJSONToMarkdown(obj, level = 0) {
+  let markdown = '';
+  const indent = '\t'.repeat(level);
+  
+  if (obj === null || obj === undefined) return '';
+  if (typeof obj !== 'object') {
+    return String(obj);
+  }
+  
+  for (const [key, value] of Object.entries(obj)) {
+    if (value && typeof value === 'object') {
+      if (Array.isArray(value)) {
+        value.forEach(item => {
+          markdown += `${indent}# ${key}\n`;
+          markdown += convertJSONToMarkdown(item, level + 1);
+        });
+      } else {
+        markdown += `${indent}# ${key}\n`;
+        markdown += convertJSONToMarkdown(value, level + 1);
+      }
+    } else {
+      let formattedVal = value;
+      if (typeof value === 'boolean') {
+        formattedVal = value ? 'Sí' : 'No';
+      } else if (typeof value === 'number') {
+        if (Number.isInteger(value)) {
+          formattedVal = `${value}i`;
+        } else {
+          formattedVal = `${value}f`;
+        }
+      }
+      markdown += `${indent}**${key}**: ${formattedVal}\n`;
+    }
+  }
+  return markdown;
+}
+
+// 5. CONVERTIDOR DE NODO XML A OBJETO JSON
+export function convertXMLToJSON(node) {
+  if (!node) return null;
+  
+  // Si es un nodo de texto, devolver su contenido limpio
+  if (node.nodeType === 3 || node.nodeType === 4) {
+    const text = node.nodeValue.trim();
+    if (!text) return null;
+    return text;
+  }
+  
+  const obj = {};
+  
+  if (node.hasChildNodes()) {
+    for (let i = 0; i < node.childNodes.length; i++) {
+      const child = node.childNodes[i];
+      
+      // Ignorar nodos de comentario u otros no relevantes
+      if (child.nodeType !== 1 && child.nodeType !== 3 && child.nodeType !== 4) {
+        continue;
+      }
+      
+      if (child.nodeType === 3 || child.nodeType === 4) {
+        const textVal = child.nodeValue.trim();
+        if (textVal) {
+          if (node.childNodes.length === 1) {
+            return parseTypedValue(textVal);
+          }
+        }
+        continue;
+      }
+      
+      const childName = child.nodeName;
+      const childVal = convertXMLToJSON(child);
+      
+      if (childVal !== null && childVal !== undefined) {
+        if (obj[childName] !== undefined) {
+          if (Array.isArray(obj[childName])) {
+            obj[childName].push(childVal);
+          } else {
+            obj[childName] = [obj[childName], childVal];
+          }
+        } else {
+          obj[childName] = childVal;
+        }
+      }
+    }
+  }
+  
+  // Si el objeto está vacío, pero el nodo tenía texto, devolver el texto
+  if (Object.keys(obj).length === 0 && node.textContent) {
+    const txt = node.textContent.trim();
+    if (txt) return parseTypedValue(txt);
+  }
+  
+  return obj;
+}
+
+function parseTypedValue(val) {
+  const lowerVal = val.toLowerCase();
+  if (lowerVal === 'sí' || lowerVal === 'si' || lowerVal === 'true') return true;
+  if (lowerVal === 'no' || lowerVal === 'false') return false;
+  if (/^-?\d+i$/.test(val)) return parseInt(val.slice(0, -1), 10);
+  if (/^-?\d+(\.\d+)?f$/.test(val)) return parseFloat(val.slice(0, -1));
+  if (/^-?\d+\.\d+$/.test(val)) return parseFloat(val);
+  if (/^-?\d+$/.test(val)) return parseInt(val, 10);
+  return val;
+}

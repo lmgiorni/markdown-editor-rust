@@ -3,7 +3,7 @@
 // ==========================================================================
 
 import { HistorialCambios } from './utils/history-manager.js';
-import { parseMarkdownToJSON, convertJSONToXML, buildTreeHTML } from './utils/data-parser.js';
+import { parseMarkdownToJSON, convertJSONToXML, buildTreeHTML, convertJSONToMarkdown, convertXMLToJSON } from './utils/data-parser.js';
 import { escanearVariablesDePlantilla, obtenerTextoModuloConSangria } from './utils/template-engine.js';
 import { exportarDocumentoAHTML, exportarDocumentoAPDF } from './utils/export-service.js';
 
@@ -18,13 +18,16 @@ let appState = {
   activeView: 'split',        // Modo de visualización activa: 'editor', 'split' o 'preview'
   
   structuredModeActive: false, // Indica si la visualización en árbol de datos está activa
+  structuredActiveTab: 'tree', // Pestaña del modo estructurado: 'tree', 'json', 'xml'
   currentTemplateText: '',    // Almacena la plantilla en espera de rellenado de variables
   
   // Configuración visual (valores iniciales elegantes)
   editorFont: localStorage.getItem('md-editor-font') || 'Fira Code',
   readerFont: localStorage.getItem('md-reader-font') || 'Inter',
+  structuredFont: localStorage.getItem('md-structured-font') || 'Fira Code',
   editorFontSize: parseInt(localStorage.getItem('md-editor-font-size')) || 14,
   readerFontSize: parseInt(localStorage.getItem('md-reader-font-size')) || 15,
+  structuredFontSize: parseInt(localStorage.getItem('md-structured-font-size')) || 13,
   activeTheme: localStorage.getItem('md-theme') || 'Cyberpunk-Dark'
 };
 
@@ -85,10 +88,13 @@ const DOM = {
   // Selectores e Inputs de Configuración
   selectEditorFont: document.getElementById('select-editor-font'),
   selectReaderFont: document.getElementById('select-reader-font'),
+  selectStructuredFont: document.getElementById('select-structured-font'),
   rangeEditorSize: document.getElementById('range-editor-size'),
   rangeReaderSize: document.getElementById('range-reader-size'),
+  rangeStructuredSize: document.getElementById('range-structured-size'),
   valEditorSize: document.getElementById('val-editor-size'),
   valReaderSize: document.getElementById('val-reader-size'),
+  valStructuredSize: document.getElementById('val-structured-size'),
   btnFontDec: document.getElementById('btn-font-dec'),
   btnFontInc: document.getElementById('btn-font-inc'),
   
@@ -146,25 +152,33 @@ function aplicarConfiguracionVisual() {
 
   const editorFamily = tipografias[appState.editorFont] || tipografias['Fira Code'];
   const readerFamily = tipografias[appState.readerFont] || tipografias['Inter'];
+  const structuredFamily = tipografias[appState.structuredFont] || tipografias['Fira Code'];
 
   root.style.setProperty('--editor-font-family', editorFamily);
   root.style.setProperty('--reader-font-family', readerFamily);
+  root.style.setProperty('--structured-font-family', structuredFamily);
   root.style.setProperty('--editor-font-size', `${appState.editorFontSize}px`);
   root.style.setProperty('--reader-font-size', `${appState.readerFontSize}px`);
+  root.style.setProperty('--structured-font-size', `${appState.structuredFontSize}px`);
 
   // Sincronizar los controles visuales del Modal de Configuración
   if (DOM.selectEditorFont) DOM.selectEditorFont.value = appState.editorFont;
   if (DOM.selectReaderFont) DOM.selectReaderFont.value = appState.readerFont;
+  if (DOM.selectStructuredFont) DOM.selectStructuredFont.value = appState.structuredFont;
   if (DOM.rangeEditorSize) DOM.rangeEditorSize.value = appState.editorFontSize;
   if (DOM.rangeReaderSize) DOM.rangeReaderSize.value = appState.readerFontSize;
+  if (DOM.rangeStructuredSize) DOM.rangeStructuredSize.value = appState.structuredFontSize;
   if (DOM.valEditorSize) DOM.valEditorSize.textContent = `${appState.editorFontSize}px`;
   if (DOM.valReaderSize) DOM.valReaderSize.textContent = `${appState.readerFontSize}px`;
+  if (DOM.valStructuredSize) DOM.valStructuredSize.textContent = `${appState.structuredFontSize}px`;
   
   // Guardar permanentemente en almacenamiento del navegador
   localStorage.setItem('md-editor-font', appState.editorFont);
   localStorage.setItem('md-reader-font', appState.readerFont);
+  localStorage.setItem('md-structured-font', appState.structuredFont);
   localStorage.setItem('md-editor-font-size', appState.editorFontSize);
   localStorage.setItem('md-reader-font-size', appState.readerFontSize);
+  localStorage.setItem('md-structured-font-size', appState.structuredFontSize);
 }
 
 // ==========================================================================
@@ -392,8 +406,41 @@ async function abrirArchivo() {
   try {
     const fileData = await invoke('abrir_archivo');
     if (fileData) {
-      DOM.editor.value = fileData.content;
-      appState.filePath = fileData.path;
+      const lowerPath = fileData.path.toLowerCase();
+      let importedAndConverted = false;
+      let finalContent = fileData.content;
+      
+      if (lowerPath.endsWith('.json')) {
+        try {
+          const jsonObj = JSON.parse(fileData.content);
+          finalContent = convertJSONToMarkdown(jsonObj);
+          importedAndConverted = 'JSON';
+        } catch (jsonErr) {
+          console.error('Error al analizar JSON en importación:', jsonErr);
+          alertNotification('El archivo .json tiene errores de estructura y no pudo importarse.', 'error');
+          return;
+        }
+      } else if (lowerPath.endsWith('.xml')) {
+        try {
+          const parser = new DOMParser();
+          const xmlDoc = parser.parseFromString(fileData.content, "text/xml");
+          
+          const parserError = xmlDoc.getElementsByTagName("parsererror");
+          if (parserError.length > 0) {
+            throw new Error(parserError[0].textContent);
+          }
+          
+          const jsonObj = convertXMLToJSON(xmlDoc.documentElement);
+          finalContent = convertJSONToMarkdown(jsonObj);
+          importedAndConverted = 'XML';
+        } catch (xmlErr) {
+          console.error('Error al analizar XML en importación:', xmlErr);
+          alertNotification('El archivo .xml tiene errores de estructura y no pudo importarse.', 'error');
+          return;
+        }
+      }
+
+      DOM.editor.value = finalContent;
       
       // Limpiar extensión de nombre visible
       let name = fileData.name;
@@ -403,10 +450,18 @@ async function abrirArchivo() {
       }
       appState.fileName = name;
       
+      // Seguridad: Si se convirtió, limpiamos filePath para forzar un "Guardar como" y no sobreescribir el origen
+      if (importedAndConverted) {
+        appState.filePath = null;
+        alertNotification(`Datos de tipo ${importedAndConverted} importados y convertidos a Markdown. Se requiere guardar como nuevo archivo .md`, 'success');
+      } else {
+        appState.filePath = fileData.path;
+        alertNotification('Archivo abierto con éxito', 'success');
+      }
+      
       renderMarkdown();
       setSavedState(true);
       inicializarHistorial();
-      alertNotification('Archivo abierto con éxito', 'success');
     }
   } catch (error) {
     console.error('Error al abrir:', error);
@@ -983,6 +1038,14 @@ function cambiarFontReader(nuevaFont) {
   aplicarConfiguracionVisual();
 }
 
+function cambiarFontStructured(nuevaFont) {
+  appState.structuredFont = nuevaFont;
+  aplicarConfiguracionVisual();
+  if (appState.structuredModeActive && (appState.structuredActiveTab === 'json' || appState.structuredActiveTab === 'xml')) {
+    renderMarkdown();
+  }
+}
+
 function cambiarFontSizeEditor(nuevoSize) {
   appState.editorFontSize = parseInt(nuevoSize);
   aplicarConfiguracionVisual();
@@ -993,10 +1056,16 @@ function cambiarFontSizeReader(nuevoSize) {
   aplicarConfiguracionVisual();
 }
 
+function cambiarFontSizeStructured(nuevoSize) {
+  appState.structuredFontSize = parseInt(nuevoSize);
+  aplicarConfiguracionVisual();
+}
+
 // Lógica para botones de aumento y reducción combinados +1 | -1
 function ajustarTamañoGeneral(factor) {
   const nuevoEditorSize = appState.editorFontSize + factor;
   const nuevoReaderSize = appState.readerFontSize + factor;
+  const nuevoStructuredSize = appState.structuredFontSize + factor;
   
   // Mantener los valores siempre dentro del rango estricto (10px a 24px)
   if (nuevoEditorSize >= 10 && nuevoEditorSize <= 24) {
@@ -1004,6 +1073,9 @@ function ajustarTamañoGeneral(factor) {
   }
   if (nuevoReaderSize >= 10 && nuevoReaderSize <= 24) {
     appState.readerFontSize = nuevoReaderSize;
+  }
+  if (nuevoStructuredSize >= 10 && nuevoStructuredSize <= 24) {
+    appState.structuredFontSize = nuevoStructuredSize;
   }
   
   aplicarConfiguracionVisual();
@@ -1016,11 +1088,17 @@ if (DOM.selectEditorFont) {
 if (DOM.selectReaderFont) {
   DOM.selectReaderFont.addEventListener('change', (e) => cambiarFontReader(e.target.value));
 }
+if (DOM.selectStructuredFont) {
+  DOM.selectStructuredFont.addEventListener('change', (e) => cambiarFontStructured(e.target.value));
+}
 if (DOM.rangeEditorSize) {
   DOM.rangeEditorSize.addEventListener('input', (e) => cambiarFontSizeEditor(e.target.value));
 }
 if (DOM.rangeReaderSize) {
   DOM.rangeReaderSize.addEventListener('input', (e) => cambiarFontSizeReader(e.target.value));
+}
+if (DOM.rangeStructuredSize) {
+  DOM.rangeStructuredSize.addEventListener('input', (e) => cambiarFontSizeStructured(e.target.value));
 }
 if (DOM.btnFontDec) {
   DOM.btnFontDec.addEventListener('click', () => ajustarTamañoGeneral(-1));
@@ -1925,29 +2003,67 @@ function exportarAPDF() {
 }
 
 // 2. RENDERS DEL MODO ESTRUCTURADO (FASE 12) - DELEGADAS EN DATA-PARSER
+function escapeHTML(str) {
+  if (typeof str !== 'string') return '';
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
+// 2. RENDERS DEL MODO ESTRUCTURADO (FASE 12) - DELEGADAS EN DATA-PARSER
 function renderStructuredTreeVisual(obj) {
+  const isTree = appState.structuredActiveTab === 'tree';
+  const isJson = appState.structuredActiveTab === 'json';
+  const isXml = appState.structuredActiveTab === 'xml';
+
+  let contentHtml = '';
+  if (isTree) {
+    contentHtml = `<div class="tree-root-container">${buildTreeHTML(obj)}</div>`;
+  } else if (isJson) {
+    const jsonStr = JSON.stringify(obj, null, 2).replace(/\\"/g, '"');
+    contentHtml = `<pre class="structured-code-preview"><code>${escapeHTML(jsonStr)}</code></pre>`;
+  } else if (isXml) {
+    const xmlStr = convertJSONToXML(obj, appState.fileName);
+    contentHtml = `<pre class="structured-code-preview"><code>${escapeHTML(xmlStr)}</code></pre>`;
+  }
+
   let html = `<div class="structured-tree-viewer">
     <div class="structured-tree-header">
       <div class="header-left">
         <span class="structured-badge">Modo Estructurado Activo</span>
       </div>
       <div class="header-right">
-        <button class="tree-header-btn" id="btn-tree-to-md">
+        <button class="tree-header-btn" id="btn-tree-to-md" title="Volver a la lectura normal de Markdown">
           <svg viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="2" width="13" height="13"><path d="M12 20h9M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>
           Modo Lectura
         </button>
-        <button class="tree-header-btn" id="btn-tree-copy-json">
-          📋 Copiar JSON
+        
+        <span class="btn-divider">|</span>
+        
+        <button class="tree-header-btn ${isTree ? 'active-tab' : ''}" id="btn-tree-tab-tree" title="Ver representación visual en árbol">
+          🌳 Ver Árbol
         </button>
-        <button class="tree-header-btn" id="btn-tree-copy-xml">
-          📋 Copiar XML
+        
+        <button class="tree-header-btn ${isJson ? 'active-tab' : ''}" id="btn-tree-tab-json" title="Ver estructura de datos JSON">
+          📄 Ver JSON
+        </button>
+        <button class="tree-header-btn" id="btn-tree-export-json" title="Guardar directamente como archivo .json en tu ordenador">
+          💾 Exportar JSON
+        </button>
+        
+        <button class="tree-header-btn ${isXml ? 'active-tab' : ''}" id="btn-tree-tab-xml" title="Ver estructura de datos XML">
+          🗎 Ver XML
+        </button>
+        <button class="tree-header-btn" id="btn-tree-export-xml" title="Guardar directamente como archivo .xml en tu ordenador">
+          💾 Exportar XML
         </button>
       </div>
     </div>
     <div class="structured-tree-content">
-      <div class="tree-root-container">
-        ${buildTreeHTML(obj)}
-      </div>
+      ${contentHtml}
     </div>
   </div>`;
   
@@ -1959,16 +2075,55 @@ function renderStructuredTreeVisual(obj) {
     renderMarkdown();
   });
   
-  document.getElementById('btn-tree-copy-json').addEventListener('click', () => {
-    const jsonStr = JSON.stringify(obj, null, 2).replace(/\\"/g, '"');
-    navigator.clipboard.writeText(jsonStr);
-    alertNotification('JSON copiado al portapapeles');
+  document.getElementById('btn-tree-tab-tree').addEventListener('click', () => {
+    appState.structuredActiveTab = 'tree';
+    renderMarkdown();
   });
   
-  document.getElementById('btn-tree-copy-xml').addEventListener('click', () => {
+  document.getElementById('btn-tree-tab-json').addEventListener('click', () => {
+    appState.structuredActiveTab = 'json';
+    renderMarkdown();
+  });
+  
+  document.getElementById('btn-tree-tab-xml').addEventListener('click', () => {
+    appState.structuredActiveTab = 'xml';
+    renderMarkdown();
+  });
+  
+  document.getElementById('btn-tree-export-json').addEventListener('click', () => {
+    if (!invoke) {
+      alertNotification('La exportación de archivos no está disponible en la web', 'error');
+      return;
+    }
+    const jsonStr = JSON.stringify(obj, null, 2).replace(/\\"/g, '"');
+    invoke('exportar_archivo', {
+      defaultName: `${appState.fileName}.json`,
+      content: jsonStr,
+      extension: 'json',
+      filterName: 'JSON'
+    }).then(res => {
+      if (res) alertNotification('JSON guardado con éxito en: ' + res, 'success');
+    }).catch(err => {
+      alertNotification('Error al exportar JSON: ' + err, 'error');
+    });
+  });
+  
+  document.getElementById('btn-tree-export-xml').addEventListener('click', () => {
+    if (!invoke) {
+      alertNotification('La exportación de archivos no está disponible en la web', 'error');
+      return;
+    }
     const xmlStr = convertJSONToXML(obj, appState.fileName);
-    navigator.clipboard.writeText(xmlStr);
-    alertNotification('XML copiado al portapapeles');
+    invoke('exportar_archivo', {
+      defaultName: `${appState.fileName}.xml`,
+      content: xmlStr,
+      extension: 'xml',
+      filterName: 'XML'
+    }).then(res => {
+      if (res) alertNotification('XML guardado con éxito en: ' + res, 'success');
+    }).catch(err => {
+      alertNotification('Error al exportar XML: ' + err, 'error');
+    });
   });
 }
 

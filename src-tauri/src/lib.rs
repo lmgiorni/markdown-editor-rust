@@ -37,7 +37,7 @@ fn sanitizar_nombre_archivo(path: std::path::PathBuf) -> std::path::PathBuf {
 #[tauri::command]
 fn abrir_archivo() -> Result<Option<FileData>, String> {
     let file_path = match FileDialog::new()
-        .add_filter("Markdown", &["md", "markdown", "txt"])
+        .add_filter("Markdown & Datos (*.md, *.json, *.xml)", &["md", "markdown", "txt", "json", "xml"])
         .pick_file() {
             Some(path) => path,
             None => return Ok(None),
@@ -115,6 +115,23 @@ fn exportar_html(default_name: String, content: String) -> Option<String> {
     if file_path.extension().and_then(|ext| ext.to_str()) != Some("html") {
         file_path.set_extension("html");
     }
+        
+    fs::write(&file_path, &content).ok()?;
+    Some(file_path.to_string_lossy().to_string())
+}
+
+#[tauri::command]
+fn exportar_archivo(default_name: String, content: String, extension: String, filter_name: String) -> Option<String> {
+    let mut file_path = FileDialog::new()
+        .add_filter(&filter_name, &[&extension])
+        .set_file_name(&default_name)
+        .save_file()?;
+        
+    if file_path.extension().and_then(|ext| ext.to_str()) != Some(&extension) {
+        file_path.set_extension(&extension);
+    }
+    
+    let file_path = sanitizar_nombre_archivo(file_path);
         
     fs::write(&file_path, &content).ok()?;
     Some(file_path.to_string_lossy().to_string())
@@ -363,6 +380,7 @@ pub fn run() {
         guardar_archivo, 
         guardar_como, 
         exportar_html,
+        exportar_archivo,
         listar_activos,
         leer_activo,
         listar_temas,

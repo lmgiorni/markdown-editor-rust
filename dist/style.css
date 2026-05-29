@@ -1314,7 +1314,8 @@ body {
     linear-gradient(90deg, rgba(128, 128, 128, 0.015) 1px, transparent 1px);
   background-size: 20px 20px;
   color: var(--text-reader, #e2e8f0);
-  font-family: 'Inter', sans-serif;
+  font-family: var(--structured-font-family, 'Inter', sans-serif);
+  font-size: var(--structured-font-size, 13px);
   overflow: hidden;
   box-sizing: border-box;
 }
@@ -1363,6 +1364,43 @@ body {
   background: rgba(139, 92, 246, 0.12);
   border-color: rgba(139, 92, 246, 0.3);
   color: #f8fafc;
+}
+
+.tree-header-btn.active-tab {
+  background: rgba(139, 92, 246, 0.25) !important;
+  border-color: var(--accent, #bc13fe) !important;
+  color: var(--text-main, #ffffff) !important;
+  font-weight: 600 !important;
+  box-shadow: 0 0 10px rgba(188, 19, 254, 0.15);
+}
+
+.btn-divider {
+  color: var(--border-subtle, rgba(255, 255, 255, 0.08));
+  margin: 0 8px;
+  font-size: 14px;
+  pointer-events: none;
+  user-select: none;
+}
+
+.structured-code-preview,
+.structured-code-preview code {
+  font-family: var(--structured-font-family, 'Fira Code', monospace) !important;
+  font-size: var(--structured-font-size, 13px) !important;
+}
+
+.structured-code-preview {
+  margin: 0;
+  padding: 18px;
+  background: var(--bg-panel, #111116);
+  border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.06));
+  border-radius: 8px;
+  color: var(--text-editor, #cbd5e1);
+  line-height: 1.5;
+  overflow: auto;
+  max-height: calc(100vh - 200px);
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  box-sizing: border-box;
 }
 
 .structured-tree-content {
@@ -1444,7 +1482,7 @@ body {
 }
 
 .node-title {
-  font-size: 12.5px;
+  font-size: 0.95em;
   font-weight: 600;
   color: var(--text-main, #f1f5f9);
 }
@@ -1498,15 +1536,15 @@ body {
 }
 
 .prop-key {
-  font-size: 12px;
+  font-size: 0.9em;
   color: var(--text-muted, #94a3b8);
   font-weight: 500;
 }
 
 .prop-val {
-  font-size: 12px;
+  font-size: 0.9em;
   color: var(--text-main, #f8fafc);
-  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  font-family: var(--structured-font-family, 'JetBrains Mono', 'Fira Code', monospace);
   white-space: pre-wrap;
   word-break: break-word;
   max-width: 550px;
@@ -1514,7 +1552,7 @@ body {
 
 /* Badges de Tipo de Dato */
 .type-badge {
-  font-size: 9px;
+  font-size: 0.72em;
   font-weight: 600;
   padding: 1px 6px;
   border-radius: 4px;

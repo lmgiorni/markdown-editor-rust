@@ -316,6 +316,16 @@
             </select>
           </div>
 
+          <!-- Tipografía del Código Estructurado -->
+          <div class="config-row">
+            <label for="select-structured-font">Structured Code Font</label>
+            <select id="select-structured-font" class="config-select">
+              <option value="Fira Code" selected>Fira Code (Moderna)</option>
+              <option value="JetBrains Mono">JetBrains Mono (Clara)</option>
+              <option value="Iosevka">Iosevka (Compacta)</option>
+            </select>
+          </div>
+
           <!-- Tamaño de fuente del Editor -->
           <div class="config-row">
             <div class="config-label-with-value">
@@ -332,6 +342,15 @@
               <span id="val-reader-size" class="config-value-badge">15px</span>
             </div>
             <input type="range" id="range-reader-size" min="10" max="24" value="15" class="config-slider">
+          </div>
+
+          <!-- Tamaño de fuente del Código Estructurado -->
+          <div class="config-row">
+            <div class="config-label-with-value">
+              <label for="range-structured-size">Structured Font Size</label>
+              <span id="val-structured-size" class="config-value-badge">13px</span>
+            </div>
+            <input type="range" id="range-structured-size" min="10" max="24" value="13" class="config-slider">
           </div>
 
           <!-- Ajuste General Combinado +1 | -1 -->

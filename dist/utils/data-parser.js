@@ -307,15 +307,41 @@ export function convertJSONToMarkdown(obj, level = 0) {
   for (const [key, value] of Object.entries(obj)) {
     if (value && typeof value === 'object') {
       if (Array.isArray(value)) {
-        value.forEach(item => {
-          markdown += `${indent}# ${key}\n`;
-          markdown += convertJSONToMarkdown(item, level + 1);
-        });
+        if (value.length === 0) {
+          // Si es un array vacío, representarlo explícitamente para no perder el parámetro
+          markdown += `${indent}**${key}**: []\n`;
+        } else {
+          // Si contiene elementos
+          if (typeof value[0] === 'object') {
+            // Array de objetos (Nodos duplicados de la jerarquía)
+            value.forEach(item => {
+              markdown += `${indent}# ${key}\n`;
+              markdown += convertJSONToMarkdown(item, level + 1);
+            });
+          } else {
+            // Array de valores simples (Propiedades duplicadas)
+            value.forEach(item => {
+              let formattedVal = item;
+              if (typeof item === 'boolean') {
+                formattedVal = item ? 'Sí' : 'No';
+              } else if (typeof item === 'number') {
+                if (Number.isInteger(item)) {
+                  formattedVal = `${item}i`;
+                } else {
+                  formattedVal = `${item}f`;
+                }
+              }
+              markdown += `${indent}**${key}**: ${formattedVal}\n`;
+            });
+          }
+        }
       } else {
+        // Objeto simple (Nodo jerárquico tradicional)
         markdown += `${indent}# ${key}\n`;
         markdown += convertJSONToMarkdown(value, level + 1);
       }
     } else {
+      // Valor simple (Propiedad tradicional)
       let formattedVal = value;
       if (typeof value === 'boolean') {
         formattedVal = value ? 'Sí' : 'No';

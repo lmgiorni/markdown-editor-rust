@@ -4,6 +4,28 @@ use rfd::FileDialog;
 use zip::write::FileOptions;
 use zip::CompressionMethod;
 
+// Utilidad para decodificar URL-encoding básico (e.g. %20 -> espacio)
+fn url_decode(s: &str) -> String {
+    let mut res = String::new();
+    let mut chars = s.chars().peekable();
+    while let Some(c) = chars.next() {
+        if c == '%' {
+            let mut hex = String::new();
+            if let Some(h1) = chars.next() { hex.push(h1); }
+            if let Some(h2) = chars.next() { hex.push(h2); }
+            if let Ok(val) = u8::from_str_radix(&hex, 16) {
+                res.push(val as char);
+            } else {
+                res.push('%');
+                res.push_str(&hex);
+            }
+        } else {
+            res.push(c);
+        }
+    }
+    res
+}
+
 // Utilidad para sanitizar nombres de archivo reemplazando espacios por guiones bajos
 fn sanitizar_nombre_archivo(path: std::path::PathBuf) -> std::path::PathBuf {
     if let Some(file_name) = path.file_name().and_then(|s| s.to_str()) {
@@ -72,7 +94,111 @@ pub fn exportar_epub_interno(
     zip.write_all(container_xml.as_bytes())
         .map_err(|e| format!("Error en container.xml: {}", e))?;
         
+    // ==========================================================================
+    // CAPA INTELIGENTE DE ESCANEO, VALIDACIÓN Y EMPAQUETAMIENTO DE IMÁGENES
+    // ==========================================================================
+    let clean_html = body_html.clone();
+    let mut imagenes_a_empaquetar = Vec::new();
+    let mut cursor = 0;
+    
+    // Escaneo rápido y nativo de etiquetas <img src="..." />
+    while let Some(start_img) = clean_html[cursor..].find("<img") {
+        let abs_start = cursor + start_img;
+        let rest = &clean_html[abs_start..];
+        if let Some(end_img) = rest.find(">") {
+            let abs_end = abs_start + end_img;
+            let img_tag = &clean_html[abs_start..=abs_end];
+            
+            if let Some(src_pos) = img_tag.find("src=\"") {
+                let val_start = src_pos + 5;
+                if let Some(src_end) = img_tag[val_start..].find("\"") {
+                    let src_val = &img_tag[val_start..(val_start + src_end)];
+                    imagenes_a_empaquetar.push(src_val.to_string());
+                }
+            } else if let Some(src_pos) = img_tag.find("src='") {
+                let val_start = src_pos + 5;
+                if let Some(src_end) = img_tag[val_start..].find("'") {
+                    let src_val = &img_tag[val_start..(val_start + src_end)];
+                    imagenes_a_empaquetar.push(src_val.to_string());
+                }
+            }
+            cursor = abs_end + 1;
+        } else {
+            break;
+        }
+    }
+    
+    // Eliminar duplicados para evitar procesamiento y empaquetamiento redundante
+    imagenes_a_empaquetar.sort();
+    imagenes_a_empaquetar.dedup();
+    
+    let mut manifest_image_items = Vec::new();
+    let mut reemplazos_xhtml = Vec::new();
+    let mut index_imagen = 1;
+    
+    for original_src in imagenes_a_empaquetar {
+        // Ignorar imágenes remotas de internet o imágenes en línea Base64
+        if original_src.starts_with("http://") || original_src.starts_with("https://") || original_src.starts_with("data:") {
+            continue;
+        }
+        
+        // Sanitizar y limpiar la ruta
+        let mut sanitized_path = original_src.clone();
+        if sanitized_path.starts_with("file:///") {
+            sanitized_path = sanitized_path.replacen("file:///", "", 1);
+        } else if sanitized_path.starts_with("file://") {
+            sanitized_path = sanitized_path.replacen("file://", "", 1);
+        }
+        
+        // URL Decoding (e.g. %20 -> espacio)
+        let sanitized_path = url_decode(&sanitized_path);
+        
+        // Validación estricta de formatos compatibles con EPUB (JPG, JPEG, PNG, GIF, SVG)
+        let path_ref = std::path::Path::new(&sanitized_path);
+        let ext = path_ref.extension()
+            .and_then(|e| e.to_str())
+            .unwrap_or("")
+            .to_lowercase();
+            
+        let mime_type = match ext.as_str() {
+            "png" => Some("image/png"),
+            "jpg" | "jpeg" => Some("image/jpeg"),
+            "gif" => Some("image/gif"),
+            "svg" => Some("image/svg+xml"),
+            _ => None, // Ignorar formatos no universales (como webp o propietarios)
+        };
+        
+        if let Some(mime) = mime_type {
+            // Leer bytes binarios de la imagen si existe
+            if let Ok(bytes_imagen) = fs::read(&sanitized_path) {
+                let nombre_interno = format!("img_{}.{}", index_imagen, ext);
+                let ruta_zip_imagen = format!("OEBPS/images/{}", nombre_interno);
+                
+                // Empaquetar el archivo binario físicamente en el ZIP
+                if zip.start_file(&ruta_zip_imagen, options_deflated).is_ok() {
+                    let _ = zip.write_all(&bytes_imagen);
+                    
+                    // Registrar en el manifiesto oficial del content.opf
+                    manifest_image_items.push(format!(
+                        r#"    <item id="img_{}" href="images/{}" media-type="{}"/>"#,
+                        index_imagen, nombre_interno, mime
+                    ));
+                    
+                    // Almacenar el mapeo para reconstruir el XHTML
+                    reemplazos_xhtml.push((original_src, format!("../images/{}", nombre_interno)));
+                    index_imagen += 1;
+                }
+            }
+        }
+    }
+    
     // 3. content.opf
+    let mut manifest_items_string = String::new();
+    for item in &manifest_image_items {
+        manifest_items_string.push_str(item);
+        manifest_items_string.push_str("\n");
+    }
+    
     let content_opf = format!(r#"<?xml version="1.0" encoding="UTF-8"?>
 <package xmlns="http://www.idpf.org/2007/opf" unique-identifier="pub-id" version="3.0">
   <metadata xmlns:dc="http://purl.org/dc/elements/1.1/">
@@ -85,13 +211,14 @@ pub fn exportar_epub_interno(
     <item id="toc" href="toc.ncx" media-type="application/x-dtbncx+xml"/>
     <item id="style" href="styles/style.css" media-type="text/css"/>
     <item id="chapter1" href="text/chapter1.xhtml" media-type="application/xhtml+xml"/>
-  </manifest>
+{}  </manifest>
   <spine toc="toc">
     <itemref idref="chapter1"/>
   </spine>
 </package>"#, 
         title.len(),
-        title
+        title,
+        manifest_items_string
     );
     zip.start_file("OEBPS/content.opf", options_deflated)
         .map_err(|e| format!("Error en content.opf: {}", e))?;
@@ -127,7 +254,12 @@ pub fn exportar_epub_interno(
     zip.write_all(toc_ncx.as_bytes())
         .map_err(|e| format!("Error en toc.ncx: {}", e))?;
         
-    // 5. chapter1.xhtml
+    // 5. chapter1.xhtml (Reconstruyendo las rutas locales a relativas dentro del EPUB)
+    let mut xhtml_content = body_html.clone();
+    for (original, nuevo) in reemplazos_xhtml {
+        xhtml_content = xhtml_content.replace(&original, &nuevo);
+    }
+    
     let chapter_xhtml = format!(r#"<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE html>
 <html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops" lang="es" xml:lang="es">
@@ -142,7 +274,7 @@ pub fn exportar_epub_interno(
 </body>
 </html>"#,
         title,
-        body_html
+        xhtml_content
     );
     zip.start_file("OEBPS/text/chapter1.xhtml", options_deflated)
         .map_err(|e| format!("Error en chapter1.xhtml: {}", e))?;
@@ -226,6 +358,10 @@ a {{
 }}
 img {{
   filter: grayscale(100%) !important;
+  max-width: 100%;
+  height: auto;
+  display: block;
+  margin: 1.5em auto;
 }}"#, font_family)
     } else {
         // Estilo adaptativo rico que conserva la fidelidad cromática del modo Lectura
@@ -300,6 +436,13 @@ li {{
 a {{
   color: {};
   text-decoration: none;
+}}
+img {{
+  max-width: 100%;
+  height: auto;
+  display: block;
+  margin: 1.5em auto;
+  border-radius: 6px;
 }}"#,
         font_family,
         text_color,

@@ -5,7 +5,7 @@
 import { HistorialCambios } from './utils/history-manager.js';
 import { parseMarkdownToJSON, convertJSONToXML, buildTreeHTML, convertJSONToMarkdown, convertXMLToJSON } from './utils/data-parser.js';
 import { escanearVariablesDePlantilla, obtenerTextoModuloConSangria } from './utils/template-engine.js';
-import { exportarDocumentoAHTML, exportarDocumentoAPDF } from './utils/export-service.js';
+import { exportarDocumentoAHTML, exportarDocumentoAPDF, exportarDocumentoAEPUB } from './utils/export-service.js';
 
 // Configuración y Acceso Seguro al Puente de Tauri
 const invoke = window.__TAURI__ ? window.__TAURI__.core.invoke : null;
@@ -53,6 +53,7 @@ const DOM = {
   exportDropdown: document.getElementById('export-dropdown'),
   optExportHtml: document.getElementById('opt-export-html'),
   optExportPdf: document.getElementById('opt-export-pdf'),
+  optExportEpub: document.getElementById('opt-export-epub'),
   optSaveTemplate: document.getElementById('opt-save-template'),
   
   // Botones de vistas
@@ -70,6 +71,7 @@ const DOM = {
   modalStats: document.getElementById('modal-stats'),
   modalConfig: document.getElementById('modal-config'),
   modalTemplateVars: document.getElementById('modal-template-vars'),
+  modalEpubExport: document.getElementById('modal-epub-export'),
   formTemplateVars: document.getElementById('form-template-vars'),
   btnCancelVars: document.getElementById('btn-cancel-vars'),
   btnApplyVars: document.getElementById('btn-apply-vars'),
@@ -602,6 +604,7 @@ function cerrarModales() {
   cerrarModal(DOM.modalMd);
   cerrarModal(DOM.modalStats);
   cerrarModal(DOM.modalConfig);
+  cerrarModal(DOM.modalEpubExport);
 }
 
 // Configurar los manejadores de cierre de todos los modales (sin cerrar al hacer clic en overlay)
@@ -1041,7 +1044,7 @@ function cambiarFontReader(nuevaFont) {
 function cambiarFontStructured(nuevaFont) {
   appState.structuredFont = nuevaFont;
   aplicarConfiguracionVisual();
-  if (appState.structuredModeActive && (appState.structuredActiveTab === 'json' || appState.structuredActiveTab === 'xml')) {
+  if (appState.structuredModeActive) {
     renderMarkdown();
   }
 }
@@ -1059,6 +1062,9 @@ function cambiarFontSizeReader(nuevoSize) {
 function cambiarFontSizeStructured(nuevoSize) {
   appState.structuredFontSize = parseInt(nuevoSize);
   aplicarConfiguracionVisual();
+  if (appState.structuredModeActive) {
+    renderMarkdown();
+  }
 }
 
 // Lógica para botones de aumento y reducción combinados +1 | -1
@@ -1727,7 +1733,7 @@ function constrenirModalAPantalla(modalBox) {
 
 // Escuchar el cambio de tamaño de la ventana principal de forma fluida
 window.addEventListener('resize', () => {
-  [DOM.modalMd, DOM.modalStats, DOM.modalConfig].forEach(overlay => {
+  [DOM.modalMd, DOM.modalStats, DOM.modalConfig, DOM.modalEpubExport].forEach(overlay => {
     if (overlay && overlay.classList.contains('active')) {
       const modalBox = overlay.querySelector('.modal-box');
       if (modalBox) {
@@ -2000,6 +2006,16 @@ async function exportarAHTML() {
 
 function exportarAPDF() {
   exportarDocumentoAPDF(alertNotification);
+}
+
+async function exportarAEPUB() {
+  await exportarDocumentoAEPUB(
+    appState.fileName,
+    DOM.editor.value,
+    appState.readerFont,
+    invoke,
+    alertNotification
+  );
 }
 
 // 2. RENDERS DEL MODO ESTRUCTURADO (FASE 12) - DELEGADAS EN DATA-PARSER
@@ -2293,6 +2309,11 @@ function inicializarExportacionesYTemplates() {
   DOM.optExportPdf.addEventListener('click', () => {
     DOM.exportDropdown.classList.remove('show');
     exportarAPDF();
+  });
+  
+  DOM.optExportEpub.addEventListener('click', () => {
+    DOM.exportDropdown.classList.remove('show');
+    exportarAEPUB();
   });
   
   // Guardar Plantilla

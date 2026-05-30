@@ -2,6 +2,8 @@ use std::fs;
 use rfd::FileDialog;
 use tauri::Manager;
 
+mod epub_exporter;
+
 #[derive(serde::Serialize)]
 pub struct FileData {
     path: String,
@@ -135,6 +137,35 @@ fn exportar_archivo(default_name: String, content: String, extension: String, fi
         
     fs::write(&file_path, &content).ok()?;
     Some(file_path.to_string_lossy().to_string())
+}
+
+#[tauri::command]
+fn exportar_epub(
+    default_name: String, 
+    title: String, 
+    body_html: String, 
+    bg_color: String, 
+    text_color: String, 
+    text_strong_color: String,
+    accent_color: String,
+    code_color: String,
+    blockquote_bg: String,
+    font_family: String,
+    is_eink: bool
+) -> Result<Option<String>, String> {
+    epub_exporter::exportar_epub_interno(
+        default_name, 
+        title, 
+        body_html, 
+        bg_color, 
+        text_color, 
+        text_strong_color,
+        accent_color,
+        code_color,
+        blockquote_bg,
+        font_family,
+        is_eink
+    )
 }
 
 #[tauri::command]
@@ -381,6 +412,7 @@ pub fn run() {
         guardar_como, 
         exportar_html,
         exportar_archivo,
+        exportar_epub,
         listar_activos,
         leer_activo,
         listar_temas,

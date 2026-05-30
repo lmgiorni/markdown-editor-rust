@@ -78,3 +78,142 @@ export function exportarDocumentoAPDF(notify) {
   window.print();
   notify('Preparando exportación a PDF (Ventana del Sistema)');
 }
+
+// Auxiliar para asegurar que las etiquetas vacías cumplan estrictamente con XHTML
+function purificarHTMLaXHTML(html) {
+  if (!html) return '';
+  return html
+    .replace(/<br\s*\/?>/gi, '<br />')
+    .replace(/<hr\s*\/?>/gi, '<hr />')
+    .replace(/<img([^>]+)>/gi, (match, attrs) => {
+      if (attrs.trim().endsWith('/')) {
+        return match;
+      }
+      return `<img${attrs} />`;
+    });
+}
+
+// 3. EXPORTAR A LIBRO ELECTRÓNICO EPUB PREMIUM CON ADAPTACIÓN EINK O TEMA
+export async function exportarDocumentoAEPUB(fileName, markdownText, readerFont, invokeTauri, notify) {
+  if (!invokeTauri) {
+    notify('La exportación a EPUB no está disponible en la web', 'error');
+    return;
+  }
+  
+  if (markdownText.trim() === '') {
+    notify('El editor está vacío. Escribe algo antes de exportar a EPUB.', 'info');
+    return;
+  }
+  
+  try {
+    let bodyHtmlRaw = '';
+    if (typeof marked !== 'undefined') {
+      bodyHtmlRaw = marked.parse(markdownText);
+    } else {
+      bodyHtmlRaw = markdownText.replace(/\n/g, '<br/>');
+    }
+    
+    // Sanitización XHTML estricta para lectores estrictos
+    const bodyHtml = purificarHTMLaXHTML(bodyHtmlRaw);
+    
+    // Preguntar al usuario por el estilo del EPUB mediante el modal premium
+    const modalEpub = document.getElementById('modal-epub-export');
+    const btnEink = document.getElementById('btn-epub-opt-eink');
+    const btnTheme = document.getElementById('btn-epub-opt-theme');
+    const btnCancel = document.getElementById('btn-epub-cancel');
+    const closeBtn = modalEpub ? modalEpub.querySelector('.modal-close-btn') : null;
+    
+    if (!modalEpub || !btnEink || !btnTheme) {
+      notify('El diálogo de exportación a EPUB no está disponible', 'error');
+      return;
+    }
+    
+    const optEink = await new Promise((resolve) => {
+      const cleanup = (value) => {
+        btnEink.removeEventListener('click', selectEink);
+        btnTheme.removeEventListener('click', selectTheme);
+        if (btnCancel) btnCancel.removeEventListener('click', selectCancel);
+        if (closeBtn) closeBtn.removeEventListener('click', selectCancel);
+        
+        modalEpub.classList.remove('active');
+        
+        // Devolver el foco al editor para mantener el flujo fluido
+        const editor = document.getElementById('editor');
+        if (editor) editor.focus();
+        
+        resolve(value);
+      };
+      
+      const selectEink = () => cleanup(true);
+      const selectTheme = () => cleanup(false);
+      const selectCancel = () => cleanup(null);
+      
+      btnEink.addEventListener('click', selectEink);
+      btnTheme.addEventListener('click', selectTheme);
+      if (btnCancel) btnCancel.addEventListener('click', selectCancel);
+      if (closeBtn) closeBtn.addEventListener('click', selectCancel);
+      
+      modalEpub.classList.add('active');
+      btnEink.focus();
+    });
+    
+    if (optEink === null) {
+      notify('Exportación a EPUB cancelada', 'info');
+      return;
+    }
+    
+    let bgColor = '#ffffff';
+    let textColor = '#000000';
+    let textStrongColor = '#000000';
+    let accentColor = '#000000';
+    let codeColor = '#be185d';
+    let blockquoteBg = 'rgba(0,0,0,0.03)';
+    let fontFamily = readerFont || 'Inter';
+    
+    if (!optEink) {
+      // Extraer los colores calculados en caliente del tema activo actual
+      const computedStyle = getComputedStyle(document.documentElement);
+      const extractedBg = computedStyle.getPropertyValue('--bg-reader').trim();
+      const extractedText = computedStyle.getPropertyValue('--text-reader').trim();
+      const extractedStrong = computedStyle.getPropertyValue('--text-strong').trim();
+      const extractedAccent = computedStyle.getPropertyValue('--accent').trim();
+      const extractedCode = computedStyle.getPropertyValue('--text-code-inline').trim();
+      const extractedBlockquoteBg = computedStyle.getPropertyValue('--bg-blockquote').trim();
+      
+      if (extractedBg) bgColor = extractedBg;
+      if (extractedText) textColor = extractedText;
+      if (extractedStrong) textStrongColor = extractedStrong;
+      if (extractedAccent) accentColor = extractedAccent;
+      if (extractedCode) codeColor = extractedCode;
+      if (extractedBlockquoteBg) blockquoteBg = extractedBlockquoteBg;
+    } else {
+      // Para Eink forzamos negro absoluto en todos los elementos tipográficos
+      textStrongColor = '#000000';
+      accentColor = '#000000';
+      codeColor = '#000000';
+      blockquoteBg = '#ffffff';
+    }
+    
+    const defaultSaveName = fileName + '.epub';
+    const savedPath = await invokeTauri('exportar_epub', {
+      defaultName: defaultSaveName,
+      title: fileName,
+      bodyHtml: bodyHtml,
+      bgColor: bgColor,
+      textColor: textColor,
+      textStrongColor: textStrongColor,
+      accentColor: accentColor,
+      codeColor: codeColor,
+      blockquoteBg: blockquoteBg,
+      fontFamily: fontFamily,
+      isEink: optEink
+    });
+    
+    if (savedPath) {
+      notify('Libro EPUB exportado con éxito en: ' + savedPath, 'success');
+    }
+  } catch (err) {
+    console.error('Error al exportar EPUB:', err);
+    notify('Error al exportar EPUB: ' + err, 'error');
+  }
+}

@@ -24,4 +24,5 @@ log = "0.4"
 tauri = { version = "2.11.2", features = ["protocol-asset"] }
 tauri-plugin-log = "2"
 rfd = "0.13"
+zip = { version = "0.6", default-features = false, features = ["deflate"] }
 

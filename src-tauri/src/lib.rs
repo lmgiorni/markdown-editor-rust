@@ -39,7 +39,7 @@ fn sanitizar_nombre_archivo(path: std::path::PathBuf) -> std::path::PathBuf {
 #[tauri::command]
 fn abrir_archivo() -> Result<Option<FileData>, String> {
     let file_path = match FileDialog::new()
-        .add_filter("Markdown & Datos (*.md, *.json, *.xml)", &["md", "markdown", "txt", "json", "xml"])
+        .add_filter("Markdown & Datos (*.md, *.json, *.xml, *.yaml, *.yml)", &["md", "markdown", "txt", "json", "xml", "yaml", "yml"])
         .pick_file() {
             Some(path) => path,
             None => return Ok(None),

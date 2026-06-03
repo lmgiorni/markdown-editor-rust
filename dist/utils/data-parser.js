@@ -421,14 +421,197 @@ export function convertXMLToJSON(node) {
 }
 
 function parseTypedValue(val) {
-  const lowerVal = val.toLowerCase();
+  let cleanVal = val.trim();
+  if ((cleanVal.startsWith('"') && cleanVal.endsWith('"')) || (cleanVal.startsWith("'") && cleanVal.endsWith("'"))) {
+    cleanVal = cleanVal.substring(1, cleanVal.length - 1);
+    if (val.trim().startsWith('"')) {
+      cleanVal = cleanVal.replace(/\\"/g, '"').replace(/\\n/g, '\n').replace(/\\t/g, '\t');
+    }
+  }
+
+  const lowerVal = cleanVal.toLowerCase();
   if (lowerVal === 'sí' || lowerVal === 'si' || lowerVal === 'true') return true;
   if (lowerVal === 'no' || lowerVal === 'false') return false;
-  if (val === '[]') return [];
-  if (/^-?\d+i$/.test(val)) return parseInt(val.slice(0, -1), 10);
-  if (/^-?\d+(\.\d+)?f$/.test(val)) return parseFloat(val.slice(0, -1));
-  if (/^-?\d+\.\d+$/.test(val)) return parseFloat(val);
-  if (/^-?\d+$/.test(val)) return parseInt(val, 10);
-  return val;
+  if (cleanVal === '[]') return [];
+  if (/^-?\d+i$/.test(cleanVal)) return parseInt(cleanVal.slice(0, -1), 10);
+  if (/^-?\d+(\.\d+)?f$/.test(cleanVal)) return parseFloat(cleanVal.slice(0, -1));
+  if (/^-?\d+\.\d+$/.test(cleanVal)) return parseFloat(cleanVal);
+  if (/^-?\d+$/.test(cleanVal)) return parseInt(cleanVal, 10);
+  return cleanVal;
+}
+
+// 6. CONVERTIDOR DE OBJETO JSON A CADENA YAML
+export function convertJSONToYAML(obj) {
+  function serialize(node, indent = "") {
+    if (node === null || node === undefined) {
+      return "null";
+    }
+    if (typeof node !== 'object') {
+      if (typeof node === 'string') {
+        if (node.includes('\n')) {
+          return "|\n" + node.split('\n').map(line => indent + "  " + line).join('\n');
+        }
+        if (/[:#{}[\],&*#?|\-<>=!%@`]|^[0-9.-]/.test(node) || node === "" || node === "true" || node === "false" || node === "null") {
+          return JSON.stringify(node);
+        }
+        return node;
+      }
+      return String(node);
+    }
+    if (Array.isArray(node)) {
+      if (node.length === 0) return "[]";
+      if (typeof node[0] === 'object') {
+        let yaml = [];
+        node.forEach(item => {
+          const itemYaml = serialize(item, indent + "  ");
+          const prefix = indent + "  ";
+          let formattedItem;
+          if (itemYaml.startsWith(prefix)) {
+            formattedItem = indent + "- " + itemYaml.substring(prefix.length);
+          } else {
+            formattedItem = indent + "- " + itemYaml.trimStart();
+          }
+          yaml.push(formattedItem);
+        });
+        return yaml.join('\n');
+      } else {
+        return node.map(item => `${indent}- ${serialize(item, indent + "  ")}`).join('\n');
+      }
+    }
+    
+    let keys = Object.keys(node);
+    if (keys.length === 0) return "{}";
+    let yaml = [];
+    keys.forEach(key => {
+      const val = node[key];
+      if (val !== null && typeof val === 'object') {
+        const valYaml = serialize(val, indent + "  ");
+        if (valYaml === "{}" || valYaml === "[]") {
+          yaml.push(`${indent}${key}: ${valYaml}`);
+        } else {
+          yaml.push(`${indent}${key}:\n${valYaml}`);
+        }
+      } else {
+        const valYaml = serialize(val, indent + "  ");
+        yaml.push(`${indent}${key}: ${valYaml}`);
+      }
+    });
+    return yaml.join('\n');
+  }
+  return serialize(obj);
+}
+
+// 7. CONVERTIDOR DE CADENA YAML A OBJETO JSON
+export function convertYAMLToJSON(yamlText) {
+  const lines = yamlText.split('\n');
+  const root = {};
+  const stack = [{ indent: -1, data: root, parentObj: null, keyInParent: null }];
+  
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const trimmed = line.trim();
+    
+    if (trimmed === '' || trimmed.startsWith('#')) continue;
+    
+    const indent = line.match(/^([ ]*)/)[0].length;
+    
+    while (stack.length > 1) {
+      const top = stack[stack.length - 1];
+      if (trimmed.startsWith('-') && top.keyInParent !== null && indent === top.indent) {
+        break;
+      }
+      if (top.indent >= indent) {
+        stack.pop();
+      } else {
+        break;
+      }
+    }
+    
+    const current = stack[stack.length - 1];
+    
+    if (trimmed.startsWith('-')) {
+      const listVal = trimmed.substring(1).trim();
+      
+      if (!Array.isArray(current.data)) {
+        if (current.parentObj && current.keyInParent !== null) {
+          current.parentObj[current.keyInParent] = [];
+          current.data = current.parentObj[current.keyInParent];
+        }
+      }
+      
+      if (listVal.includes(':') && !listVal.includes('|') && !listVal.endsWith(':')) {
+        const colonIdx = listVal.indexOf(':');
+        const k = listVal.substring(0, colonIdx).trim();
+        const v = listVal.substring(colonIdx + 1).trim();
+        const obj = {};
+        obj[k] = parseTypedValue(v);
+        current.data.push(obj);
+        stack.push({ indent: indent, data: obj, parentObj: current.data, keyInParent: current.data.length - 1 });
+      } else if (listVal.endsWith(':') || listVal.endsWith(': |') || listVal.endsWith(': |-')) {
+        const colonIdx = listVal.indexOf(':');
+        const k = listVal.substring(0, colonIdx).trim();
+        const obj = {};
+        current.data.push(obj);
+        
+        if (listVal.endsWith(': |') || listVal.endsWith(': |-')) {
+          let literalLines = [];
+          let j = i + 1;
+          let blockIndent = -1;
+          while (j < lines.length) {
+            let nextLine = lines[j];
+            if (nextLine.trim() === '') {
+              literalLines.push('');
+              j++;
+              continue;
+            }
+            let nextIndent = nextLine.match(/^([ ]*)/)[0].length;
+            if (blockIndent === -1) blockIndent = nextIndent;
+            if (nextIndent < blockIndent) break;
+            literalLines.push(nextLine.substring(blockIndent));
+            j++;
+          }
+          obj[k] = literalLines.join('\n');
+          i = j - 1;
+        } else {
+          obj[k] = {};
+          stack.push({ indent: indent, data: obj[k], parentObj: obj, keyInParent: k });
+        }
+      } else {
+        current.data.push(parseTypedValue(listVal));
+      }
+    } else if (trimmed.includes(':')) {
+      const colonIdx = trimmed.indexOf(':');
+      const k = trimmed.substring(0, colonIdx).trim();
+      const v = trimmed.substring(colonIdx + 1).trim();
+      
+      if (v === '|' || v === '|-') {
+        let literalLines = [];
+        let j = i + 1;
+        let blockIndent = -1;
+        while (j < lines.length) {
+          let nextLine = lines[j];
+          if (nextLine.trim() === '') {
+            literalLines.push('');
+            j++;
+            continue;
+          }
+          let nextIndent = nextLine.match(/^([ ]*)/)[0].length;
+          if (blockIndent === -1) blockIndent = nextIndent;
+          if (nextIndent < blockIndent) break;
+          literalLines.push(nextLine.substring(blockIndent));
+          j++;
+        }
+        current.data[k] = literalLines.join('\n');
+        i = j - 1;
+      } else if (v === '') {
+        current.data[k] = {};
+        stack.push({ indent: indent, data: current.data[k], parentObj: current.data, keyInParent: k });
+      } else {
+        current.data[k] = parseTypedValue(v);
+      }
+    }
+  }
+  
+  return root;
 }
 

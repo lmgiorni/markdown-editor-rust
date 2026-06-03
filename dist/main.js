@@ -3,7 +3,7 @@
 // ==========================================================================
 
 import { HistorialCambios } from './utils/history-manager.js';
-import { parseMarkdownToJSON, convertJSONToXML, buildTreeHTML, convertJSONToMarkdown, convertXMLToJSON } from './utils/data-parser.js';
+import { parseMarkdownToJSON, convertJSONToXML, buildTreeHTML, convertJSONToMarkdown, convertXMLToJSON, convertJSONToYAML, convertYAMLToJSON } from './utils/data-parser.js';
 import { escanearVariablesDePlantilla, obtenerTextoModuloConSangria } from './utils/template-engine.js';
 import { exportarDocumentoAHTML, exportarDocumentoAPDF, exportarDocumentoAEPUB } from './utils/export-service.js';
 
@@ -438,6 +438,16 @@ async function abrirArchivo() {
         } catch (xmlErr) {
           console.error('Error al analizar XML en importación:', xmlErr);
           alertNotification('El archivo .xml tiene errores de estructura y no pudo importarse.', 'error');
+          return;
+        }
+      } else if (lowerPath.endsWith('.yaml') || lowerPath.endsWith('.yml')) {
+        try {
+          const jsonObj = convertYAMLToJSON(fileData.content);
+          finalContent = convertJSONToMarkdown(jsonObj);
+          importedAndConverted = 'YAML';
+        } catch (yamlErr) {
+          console.error('Error al analizar YAML en importación:', yamlErr);
+          alertNotification('El archivo YAML tiene errores de estructura y no pudo importarse.', 'error');
           return;
         }
       }
@@ -2034,6 +2044,7 @@ function renderStructuredTreeVisual(obj) {
   const isTree = appState.structuredActiveTab === 'tree';
   const isJson = appState.structuredActiveTab === 'json';
   const isXml = appState.structuredActiveTab === 'xml';
+  const isYaml = appState.structuredActiveTab === 'yaml';
 
   let contentHtml = '';
   if (isTree) {
@@ -2044,6 +2055,9 @@ function renderStructuredTreeVisual(obj) {
   } else if (isXml) {
     const xmlStr = convertJSONToXML(obj, appState.fileName);
     contentHtml = `<pre class="structured-code-preview"><code>${escapeHTML(xmlStr)}</code></pre>`;
+  } else if (isYaml) {
+    const yamlStr = convertJSONToYAML(obj);
+    contentHtml = `<pre class="structured-code-preview"><code>${escapeHTML(yamlStr)}</code></pre>`;
   }
 
   let html = `<div class="structured-tree-viewer">
@@ -2076,6 +2090,13 @@ function renderStructuredTreeVisual(obj) {
         <button class="tree-header-btn" id="btn-tree-export-xml" title="Guardar directamente como archivo .xml en tu ordenador">
           💾 Exportar XML
         </button>
+        
+        <button class="tree-header-btn ${isYaml ? 'active-tab' : ''}" id="btn-tree-tab-yaml" title="Ver estructura de datos YAML">
+          🗎 Ver YAML
+        </button>
+        <button class="tree-header-btn" id="btn-tree-export-yaml" title="Guardar directamente como archivo .yaml en tu ordenador">
+          💾 Exportar YAML
+        </button>
       </div>
     </div>
     <div class="structured-tree-content">
@@ -2103,6 +2124,11 @@ function renderStructuredTreeVisual(obj) {
   
   document.getElementById('btn-tree-tab-xml').addEventListener('click', () => {
     appState.structuredActiveTab = 'xml';
+    renderMarkdown();
+  });
+  
+  document.getElementById('btn-tree-tab-yaml').addEventListener('click', () => {
+    appState.structuredActiveTab = 'yaml';
     renderMarkdown();
   });
   
@@ -2139,6 +2165,24 @@ function renderStructuredTreeVisual(obj) {
       if (res) alertNotification('XML guardado con éxito en: ' + res, 'success');
     }).catch(err => {
       alertNotification('Error al exportar XML: ' + err, 'error');
+    });
+  });
+  
+  document.getElementById('btn-tree-export-yaml').addEventListener('click', () => {
+    if (!invoke) {
+      alertNotification('La exportación de archivos no está disponible en la web', 'error');
+      return;
+    }
+    const yamlStr = convertJSONToYAML(obj);
+    invoke('exportar_archivo', {
+      defaultName: `${appState.fileName}.yaml`,
+      content: yamlStr,
+      extension: 'yaml',
+      filterName: 'YAML'
+    }).then(res => {
+      if (res) alertNotification('YAML guardado con éxito en: ' + res, 'success');
+    }).catch(err => {
+      alertNotification('Error al exportar YAML: ' + err, 'error');
     });
   });
 }

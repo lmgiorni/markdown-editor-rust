@@ -262,7 +262,7 @@ body {
 
 #preview {
   padding: 32px 48px;
-  max-width: 800px;
+  max-width: 1200px;
   margin: 0;
   width: 100%;
   min-height: 100%;
@@ -499,7 +499,7 @@ body {
   max-width: 100%;
 }
 #app-container.only-editor #editor {
-  max-width: 800px;
+  max-width: 1200px;
   margin: 0 auto;
   width: 100%;
 }
@@ -515,7 +515,7 @@ body {
   background-color: var(--bg-panel);
 }
 #app-container.only-preview #preview {
-  max-width: 760px; /* Ancho editorial óptimo */
+  max-width: 1200px; /* Ancho editorial óptimo ampliado */
   margin: 0 auto;
 }
 

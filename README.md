@@ -1,6 +1,6 @@
 # Summa Scriptura ✍️
 
-Un entorno de redacción moderno, ultra-ligero y de alto rendimiento en Rust, diseñado especialmente para diseñadores de juegos y creadores de contenido que buscan una escritura fluida y libre de distracciones, con la capacidad única de traducir texto jerárquico directamente a datos estructurados (JSON/XML) en tiempo real.
+Un entorno de redacción moderno, ultra-ligero y de alto rendimiento en Rust, diseñado especialmente para creadores de contenido que buscan una escritura fluida y libre de distracciones, con la capacidad única de traducir texto jerárquico directamente a datos estructurados (JSON/XML) en tiempo real.
 
 ![Estado del Proyecto](https://img.shields.io/badge/Status-In--Development-yellow)
 ![Plataforma](https://img.shields.io/badge/Platform-Windows-blue)

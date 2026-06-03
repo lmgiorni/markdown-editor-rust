@@ -14,9 +14,9 @@
     "windows": [
       {
         "title": "Summa Scriptura",
-        "width": 900,
+        "width": 1200,
         "height": 1100,
-        "minWidth": 880,
+        "minWidth": 1200,
         "minHeight": 1000,
         "resizable": true,
         "fullscreen": false

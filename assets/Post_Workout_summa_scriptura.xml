@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<NonRealTimeMeta xmlns="urn:schemas-professionalDisc:nonRealTimeMeta:ver.2.30" xmlns:lib="urn:schemas-professionalDisc:lib:ver.2.00" lastUpdate="2023-08-18T17:31:14+04:00">
+	<TargetMaterial umidRef="060A2B340101010501010D4313000000F35F2190740106D0EC5C84FFFE2C15DB"/>
+	<Duration value="719"/>
+	<LtcChangeTable tcFps="25" halfStep="false">
+		<LtcChange frameCount="0" value="01184016" status="increment"/>
+		<LtcChange frameCount="718" value="19464016" status="end"/>
+	</LtcChangeTable>
+	<CreationDate value="2023-08-18T17:30:44+04:00"/>
+	<TypicalUbit value="0000000000000000"/>
+	<KlvPacketTable>
+		<KlvPacket key="060E2B34010101050301020A02000000" frameCount="0" lengthValue="14095F526563537461727400000000000000000000" status="spot"/>
+	</KlvPacketTable>
+	<VideoFormat>
+		<VideoRecPort port="DIRECT"/>
+		<VideoFrame videoCodec="X-OCN_G_LT_8.6K_16:9" captureFps="25.00p" formatFps="25p"/>
+		<VideoLayout pixel="8632" numOfVerticalLine="4856" aspectRatio="16:9" flip="none" pixelAspect="1:1"/>
+	</VideoFormat>
+	<AudioFormat numOfChannel="4">
+		<AudioRecPort port="DIRECT" audioCodec="LPCM24" trackDst="CH1" samplingRate="48000"/>
+		<AudioRecPort port="DIRECT" audioCodec="LPCM24" trackDst="CH2" samplingRate="48000"/>
+		<AudioRecPort port="DIRECT" audioCodec="LPCM24" trackDst="CH3" samplingRate="48000"/>
+		<AudioRecPort port="DIRECT" audioCodec="LPCM24" trackDst="CH4" samplingRate="48000"/>
+	</AudioFormat>
+	<Device manufacturer="Sony" modelName="MPC-2610" serialNo="0000057">
+		<Element hardware="Main-Board" software="0.22"/>
+	</Device>
+	<Lens manufacturer="" modelName="FE 35mm F1.4 ZA"/>
+	<RecordingMode type="normal" cacheRec="false"/>
+	<AcquisitionRecord>
+		<Group name="LensUnitMetadataSet">
+			<Item name="LensAttributes" value="0000220414"/>
+		</Group>
+		<Group name="CameraUnitMetadataSet">
+			<Item name="ExposureIndexOfPhotoMeter" value="800"/>
+			<Item name="NeutralDensityFilterWheelSetting" value="4"/>
+			<Item name="ImageSensorReadoutMode" value="ProgressiveFrame"/>
+			<Item name="ShutterSpeedAngle" value="10800"/>
+			<Item name="ISOSensitivity" value="800"/>
+			<Item name="WhiteBalance" value="5600"/>
+			<Item name="CaptureGammaEquation" value="scene-linear"/>
+			<Item name="CameraAttributes" value="MPC-2610 0000057 Version0.22"/>
+		</Group>
+		<Group name="SonyF65CameraMetadataSet">
+			<Item name="EffectiveMarkerCoverage" value="8640/8640"/>
+			<Item name="EffectiveMarkerAspectRatio" value="8640:3676"/>
+			<Item name="ActiveAreaAspectRatio" value="8640:4860"/>
+			<Item name="PixelAspectRatio" value="1:1"/>
+			<Item name="CameraProcessDiscriminationCode" value="0C01"/>
+			<Item name="RawBlackCodeValue" value="512"/>
+			<Item name="RawGrayCodeValue" value="1504"/>
+			<Item name="RawWhiteCodeValue" value="5472"/>
+			<Item name="MonitoringBaseCurve" value="rec709-800"/>
+			<Item name="GammaForLook" value="s-log3-cine"/>
+			<Item name="ColorForLook" value="s-gamut3-cine"/>
+			<Item name="PreCDLTransform" value="LUT:SL3SG3CtoR709-800.cube"/>
+			<Item name="LookProcessBaked" value="false"/>
+			<Item name="MonitoringCharacteristics" value="rec709"/>
+			<Item name="MonitoringColorPrimaries" value="rec709"/>
+			<Item name="MonitoringCodingEquations" value="rec709"/>
+			<Item name="MonitoringDescriptions" value="LUT:SL3SG3CtoR709-800.cube"/>
+		</Group>
+	</AcquisitionRecord>
+	<UserDescriptiveMetadata>
+		<Meta name="Circle" content=""/>
+		<Meta name="Project" content=""/>
+		<Meta name="DirectorName" content=""/>
+		<Meta name="DirectorOfPhotographyName" content=""/>
+		<Meta name="Production" content=""/>
+		<Meta name="CameraIndex" content="A"/>
+		<Meta name="Reel" content="020"/>
+		<Meta name="Scene" content=""/>
+		<Meta name="Cut" content=""/>
+		<Meta name="Take" content=""/>
+		<Meta name="Shot" content="027"/>
+		<Meta name="MarkIn" content=""/>
+		<Meta name="MarkOut" content=""/>
+	</UserDescriptiveMetadata>
+</NonRealTimeMeta>

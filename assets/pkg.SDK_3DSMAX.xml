@@ -1,0 +1,27 @@
+<?xml version="1.0" ?>
+<Package version="1.0" xmlns="https://emsfs.autodesk.com/schema/manifest/1/0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="https://emsfs.autodesk.com/schema/manifest/1/0 https://emsfs.autodesk.com/schema/manifest/1/0/manifest.xsd">
+  <Identity>
+    <Publisher>Autodesk, Inc.</Publisher>
+    <DisplayName>3ds Max 2026 SDK</DisplayName>
+    <PLC>MAXSDK</PLC>
+    <Release>2026</Release>
+    <BuildNumber>28.0.0.4098</BuildNumber>
+    <ConstantId>{D839B4E5-3336-4014-AA0A-A404C5B2FA48}</ConstantId>
+  </Identity>
+  <Configuration>
+    <InstallFile contents="File" file="x64/Tools/MAXSDK/SDK_3DSMAX.msi" type="MSI"/>
+    <Attributes ignoreFailure="true"/>
+    <Platforms>
+      <Platform architecture="x64" minVersion="5.1.2" name="Windows"/>
+    </Platforms>
+    <Languages>
+      <Language langId="en-US"/>
+      <Language langId="ja-JP"/>
+      <Language langId="zh-CN"/>
+      <Language langId="fr-FR"/>
+      <Language langId="pt-BR"/>
+      <Language langId="de-DE"/>
+      <Language langId="ko-KR"/>
+    </Languages>
+  </Configuration>
+</Package>

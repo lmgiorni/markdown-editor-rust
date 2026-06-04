@@ -1,60 +1,60 @@
-**DOCUMENTO DE DISEÑO TÉCNICO: HUMANITY ENGINE (v5.0)**
+**DOCUMENTO DE DISEÃ‘O TÃ‰CNICO: HUMANITY ENGINE (v5.0)**
 
 **Proyecto:** GP\_Paddock (F1 Manager 90s)
-**Módulo:** Sistema de Simulación Psicológica y Ontológica
-**Versión:** 5.0 – Consolidado
-**Estado:** Listo para Implementación
+**MÃ³dulo:** Sistema de SimulaciÃ³n PsicolÃ³gica y OntolÃ³gica
+**VersiÃ³n:** 5.0 â€“ Consolidado
+**Estado:** Listo para ImplementaciÃ³n
 
-**1. INTENCIÓN Y FILOSOFÍA DEL SISTEMA**
+**1. INTENCIÃ“N Y FILOSOFÃA DEL SISTEMA**
 
-**1.1. Visión General**
+**1.1. VisiÃ³n General**
 
-El **Humanity Engine** no es un sistema de estadísticas lineales (como los RPG tradicionales), sino un simulador de la condición humana basado en la **Antropología Tomista**. Su objetivo es modelar la psique de los personajes (ingenieros, pilotos) como una interacción dinámica entre su naturaleza intrínseca y las presiones del entorno.
+El **Humanity Engine** no es un sistema de estadÃ­sticas lineales (como los RPG tradicionales), sino un simulador de la condiciÃ³n humana basado en la **AntropologÃ­a Tomista**. Su objetivo es modelar la psique de los personajes (ingenieros, pilotos) como una interacciÃ³n dinÃ¡mica entre su naturaleza intrÃ­nseca y las presiones del entorno.
 
-**1.2. Pilares Filosóficos**
+**1.2. Pilares FilosÃ³ficos**
 
-* **Potencia vs. Acto:** El sistema distingue entre lo que el sujeto *puede* ser o hacer (**Potencia/Envelopes**) y lo que efectivamente manifiesta en la realidad (**Acto/**$P\_{a}$).
-* **La Virtud como Equilibrio:** Siguiendo el concepto del "Justo Medio", la virtud se define como la estabilidad en el centro del plano moral, mientras que el vicio es la oscilación extrema o la dispersión.
-* **El Discernimiento:** El objetivo del jugador (Manager) no es "subir niveles" de un empleado, sino realizar un ejercicio de discernimiento: descubrir la topología oculta del sujeto para colocarlo en un entorno donde sus capacidades florezcan y sus vicios no sean detonados.
+* **Potencia vs. Acto:**Â El sistema distingue entre lo que el sujetoÂ *puede*Â ser o hacer (**Potencia/Envelopes**) y lo que efectivamente manifiesta en la realidad (**Acto/**$P\_{a}$).
+* **La Virtud como Equilibrio:**Â Siguiendo el concepto del "Justo Medio", la virtud se define como la estabilidad en el centro del plano moral, mientras que el vicio es la oscilaciÃ³n extrema o la dispersiÃ³n.
+* **El Discernimiento:**Â El objetivo del jugador (Manager) no es "subir niveles" de un empleado, sino realizar un ejercicio de discernimiento: descubrir la topologÃ­a oculta del sujeto para colocarlo en un entorno donde sus capacidades florezcan y sus vicios no sean detonados.
 
 **2. CONCEPTOS FUNDAMENTALES**
 
-**2.1. La Topología de Envelopes (Envolventes)**
+**2.1. La TopologÃ­a de Envelopes (Envolventes)**
 
-El sistema abandona los valores numéricos simples por **Áreas de Operación (Polígonos)** dibujadas sobre planos cartesianos.
+El sistema abandona los valores numÃ©ricos simples por **Ãreas de OperaciÃ³n (PolÃ­gonos)** dibujadas sobre planos cartesianos.
 
-* **El Envelope:** Representa la finitud humana. Todo estímulo que cae *dentro* del área es soportado o procesado con normalidad. Todo lo que cae *fuera* genera crisis, trauma o fallo.
+* **El Envelope:**Â Representa la finitud humana. Todo estÃ­mulo que caeÂ *dentro*Â del Ã¡rea es soportado o procesado con normalidad. Todo lo que caeÂ *fuera*Â genera crisis, trauma o fallo.
 
-**2.2. La Tensión Vectorial (**$P\_{i}$**vs**$P\_{a}$**)**
+**2.2. La TensiÃ³n Vectorial (**$P\_{i}$**vs**$P\_{a}$**)**
 
-El estado anímico se define por la relación entre dos vectores:
+El estado anÃ­mico se define por la relaciÃ³n entre dos vectores:
 
-1. **Intención (**$P\_{i}$**):** El "Corazón". Representa lo que el sujeto desea o su tendencia natural profunda.
-2. **Acto (**$P\_{a}$**):** La "Máscara". Representa la conducta visible y el resultado final de la acción.
+1. **IntenciÃ³n (**$P\_{i}$**):**Â El "CorazÃ³n". Representa lo que el sujeto desea o su tendencia natural profunda.
+2. **Acto (**$P\_{a}$**):**Â La "MÃ¡scara". Representa la conducta visible y el resultado final de la acciÃ³n.
 
 **3. ARQUITECTURA DEL SUJETO (LAS 5 DIMENSIONES)**
 
-Cada personaje posee cinco gráficos de radar (Envelopes). La interacción con el mundo ocurre a través de estos ejes:
+Cada personaje posee cinco grÃ¡ficos de radar (Envelopes). La interacciÃ³n con el mundo ocurre a travÃ©s de estos ejes:
 
-**Tabla 1: Dimensiones del Ser y sus Ejes de Tensión**
+**Tabla 1: Dimensiones del Ser y sus Ejes de TensiÃ³n**
 
-| **Dimensión** | **Eje Y (Estructura / Juicio)** | **Eje X (Energía / Impulso)** | **Lógica del Área (Envelope)** |
+| **DimensiÃ³n** | **Eje Y (Estructura / Juicio)** | **Eje X (EnergÃ­a / Impulso)** | **LÃ³gica del Ãrea (Envelope)** |
 | --- | --- | --- | --- |
-| **1. BIOLÓGICA** | Robustez $\leftrightarrow $ Gracilidad | Explosividad $\leftrightarrow $ Resistencia | **Capacidad:** Define el límite físico y somático. |
-| **2. SENSORIAL** | Espectro (Ej: Agudos $\leftrightarrow $ Graves) | Sutileza $\leftrightarrow $ Amortiguación | **Rango:** Define qué información entra al cerebro. |
-| **3. COGNITIVA** | Análisis $\leftrightarrow $ Intuición | Enfoque Túnel $\leftrightarrow $ Visión Global | **Procesamiento:** Capacidad de resolver problemas. |
-| **4. RELACIONAL** | Apertura $\leftrightarrow $ Hermetismo | Empatía $\leftrightarrow $ Pragmatismo | **Interfaz:** Calidad del vínculo con otros sujetos. |
-| **5. ESPIRITUAL** | Soberbia $\leftrightarrow $ Pusilanimidad | Ira/Valor $\leftrightarrow $ Acidia/Miedo | **Virtud (Inversa):** Área pequeña = Estabilidad / Área grande = Vicio. |
+| **1. BIOLÃ“GICA** | RobustezÂ $\leftrightarrow $Â Gracilidad | ExplosividadÂ $\leftrightarrow $Â Resistencia | **Capacidad:**Â Define el lÃ­mite fÃ­sico y somÃ¡tico. |
+| **2. SENSORIAL** | Espectro (Ej: AgudosÂ $\leftrightarrow $Â Graves) | SutilezaÂ $\leftrightarrow $Â AmortiguaciÃ³n | **Rango:**Â Define quÃ© informaciÃ³n entra al cerebro. |
+| **3. COGNITIVA** | AnÃ¡lisisÂ $\leftrightarrow $Â IntuiciÃ³n | Enfoque TÃºnelÂ $\leftrightarrow $Â VisiÃ³n Global | **Procesamiento:**Â Capacidad de resolver problemas. |
+| **4. RELACIONAL** | AperturaÂ $\leftrightarrow $Â Hermetismo | EmpatÃ­aÂ $\leftrightarrow $Â Pragmatismo | **Interfaz:**Â Calidad del vÃ­nculo con otros sujetos. |
+| **5. ESPIRITUAL** | SoberbiaÂ $\leftrightarrow $Â Pusilanimidad | Ira/ValorÂ $\leftrightarrow $Â Acidia/Miedo | **Virtud (Inversa):**Â Ãrea pequeÃ±a = Estabilidad / Ãrea grande = Vicio. |
 
-**4. EL ENTORNO Y LA GENERACIÓN DE ESTÍMULOS**
+**4. EL ENTORNO Y LA GENERACIÃ“N DE ESTÃMULOS**
 
-El mundo no envía valores, sino **Vectores de Presión**. Estos se dividen en tres capas:
+El mundo no envÃ­a valores, sino **Vectores de PresiÃ³n**. Estos se dividen en tres capas:
 
-1. **Capa Física (Materia):** Variables objetivas (Temperatura, Ruido, Visibilidad).
-2. **Capa Abstracta (Espacio):** Contextos operativos (Privacidad, Saturación de elementos, Accesibilidad).
-3. **Capa Atmosférica (Espíritu):** Presiones psicológicas (Tensión ambiental, Orden vs Caos, Teleología del lugar).
+1. **Capa FÃ­sica (Materia):**Â Variables objetivas (Temperatura, Ruido, Visibilidad).
+2. **Capa Abstracta (Espacio):**Â Contextos operativos (Privacidad, SaturaciÃ³n de elementos, Accesibilidad).
+3. **Capa AtmosfÃ©rica (EspÃ­ritu):**Â Presiones psicolÃ³gicas (TensiÃ³n ambiental, Orden vs Caos, TeleologÃ­a del lugar).
 
-**5. EL MOTOR DE TRANSDUCCIÓN (FLUJO LÓGICO)**
+**5. EL MOTOR DE TRANSDUCCIÃ“N (FLUJO LÃ“GICO)**
 
 La "magia" del sistema ocurre en el puente entre el entorno y la voluntad. El flujo de procesamiento es el siguiente:
 
@@ -64,43 +64,43 @@ $$Evento\rightarrow Dimensi?n Primaria\rightarrow Filtro de Resonancia\rightarro
 
 Antes de que un evento afecte la moral, pasa por el historial del sujeto (HumanityData).
 
-* Si el estímulo coincide con un **Hito** (ej: el sonido de un motor rompiéndose resuena con un trauma previo), la señal "salta" la dimensión física y golpea directamente la **Dimensión Espiritual**.
+* Si el estÃ­mulo coincide con unÂ **Hito**Â (ej: el sonido de un motor rompiÃ©ndose resuena con un trauma previo), la seÃ±al "salta" la dimensiÃ³n fÃ­sica y golpea directamente laÂ **DimensiÃ³n Espiritual**.
 
-**5.2. Cálculo de Disonancia y Fatiga Moral**
+**5.2. CÃ¡lculo de Disonancia y Fatiga Moral**
 
-Cuando el sujeto intenta mantener una máscara ($P\_{a}$) diferente a su intención ($P\_{i}$), se genera **Fatiga Moral**.
+Cuando el sujeto intenta mantener una mÃ¡scara ($P\_{a}$) diferente a su intenciÃ³n ($P\_{i}$), se genera **Fatiga Moral**.
 
-$$Fatiga Moral=?(Distancia P\_{i}\rightarrow P\_{a})×Multiplicador de Contexto$$
+$$Fatiga Moral=?(Distancia P\_{i}\rightarrow P\_{a})Ã—Multiplicador de Contexto$$
 
-* **Contextos:** Fábrica (x0.2), Práctica (x1.5), Carrera (x5.0).
+* **Contextos:**Â FÃ¡brica (x0.2), PrÃ¡ctica (x1.5), Carrera (x5.0).
 
 **5.3. El Colapso y la Gracia**
 
-* **Colapso:** Si $Fatiga Moral>Voluntad$, ocurre un rebote violento donde $P\_{a}$ es absorbido por $P\_{i}$. La máscara se rompe y el sujeto actúa según su vicio o miedo más profundo.
-* **Gracia:** Evento extraordinario que mueve a $P\_{i}$ asintóticamente (85%) hacia el centro $\left(0\right)$ y limpia la fatiga acumulada.
+* **Colapso:**Â SiÂ $Fatiga Moral>Voluntad$, ocurre un rebote violento dondeÂ $P\_{a}$Â es absorbido porÂ $P\_{i}$. La mÃ¡scara se rompe y el sujeto actÃºa segÃºn su vicio o miedo mÃ¡s profundo.
+* **Gracia:**Â Evento extraordinario que mueve aÂ $P\_{i}$Â asintÃ³ticamente (85%) hacia el centroÂ $\left(0\right)$Â y limpia la fatiga acumulada.
 
 **6. INTERFAZ NARRATIVA: HUMANITY SPEAKER**
 
-El sistema de diálogos no usa frases predefinidas, sino un **Ensamblador Dinámico** basado en el vector dominante de $P\_{a}$.
+El sistema de diÃ¡logos no usa frases predefinidas, sino un **Ensamblador DinÃ¡mico** basado en el vector dominante de $P\_{a}$.
 
-**6.1. Capas de Construcción del Mensaje**
+**6.1. Capas de ConstrucciÃ³n del Mensaje**
 
-1. **Capa Superficial (Cuadrante):** Selecciona la base del mensaje según el cuadrante de $P\_{a}$ (ej: Soberbia + Ira).
-2. **Capa de Partículas (Sintaxis Anímica):** Inyecta modificadores según la dominancia:
-   * **Ira:** Exclamaciones y urgencia ("¡Ya!", "¡Maldita sea!").
-   * **Acidia:** Muletillas de desinterés ("bueh...", "total...").
-   * **Soberbia:** Adverbios de certeza ("obviamente", "indiscutiblemente").
-   * **Duda/Pusilanimidad:** Adverbios de inseguridad ("quizás", "creo que").
-3. **Capa Profunda (Fisuras):** Si la Fatiga Moral es alta, el sistema inserta un pensamiento oculto entre paréntesis que revela $P\_{i}$.
+1. **Capa Superficial (Cuadrante):**Â Selecciona la base del mensaje segÃºn el cuadrante deÂ $P\_{a}$Â (ej: Soberbia + Ira).
+2. **Capa de PartÃ­culas (Sintaxis AnÃ­mica):**Â Inyecta modificadores segÃºn la dominancia:
+   * **Ira:**Â Exclamaciones y urgencia ("Â¡Ya!", "Â¡Maldita sea!").
+   * **Acidia:**Â Muletillas de desinterÃ©s ("bueh...", "total...").
+   * **Soberbia:**Â Adverbios de certeza ("obviamente", "indiscutiblemente").
+   * **Duda/Pusilanimidad:**Â Adverbios de inseguridad ("quizÃ¡s", "creo que").
+3. **Capa Profunda (Fisuras):**Â Si la Fatiga Moral es alta, el sistema inserta un pensamiento oculto entre parÃ©ntesis que revelaÂ $P\_{i}$.
 
-**Ejemplo de salida:** *"Obviamente el problema está en los carburadores... (pero no tengo ni idea de cómo arreglarlo sin quedar en ridículo)."*
+**Ejemplo de salida:** *"Obviamente el problema estÃ¡ en los carburadores... (pero no tengo ni idea de cÃ³mo arreglarlo sin quedar en ridÃ­culo)."*
 
-**7. RESUMEN DE COMPONENTES TÉCNICOS (UNITY/C#)**
+**7. RESUMEN DE COMPONENTES TÃ‰CNICOS (UNITY/C#)**
 
-| **Componente** | **Tipo** | **Función Principal** |
+| **Componente** | **Tipo** | **FunciÃ³n Principal** |
 | --- | --- | --- |
 | HumanityData | ScriptableObject | Almacena los Envelopes, Voluntad y Hitos del personaje. |
-| HumanityEngine | MonoBehaviour | Calcula la física moral frame-a-frame y gestiona $P\_{i}$ y $P\_{a}$. |
-| EnvironmentManager | MonoBehaviour | Genera los vectores de presión según el escenario actual. |
-| HumanitySpeaker | MonoBehaviour | Ensambla el texto final usando la lógica de partículas y fisuras. |
+| HumanityEngine | MonoBehaviour | Calcula la fÃ­sica moral frame-a-frame y gestionaÂ $P\_{i}$Â yÂ $P\_{a}$. |
+| EnvironmentManager | MonoBehaviour | Genera los vectores de presiÃ³n segÃºn el escenario actual. |
+| HumanitySpeaker | MonoBehaviour | Ensambla el texto final usando la lÃ³gica de partÃ­culas y fisuras. |
 | VoiceFragments | ScriptableObject | Base de datos de fragmentos de texto organizados por cuadrantes. |

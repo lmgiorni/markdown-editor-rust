@@ -6,6 +6,7 @@ import { HistorialCambios } from './utils/history-manager.js';
 import { parseMarkdownToJSON, convertJSONToXML, buildTreeHTML, convertJSONToMarkdown, convertXMLToJSON, convertJSONToYAML, convertYAMLToJSON } from './utils/data-parser.js';
 import { escanearVariablesDePlantilla, obtenerTextoModuloConSangria } from './utils/template-engine.js';
 import { exportarDocumentoAHTML, exportarDocumentoAPDF, exportarDocumentoAEPUB } from './utils/export-service.js';
+import { translations } from './utils/i18n.js';
 
 // Configuración y Acceso Seguro al Puente de Tauri
 const invoke = window.__TAURI__ ? window.__TAURI__.core.invoke : null;
@@ -28,7 +29,8 @@ let appState = {
   editorFontSize: parseInt(localStorage.getItem('md-editor-font-size')) || 14,
   readerFontSize: parseInt(localStorage.getItem('md-reader-font-size')) || 15,
   structuredFontSize: parseInt(localStorage.getItem('md-structured-font-size')) || 13,
-  activeTheme: localStorage.getItem('md-theme') || 'Cyberpunk-Dark'
+  activeTheme: localStorage.getItem('md-theme') || 'Cyberpunk-Dark',
+  language: localStorage.getItem('md-language') || 'es'
 };
 
 // Referencias seguras y completas a Elementos del DOM
@@ -91,6 +93,7 @@ const DOM = {
   selectEditorFont: document.getElementById('select-editor-font'),
   selectReaderFont: document.getElementById('select-reader-font'),
   selectStructuredFont: document.getElementById('select-structured-font'),
+  selectLanguage: document.getElementById('select-language'),
   rangeEditorSize: document.getElementById('range-editor-size'),
   rangeReaderSize: document.getElementById('range-reader-size'),
   rangeStructuredSize: document.getElementById('range-structured-size'),
@@ -167,6 +170,7 @@ function aplicarConfiguracionVisual() {
   if (DOM.selectEditorFont) DOM.selectEditorFont.value = appState.editorFont;
   if (DOM.selectReaderFont) DOM.selectReaderFont.value = appState.readerFont;
   if (DOM.selectStructuredFont) DOM.selectStructuredFont.value = appState.structuredFont;
+  if (DOM.selectLanguage) DOM.selectLanguage.value = appState.language;
   if (DOM.rangeEditorSize) DOM.rangeEditorSize.value = appState.editorFontSize;
   if (DOM.rangeReaderSize) DOM.rangeReaderSize.value = appState.readerFontSize;
   if (DOM.rangeStructuredSize) DOM.rangeStructuredSize.value = appState.structuredFontSize;
@@ -181,6 +185,7 @@ function aplicarConfiguracionVisual() {
   localStorage.setItem('md-editor-font-size', appState.editorFontSize);
   localStorage.setItem('md-reader-font-size', appState.readerFontSize);
   localStorage.setItem('md-structured-font-size', appState.structuredFontSize);
+  localStorage.setItem('md-language', appState.language);
 }
 
 // ==========================================================================
@@ -207,8 +212,51 @@ function renderMarkdown() {
       mangle: false
     });
     
+    // 1. Extraer definiciones de notas al pie antes de procesar el texto con marked
+    const footnoteDefs = {};
+    const footnoteDefRegex = /^\[\^([^\]]+)\]:\s*(.*)$/gm;
+    let cleanedMarkdown = markdownText;
+    
+    let match;
+    while ((match = footnoteDefRegex.exec(markdownText)) !== null) {
+      const label = match[1];
+      const definition = match[2];
+      footnoteDefs[label] = definition;
+    }
+    
+    // Quitar las líneas de definiciones para evitar que se rendericen inline como párrafos
+    cleanedMarkdown = cleanedMarkdown.replace(/^\[\^([^\]]+)\]:\s*(.*)$/gm, '');
+    
     // Inyectar el HTML traducido en el Visor
-    DOM.preview.innerHTML = marked.parse(markdownText);
+    let html = marked.parse(cleanedMarkdown);
+    
+    // 2. Procesar referencias de notas al pie [^label]
+    html = html.replace(/\[\^([^\]:\n]+)\]/g, (match, label) => {
+      if (footnoteDefs[label] !== undefined) {
+        return `<sup class="footnote-ref"><a href="#fn-${label}" id="fnref-${label}">${label}</a></sup>`;
+      }
+      return match;
+    });
+    
+    // 3. Procesar listas de definición (dt/dd)
+    // Buscamos un párrafo de término seguido inmediatamente por un párrafo que empieza por dos puntos
+    html = html.replace(/<p>([^<]+)<\/p>\s*<p>:\s*(.*?)<\/p>/g, '<dl><dt>$1</dt><dd>$2</dd></dl>');
+    // Fusionar bloques dl adyacentes para agruparlos correctamente
+    html = html.replace(/<\/dl>\s*<dl>/g, '');
+    
+    // 4. Inyectar la sección de notas al pie al final del HTML si existen
+    const footnoteLabels = Object.keys(footnoteDefs);
+    if (footnoteLabels.length > 0) {
+      let footnotesSection = '<hr class="footnotes-sep"><section class="footnotes"><ol>';
+      footnoteLabels.forEach(label => {
+        const defHtml = marked.parse(footnoteDefs[label]).trim().replace(/^<p>|<\/p>$/g, '');
+        footnotesSection += `<li id="fn-${label}" class="footnote-item">${defHtml} <a href="#fnref-${label}" class="footnote-backref">↩</a></li>`;
+      });
+      footnotesSection += '</ol></section>';
+      html += footnotesSection;
+    }
+    
+    DOM.preview.innerHTML = html;
     
     // Soporte de imágenes locales (relativas y absolutas) mediante el protocolo de activos de Tauri v2
     const imgs = DOM.preview.querySelectorAll('img');
@@ -268,7 +316,16 @@ function renderMarkdown() {
   
   // Actualizar estadísticas inmediatas de la barra inferior
   const palabras = markdownText.trim().split(/\s+/).filter(p => p.length > 0).length;
-  DOM.wordCountStatus.textContent = `${palabras} ${palabras === 1 ? 'palabra' : 'palabras'}`;
+  const lang = appState.language || 'es';
+  let palabraText = '';
+  if (lang === 'es') {
+    palabraText = palabras === 1 ? 'palabra' : 'palabras';
+  } else if (lang === 'en') {
+    palabraText = palabras === 1 ? 'word' : 'words';
+  } else {
+    palabraText = palabras === 1 ? 'verbum' : 'verba';
+  }
+  DOM.wordCountStatus.textContent = `${palabras} ${palabraText}`;
 }
 
 // Modifica el indicador de cambios sin guardar
@@ -296,14 +353,26 @@ function setSavedState(saved) {
 
 // Actualiza el nombre que se visualiza arriba (escondiendo la extensión)
 function actualizarNombreArchivo() {
-  let indicator = appState.isSaved ? '' : ' *';
+  const lang = appState.language || 'es';
+  const t = translations[lang] || translations.es;
+  
   let display = appState.fileName;
   const lastDot = display.lastIndexOf('.');
   if (lastDot > 0) {
     display = display.substring(0, lastDot);
   }
-  DOM.fileInfo.textContent = `${display}${indicator}`;
-  DOM.activeFilepathDisplay.textContent = appState.filePath || 'Sin archivo guardado en disco';
+  
+  const statusText = appState.isSaved ? t.status_saved : t.status_unsaved;
+  DOM.fileInfo.textContent = `${display}.md (${statusText})`;
+  DOM.activeFilepathDisplay.textContent = appState.filePath || (lang === 'es' ? 'Sin archivo guardado en disco' : (lang === 'en' ? 'No file saved on disk' : 'Nullum documentum in disco'));
+  
+  if (appState.isSaved) {
+    DOM.statusDot.className = 'dot-saved';
+    DOM.statusDot.setAttribute('title', lang === 'es' ? 'Todos los cambios están guardados en tu disco' : (lang === 'en' ? 'All changes are saved on your disk' : 'Omnes mutationes in disco servatae sunt'));
+  } else {
+    DOM.statusDot.className = 'dot-unsaved';
+    DOM.statusDot.setAttribute('title', lang === 'es' ? 'Tienes cambios sin guardar en tu editor' : (lang === 'en' ? 'You have unsaved changes in your editor' : 'Mutationes non servatas habes in scriptorio'));
+  }
 }
 
 // ==========================================================================
@@ -432,7 +501,9 @@ async function abrirArchivo() {
             throw new Error(parserError[0].textContent);
           }
           
-          const jsonObj = convertXMLToJSON(xmlDoc.documentElement);
+          const rootName = xmlDoc.documentElement.nodeName;
+          const jsonObj = {};
+          jsonObj[rootName] = convertXMLToJSON(xmlDoc.documentElement);
           finalContent = convertJSONToMarkdown(jsonObj);
           importedAndConverted = 'XML';
         } catch (xmlErr) {
@@ -594,6 +665,30 @@ function abrirModal(modal) {
   if (box) {
     document.querySelectorAll('.modal-box').forEach(b => b.style.zIndex = '100');
     box.style.zIndex = '101';
+    
+    // Posicionamiento en cascada inicial para ventanas flotantes
+    if (modal.classList.contains('floating-window') && !box.dataset.initializedPosition) {
+      const defaultPositions = {
+        'modal-md-basic': { top: 140, left: 30 },
+        'modal-md-headings': { top: 140, left: 310 },
+        'modal-md-lists': { top: 140, left: 590 },
+        'modal-md-media': { top: 400, left: 30 },
+        'modal-md-code': { top: 400, left: 310 },
+        'modal-md-structure': { top: 400, left: 590 },
+        'modal-md-advanced': { top: 270, left: 870 }
+      };
+      
+      const pos = defaultPositions[modal.id];
+      if (pos) {
+        // Asegurarse de que entren en los límites de la pantalla del usuario
+        const left = Math.max(20, Math.min(pos.left, window.innerWidth - 280));
+        const top = Math.max(80, Math.min(pos.top, window.innerHeight - 300));
+        box.style.left = `${left}px`;
+        box.style.top = `${top}px`;
+        box.style.transform = 'scale(1) translateY(0)';
+        box.dataset.initializedPosition = 'true';
+      }
+    }
   }
   
   // Si abrimos el modal de estadísticas, forzamos su actualización
@@ -611,10 +706,9 @@ function cerrarModal(modal) {
 }
 
 function cerrarModales() {
-  cerrarModal(DOM.modalMd);
-  cerrarModal(DOM.modalStats);
-  cerrarModal(DOM.modalConfig);
-  cerrarModal(DOM.modalEpubExport);
+  document.querySelectorAll('.modal-overlay').forEach(modal => {
+    cerrarModal(modal);
+  });
 }
 
 // Configurar los manejadores de cierre de todos los modales (sin cerrar al hacer clic en overlay)
@@ -713,6 +807,22 @@ window.addEventListener('DOMContentLoaded', () => {
   habilitarArrastreModal(DOM.modalMd);
   habilitarArrastreModal(DOM.modalStats);
   habilitarArrastreModal(DOM.modalConfig);
+  
+  // Habilitar arrastre en las nuevas ventanas flotantes de categorías
+  document.querySelectorAll('.floating-window').forEach(overlay => {
+    habilitarArrastreModal(overlay);
+  });
+
+  // Registrar eventos en los botones de categoría
+  document.querySelectorAll('.category-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const category = btn.getAttribute('data-category');
+      const targetModal = document.getElementById(`modal-md-${category}`);
+      if (targetModal) {
+        abrirModal(targetModal);
+      }
+    });
+  });
 });
 
 // ==========================================================================
@@ -939,6 +1049,74 @@ function insertarSintaxisMarkdown(tipo) {
       prefix = '---';
       suffix = '';
       break;
+    case 'footnote': {
+      // Detección robusta de números de notas al pie existentes para evitar duplicados y conflictos
+      const numbers = Array.from(originalText.matchAll(/\[\^(\d+)\]/g)).map(m => parseInt(m[1], 10));
+      const nextNum = numbers.length > 0 ? Math.max(...numbers) + 1 : 1;
+      prefix = `[^${nextNum}]`;
+      suffix = '';
+      
+      // Si hay selección, la ignoramos y la reemplazamos con el marcador de nota para evitar formatos rotos
+      if (rawSelection.length > 0) {
+        textarea.setRangeText(prefix, start, end, 'select');
+        const nextCursor = start + prefix.length;
+        textarea.setSelectionRange(nextCursor, nextCursor);
+        
+        // Añadir la definición al final
+        const updatedText = textarea.value;
+        const defRegex = new RegExp(`\\n\\[\\^${nextNum}\\]:`);
+        if (!defRegex.test(updatedText)) {
+          const hasNewLine = updatedText.endsWith('\n');
+          const extraBreak = updatedText.length > 0 && !hasNewLine ? '\n\n' : (updatedText.endsWith('\n\n') ? '' : '\n');
+          textarea.value = updatedText + `${extraBreak}[^${nextNum}]: Descripción de la nota ${nextNum}`;
+        }
+        renderMarkdown();
+        setSavedState(false);
+        DOM.editor.focus();
+        if (historial) {
+          historial.registrarCambioDespuesDeFormato();
+        }
+        return;
+      }
+      
+      // Si no hay selección, continúa al flujo por defecto pero agrega primero la definición al final
+      const defRegex = new RegExp(`\\n\\[\\^${nextNum}\\]:`);
+      if (!defRegex.test(originalText)) {
+        const hasNewLine = originalText.endsWith('\n');
+        const extraBreak = originalText.length > 0 && !hasNewLine ? '\n\n' : (originalText.endsWith('\n\n') ? '' : '\n');
+        textarea.value = originalText + `${extraBreak}[^${nextNum}]: Descripción de la nota ${nextNum}`;
+      }
+      break;
+    }
+    case 'email': {
+      // Eliminar espacios, '<' y '>' accidentales de la selección
+      const cleanEmail = selectedText.trim().replace(/[\s<>]/g, '');
+      prefix = `<${cleanEmail || 'correo@ejemplo.com'}>`;
+      suffix = '';
+      if (rawSelection.length > 0) {
+        const textFormatted = leadingSpaces + prefix + trailingSpaces;
+        textarea.setRangeText(textFormatted, start, end, 'select');
+        const newSelectStart = start + leadingLength;
+        const newSelectEnd = newSelectStart + prefix.length;
+        textarea.setSelectionRange(newSelectStart, newSelectEnd);
+        renderMarkdown();
+        setSavedState(false);
+        DOM.editor.focus();
+        if (historial) {
+          historial.registrarCambioDespuesDeFormato();
+        }
+        return;
+      }
+      break;
+    }
+    case 'definition-list':
+      prefix = 'Término\n: Definición';
+      suffix = '';
+      if (rawSelection.length > 0) {
+        prefix = '';
+        suffix = '\n: Definición';
+      }
+      break;
   }
   
   if (rawSelection.length > 0) {
@@ -1121,6 +1299,209 @@ if (DOM.btnFontDec) {
 }
 if (DOM.btnFontInc) {
   DOM.btnFontInc.addEventListener('click', () => ajustarTamañoGeneral(1));
+}
+if (DOM.selectLanguage) {
+  DOM.selectLanguage.addEventListener('change', (e) => cambiarIdioma(e.target.value));
+}
+
+function cambiarIdioma(lang) {
+  appState.language = lang;
+  localStorage.setItem('md-language', lang);
+  if (DOM.selectLanguage) DOM.selectLanguage.value = lang;
+  actualizarTextosInterfaz(lang);
+}
+
+function actualizarTextosInterfaz(lang) {
+  const t = translations[lang];
+  if (!t) return;
+
+  // 1. Barra de Herramientas (tooltips)
+  const setTooltip = (el, text) => { if (el) el.setAttribute('title', text); };
+  setTooltip(DOM.btnNew, t.title_new);
+  setTooltip(DOM.btnOpen, t.title_open);
+  setTooltip(DOM.btnSave, t.title_save);
+  setTooltip(DOM.btnExport, t.title_export);
+  setTooltip(DOM.btnComponentsToggle, t.title_btn_library);
+  setTooltip(DOM.viewEditor, t.title_view_editor);
+  setTooltip(DOM.viewSplit, t.title_view_split);
+  setTooltip(DOM.viewPreview, t.title_view_preview);
+  setTooltip(DOM.btnMd, t.title_btn_md);
+  setTooltip(DOM.btnStats, t.title_btn_stats);
+  setTooltip(DOM.btnConfig, t.title_btn_config);
+
+  // 2. Elementos de Exportación (dropdown)
+  const setSpanText = (el, text) => { if (el) { const span = el.querySelector('span'); if (span) span.textContent = text; } };
+  setSpanText(DOM.optExportHtml, t.text_export_html);
+  setSpanText(DOM.optExportPdf, t.text_export_pdf);
+  setSpanText(DOM.optExportEpub, t.text_export_epub);
+  setSpanText(DOM.optSaveTemplate, t.text_save_template);
+
+  // 3. Biblioteca
+  const sidebarTitle = document.querySelector('#components-sidebar .sidebar-header h3');
+  if (sidebarTitle) sidebarTitle.textContent = t.lib_title;
+  if (DOM.tabModules) DOM.tabModules.textContent = t.lib_tab_modules;
+  if (DOM.tabTemplates) DOM.tabTemplates.textContent = t.lib_tab_templates;
+  const newCompBtn = document.getElementById('btn-new-component');
+  if (newCompBtn) newCompBtn.textContent = t.lib_new_btn;
+  if (DOM.sidebarSearch) DOM.sidebarSearch.setAttribute('placeholder', lang === 'es' ? 'Buscar componente...' : (lang === 'en' ? 'Search component...' : 'Quaerere elementum...'));
+
+  // 4. Títulos de Modales
+  const setModalHeader = (el, text) => { if (el) { const h3 = el.querySelector('.modal-header h3'); if (h3) h3.textContent = text; } };
+  setModalHeader(DOM.modalMd, t.md_categories_title);
+  setModalHeader(DOM.modalStats, t.stats_title);
+  setModalHeader(DOM.modalConfig, t.config_title);
+  setModalHeader(DOM.modalEpubExport, t.epub_title);
+  setModalHeader(DOM.modalTemplateVars, t.vars_title);
+
+  // 5. Botones de Categorías y Títulos Flotantes
+  const setCategoryBtn = (cat, text) => {
+    const btn = document.querySelector(`#modal-md [data-category="${cat}"]`);
+    if (btn) btn.textContent = text;
+  };
+  setCategoryBtn('basic', t.md_cat_basic);
+  setCategoryBtn('headings', t.md_cat_headings);
+  setCategoryBtn('lists', t.md_cat_lists);
+  setCategoryBtn('media', t.md_cat_media);
+  setCategoryBtn('code', t.md_cat_code);
+  setCategoryBtn('structure', t.md_cat_structure);
+  setCategoryBtn('advanced', t.md_cat_advanced);
+
+  const setFloatingHeaderAndFooter = (id, title, help) => {
+    const modal = document.getElementById(id);
+    if (modal) {
+      const h3 = modal.querySelector('.modal-header h3');
+      if (h3) h3.textContent = title;
+      const footerSpan = modal.querySelector('.shortcut-help-footer span');
+      if (footerSpan) footerSpan.textContent = help;
+    }
+  };
+  setFloatingHeaderAndFooter('modal-md-basic', t.md_title_basic, t.help_basic);
+  setFloatingHeaderAndFooter('modal-md-headings', t.md_title_headings, t.help_headings);
+  setFloatingHeaderAndFooter('modal-md-lists', t.md_title_lists, t.help_lists);
+  setFloatingHeaderAndFooter('modal-md-media', t.md_title_media, t.help_media);
+  setFloatingHeaderAndFooter('modal-md-code', t.md_title_code, t.help_code);
+  setFloatingHeaderAndFooter('modal-md-structure', t.md_title_structure, t.help_structure);
+  setFloatingHeaderAndFooter('modal-md-advanced', t.md_title_advanced, t.help_advanced);
+
+  // 6. Botones de Atajos
+  const shortcutTranslations = {
+    'bold': { text: t.btn_bold, title: lang === 'es' ? 'Negrita - Sintaxis: **texto**' : (lang === 'en' ? 'Bold - Syntax: **text**' : 'Crassus - Syntaxis: **textus**') },
+    'italic': { text: t.btn_italic, title: lang === 'es' ? 'Cursiva - Sintaxis: *texto*' : (lang === 'en' ? 'Italic - Syntax: *text*' : 'Obliquus - Syntaxis: *textus*') },
+    'underline': { text: t.btn_underline, title: lang === 'es' ? 'Subrayado - Sintaxis: <u>texto</u>' : (lang === 'en' ? 'Underline - Syntax: <u>text</u>' : 'Sublineatus - Syntaxis: <u>textus</u>') },
+    'strikethrough': { text: t.btn_strikethrough, title: lang === 'es' ? 'Tachado - Sintaxis: ~~texto~~' : (lang === 'en' ? 'Strikethrough - Syntax: ~~text~~' : 'Deletus - Syntaxis: ~~textus~~') },
+    'h1': { text: t.btn_h1, title: lang === 'es' ? 'Título 1 - Sintaxis: # Título' : (lang === 'en' ? 'Heading 1 - Syntax: # Heading' : 'Titulus 1 - Syntaxis: # Titulus') },
+    'h2': { text: t.btn_h2, title: lang === 'es' ? 'Título 2 - Sintaxis: ## Título' : (lang === 'en' ? 'Heading 2 - Syntax: ## Heading' : 'Titulus 2 - Syntaxis: ## Titulus') },
+    'h3': { text: t.btn_h3, title: lang === 'es' ? 'Título 3 - Sintaxis: ### Título' : (lang === 'en' ? 'Heading 3 - Syntax: ### Heading' : 'Titulus 3 - Syntaxis: ### Titulus') },
+    'h4': { text: t.btn_h4, title: lang === 'es' ? 'Título 4 - Sintaxis: #### Título' : (lang === 'en' ? 'Heading 4 - Syntax: #### Heading' : 'Titulus 4 - Syntaxis: #### Titulus') },
+    'h5': { text: t.btn_h5, title: lang === 'es' ? 'Título 5 - Sintaxis: ##### Título' : (lang === 'en' ? 'Heading 5 - Syntax: ##### Heading' : 'Titulus 5 - Syntaxis: ##### Titulus') },
+    'h6': { text: t.btn_h6, title: lang === 'es' ? 'Título 6 - Sintaxis: ###### Título' : (lang === 'en' ? 'Heading 6 - Syntax: ###### Heading' : 'Titulus 6 - Syntaxis: ###### Titulus') },
+    'ul': { text: t.btn_ul, title: lang === 'es' ? 'Lista desordenada - Sintaxis: - Elemento' : (lang === 'en' ? 'Unordered List - Syntax: - Item' : 'Index Inordinatus - Syntaxis: - Elementum') },
+    'ol': { text: t.btn_ol, title: lang === 'es' ? 'Lista ordenada - Sintaxis: 1. Elemento' : (lang === 'en' ? 'Ordered List - Syntax: 1. Item' : 'Index Ordinatus - Syntaxis: 1. Elementum') },
+    'task': { text: t.btn_task, title: lang === 'es' ? 'Lista de tareas - Sintaxis: - [ ] Tarea' : (lang === 'en' ? 'Task List - Syntax: - [ ] Task' : 'Index Pensorum - Syntaxis: - [ ] Pensum') },
+    'link': { text: t.btn_link, title: lang === 'es' ? 'Enlace web - Sintaxis: [texto](url)' : (lang === 'en' ? 'Web Link - Syntax: [text](url)' : 'Nexus Interretialis - Syntaxis: [textus](url)') },
+    'image': { text: t.btn_image, title: lang === 'es' ? 'Imagen - Sintaxis: ![texto](url)' : (lang === 'en' ? 'Image - Syntax: ![text](url)' : 'Imago - Syntaxis: ![textus](url)') },
+    'inline-code': { text: t.btn_inline_code, title: lang === 'es' ? 'Código en línea - Sintaxis: `código`' : (lang === 'en' ? 'Inline Code - Syntax: `code`' : 'Codex in linea - Syntaxis: `codex`') },
+    'code-block': { text: t.btn_code_block, title: lang === 'es' ? 'Bloque de código - Sintaxis: ```javascript' : (lang === 'en' ? 'Code Block - Syntax: ```javascript' : 'Codex in textu - Syntaxis: ```javascript') },
+    'inline-math': { text: t.btn_inline_math, title: lang === 'es' ? 'Fórmula en línea - Sintaxis: $f(x)$' : (lang === 'en' ? 'Inline Math - Syntax: $f(x)$' : 'Formula in linea - Syntaxis: $f(x)$') },
+    'block-math': { text: t.btn_block_math, title: lang === 'es' ? 'Fórmula en bloque - Sintaxis: $$' : (lang === 'en' ? 'Block Math - Syntax: $$' : 'Formula in textu - Syntaxis: $$') },
+    'blockquote': { text: t.btn_blockquote, title: lang === 'es' ? 'Cita - Sintaxis: > cita' : (lang === 'en' ? 'Blockquote - Syntax: > quote' : 'Citatio - Syntaxis: > citatio') },
+    'paragraph': { text: t.btn_paragraph, title: lang === 'es' ? 'Párrafo' : (lang === 'en' ? 'Paragraph' : 'Paragraphus') },
+    'table': { text: t.btn_table, title: lang === 'es' ? 'Tabla - Sintaxis: tabular' : (lang === 'en' ? 'Table - Syntax: tabular' : 'Tabula - Syntaxis: tabular') },
+    'hr': { text: t.btn_hr, title: lang === 'es' ? 'Línea divisoria - Sintaxis: ---' : (lang === 'en' ? 'Horizontal Rule - Syntax: ---' : 'Linea divisoria - Syntaxis: ---') },
+    'footnote': { text: t.btn_footnote, title: lang === 'es' ? 'Nota al pie - Sintaxis: [^1]' : (lang === 'en' ? 'Footnote - Syntax: [^1]' : 'Nota ad calcem - Syntaxis: [^1]') },
+    'email': { text: t.btn_email, title: lang === 'es' ? 'Enlace de correo - Sintaxis: <correo>' : (lang === 'en' ? 'Email Link - Syntax: <email>' : 'Nexus Litterae Electronicae - Syntaxis: <littera>') },
+    'definition-list': { text: t.btn_def_list, title: lang === 'es' ? 'Lista de definición - Sintaxis: Término\\n: Definición' : (lang === 'en' ? 'Definition List - Syntax: Term\\n: Definition' : 'Index Definitionum - Syntaxis: Terminus\\n: Definitio') }
+  };
+
+  document.querySelectorAll('.md-shortcut-btn').forEach(btn => {
+    const syntax = btn.getAttribute('data-syntax');
+    const trans = shortcutTranslations[syntax];
+    if (trans) {
+      btn.textContent = trans.text;
+      btn.setAttribute('title', trans.title);
+    }
+  });
+
+  // 7. Etiquetas de Configuración
+  const setLabelText = (selector, text) => { const el = document.querySelector(selector); if (el) el.textContent = text; };
+  setLabelText('[for="select-editor-font"]', t.config_font_editor);
+  setLabelText('[for="select-reader-font"]', t.config_font_reader);
+  setLabelText('[for="select-structured-font"]', t.config_font_tree);
+  setLabelText('[for="range-editor-size"]', t.config_size_editor);
+  setLabelText('[for="range-reader-size"]', t.config_size_reader);
+  setLabelText('[for="range-structured-size"]', t.config_size_tree);
+  setLabelText('[for="select-theme"]', t.config_theme);
+  setLabelText('[for="select-language"]', t.config_lang);
+
+  if (DOM.btnFontDec) DOM.btnFontDec.textContent = lang === 'es' ? 'Tamaño Fuente -1' : (lang === 'en' ? 'Font Size -1' : 'Magnitudo Fontis -1');
+  if (DOM.btnFontInc) DOM.btnFontInc.textContent = lang === 'es' ? 'Tamaño Fuente +1' : (lang === 'en' ? 'Font Size +1' : 'Magnitudo Fontis +1');
+  setLabelText('.config-row-buttons label', lang === 'es' ? 'Ajuste General de Tamaño' : (lang === 'en' ? 'Global Font Size Adjust' : 'Ajustatio Generalis Magnitudinis'));
+
+  // 8. Etiquetas de Modal EPUB
+  setLabelText('#modal-epub-export label[for="epub-title"]', t.epub_field_title);
+  setLabelText('#modal-epub-export label[for="epub-author"]', t.epub_field_author);
+  setLabelText('#modal-epub-export label[for="epub-language"]', t.epub_field_lang);
+  setLabelText('#modal-epub-export label[for="epub-cover"]', t.epub_field_cover);
+  if (DOM.btnConfirmEpub) DOM.btnConfirmEpub.textContent = t.epub_btn_generate;
+  const epubCancel = document.querySelector('#modal-epub-export .modal-footer .btn-close-modal');
+  if (epubCancel) epubCancel.textContent = t.btn_cancel;
+
+  // 9. Estadísticas
+  const setStatCardLabel = (id, labelText) => {
+    const el = document.getElementById(id);
+    if (el && el.nextElementSibling) el.nextElementSibling.textContent = labelText;
+  };
+  setStatCardLabel('stat-words', t.stats_words);
+  setStatCardLabel('stat-chars-no-space', t.stats_chars_no_space);
+  setStatCardLabel('stat-chars-with-space', t.stats_chars_space);
+  setStatCardLabel('stat-links', t.stats_links);
+  setStatCardLabel('stat-sel-words', lang === 'es' ? 'Palabras seleccionadas' : (lang === 'en' ? 'Selected words' : 'Verba selecta'));
+  setStatCardLabel('stat-sel-chars-no-space', lang === 'es' ? 'Caract. seleccionados (sin esp.)' : (lang === 'en' ? 'Selected chars (no spaces)' : 'Characteres selecti (sine spatiis)'));
+  setStatCardLabel('stat-sel-chars-with-space', lang === 'es' ? 'Caract. seleccionados (con esp.)' : (lang === 'en' ? 'Selected chars (with spaces)' : 'Characteres selecti (cum spatiis)'));
+
+  // 10. Modales del sistema
+  const statsSelectionTitle = document.querySelector('#modal-stats .modal-body h4');
+  if (statsSelectionTitle) statsSelectionTitle.textContent = t.stats_selection_title;
+
+  const varsDesc = document.querySelector('#modal-template-vars .modal-body p');
+  if (varsDesc) varsDesc.textContent = t.vars_desc;
+  if (DOM.btnApplyVars) DOM.btnApplyVars.textContent = t.vars_btn_apply;
+  if (DOM.btnCancelVars) DOM.btnCancelVars.textContent = t.btn_cancel;
+
+  const configCloseBtn = document.querySelector('#modal-config .modal-box .btn-close-modal');
+  if (configCloseBtn) configCloseBtn.textContent = t.btn_close;
+
+  // 11. Barra de Estado
+  actualizarBarraDeEstadoTextos();
+
+  // 12. Recargar componentes de la barra lateral si está visible
+  if (DOM.componentsSidebar && !DOM.componentsSidebar.classList.contains('collapsed')) {
+    cargarComponentesSidebar();
+  }
+
+  // 13. Forzar repintado del visor (necesario para el modo estructurado y dinámicos)
+  renderMarkdown();
+}
+
+function actualizarBarraDeEstadoTextos() {
+  const lang = appState.language || 'es';
+  const t = translations[lang] || translations.es;
+  if (!t) return;
+
+  const pathDisplay = DOM.activeFilepathDisplay;
+  if (pathDisplay && !appState.filePath) {
+    pathDisplay.textContent = lang === 'es' ? 'Sin archivo cargado en disco' : (lang === 'en' ? 'No file loaded on disk' : 'Nullum documentum in disco');
+  }
+
+  const fileInfo = DOM.fileInfo;
+  if (fileInfo) {
+    const isUnsaved = !appState.isSaved;
+    if (isUnsaved) {
+      fileInfo.textContent = `${appState.fileName}.md (${t.status_unsaved})`;
+    } else {
+      fileInfo.textContent = `${appState.fileName}.md (${t.status_saved})`;
+    }
+  }
 }
 
 let panelBajoCursor = null;
@@ -1856,6 +2237,7 @@ window.addEventListener('keydown', (e) => {
 // Inicio oficial de la aplicación
 window.addEventListener('DOMContentLoaded', () => {
   aplicarConfiguracionVisual();
+  actualizarTextosInterfaz(appState.language || 'es');
   renderMarkdown();
   setSavedState(true);
   
@@ -2041,6 +2423,9 @@ function escapeHTML(str) {
 
 // 2. RENDERS DEL MODO ESTRUCTURADO (FASE 12) - DELEGADAS EN DATA-PARSER
 function renderStructuredTreeVisual(obj) {
+  const lang = appState.language || 'es';
+  const t = translations[lang] || translations.es;
+
   const isTree = appState.structuredActiveTab === 'tree';
   const isJson = appState.structuredActiveTab === 'json';
   const isXml = appState.structuredActiveTab === 'xml';
@@ -2063,39 +2448,39 @@ function renderStructuredTreeVisual(obj) {
   let html = `<div class="structured-tree-viewer">
     <div class="structured-tree-header">
       <div class="header-left">
-        <span class="structured-badge">Modo Estructurado Activo</span>
+        <span class="structured-badge">${t.struct_active_badge}</span>
       </div>
       <div class="header-right">
-        <button class="tree-header-btn" id="btn-tree-to-md" title="Volver a la lectura normal de Markdown">
+        <button class="tree-header-btn" id="btn-tree-to-md" title="${t.struct_btn_read_mode_title}">
           <svg viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="2" width="13" height="13"><path d="M12 20h9M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>
-          Modo Lectura
+          ${t.struct_btn_read_mode_text}
         </button>
         
         <span class="btn-divider">|</span>
         
-        <button class="tree-header-btn ${isTree ? 'active-tab' : ''}" id="btn-tree-tab-tree" title="Ver representación visual en árbol">
-          🌳 Ver Árbol
+        <button class="tree-header-btn ${isTree ? 'active-tab' : ''}" id="btn-tree-tab-tree" title="${t.struct_btn_tree_tab_title}">
+          ${t.struct_btn_tree_tab_text}
         </button>
         
-        <button class="tree-header-btn ${isJson ? 'active-tab' : ''}" id="btn-tree-tab-json" title="Ver estructura de datos JSON">
-          📄 Ver JSON
+        <button class="tree-header-btn ${isJson ? 'active-tab' : ''}" id="btn-tree-tab-json" title="${t.struct_btn_json_tab_title}">
+          ${t.struct_btn_json_tab_text}
         </button>
-        <button class="tree-header-btn" id="btn-tree-export-json" title="Guardar directamente como archivo .json en tu ordenador">
-          💾 Exportar JSON
-        </button>
-        
-        <button class="tree-header-btn ${isXml ? 'active-tab' : ''}" id="btn-tree-tab-xml" title="Ver estructura de datos XML">
-          🗎 Ver XML
-        </button>
-        <button class="tree-header-btn" id="btn-tree-export-xml" title="Guardar directamente como archivo .xml en tu ordenador">
-          💾 Exportar XML
+        <button class="tree-header-btn" id="btn-tree-export-json" title="${t.struct_btn_json_export_title}">
+          ${t.struct_btn_json_export_text}
         </button>
         
-        <button class="tree-header-btn ${isYaml ? 'active-tab' : ''}" id="btn-tree-tab-yaml" title="Ver estructura de datos YAML">
-          🗎 Ver YAML
+        <button class="tree-header-btn ${isXml ? 'active-tab' : ''}" id="btn-tree-tab-xml" title="${t.struct_btn_xml_tab_title}">
+          ${t.struct_btn_xml_tab_text}
         </button>
-        <button class="tree-header-btn" id="btn-tree-export-yaml" title="Guardar directamente como archivo .yaml en tu ordenador">
-          💾 Exportar YAML
+        <button class="tree-header-btn" id="btn-tree-export-xml" title="${t.struct_btn_xml_export_title}">
+          ${t.struct_btn_xml_export_text}
+        </button>
+        
+        <button class="tree-header-btn ${isYaml ? 'active-tab' : ''}" id="btn-tree-tab-yaml" title="${t.struct_btn_yaml_tab_title}">
+          ${t.struct_btn_yaml_tab_text}
+        </button>
+        <button class="tree-header-btn" id="btn-tree-export-yaml" title="${t.struct_btn_yaml_export_title}">
+          ${t.struct_btn_yaml_export_text}
         </button>
       </div>
     </div>
@@ -2134,7 +2519,7 @@ function renderStructuredTreeVisual(obj) {
   
   document.getElementById('btn-tree-export-json').addEventListener('click', () => {
     if (!invoke) {
-      alertNotification('La exportación de archivos no está disponible en la web', 'error');
+      alertNotification(t.struct_web_export_unavailable, 'error');
       return;
     }
     const jsonStr = JSON.stringify(obj, null, 2).replace(/\\"/g, '"');
@@ -2144,15 +2529,15 @@ function renderStructuredTreeVisual(obj) {
       extension: 'json',
       filterName: 'JSON'
     }).then(res => {
-      if (res) alertNotification('JSON guardado con éxito en: ' + res, 'success');
+      if (res) alertNotification('JSON ' + t.struct_export_success + res, 'success');
     }).catch(err => {
-      alertNotification('Error al exportar JSON: ' + err, 'error');
+      alertNotification(t.struct_export_error + 'JSON: ' + err, 'error');
     });
   });
   
   document.getElementById('btn-tree-export-xml').addEventListener('click', () => {
     if (!invoke) {
-      alertNotification('La exportación de archivos no está disponible en la web', 'error');
+      alertNotification(t.struct_web_export_unavailable, 'error');
       return;
     }
     const xmlStr = convertJSONToXML(obj, appState.fileName);
@@ -2162,15 +2547,15 @@ function renderStructuredTreeVisual(obj) {
       extension: 'xml',
       filterName: 'XML'
     }).then(res => {
-      if (res) alertNotification('XML guardado con éxito en: ' + res, 'success');
+      if (res) alertNotification('XML ' + t.struct_export_success + res, 'success');
     }).catch(err => {
-      alertNotification('Error al exportar XML: ' + err, 'error');
+      alertNotification(t.struct_export_error + 'XML: ' + err, 'error');
     });
   });
   
   document.getElementById('btn-tree-export-yaml').addEventListener('click', () => {
     if (!invoke) {
-      alertNotification('La exportación de archivos no está disponible en la web', 'error');
+      alertNotification(t.struct_web_export_unavailable, 'error');
       return;
     }
     const yamlStr = convertJSONToYAML(obj);
@@ -2180,9 +2565,9 @@ function renderStructuredTreeVisual(obj) {
       extension: 'yaml',
       filterName: 'YAML'
     }).then(res => {
-      if (res) alertNotification('YAML guardado con éxito en: ' + res, 'success');
+      if (res) alertNotification('YAML ' + t.struct_export_success + res, 'success');
     }).catch(err => {
-      alertNotification('Error al exportar YAML: ' + err, 'error');
+      alertNotification(t.struct_export_error + 'YAML: ' + err, 'error');
     });
   });
 }
@@ -2252,10 +2637,13 @@ function inicializarMenuContextualVisor() {
     e.preventDefault();
     if (appState.activeView === 'editor') return;
     
+    const lang = appState.language || 'es';
+    const t = translations[lang] || translations.es;
+    
     const seleccion = window.getSelection().toString();
     const tieneSeleccion = seleccion.trim().length > 0;
     
-    const label = appState.structuredModeActive ? "Desactivar Modo Estructurado" : "Activar Modo Estructurado";
+    const label = appState.structuredModeActive ? t.ctx_disable_struct : t.ctx_enable_struct;
     const icon = appState.structuredModeActive 
       ? `<svg viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="2"><path d="M12 20h9M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>`
       : `<svg viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="9" y1="21" x2="9" y2="9"></line><line x1="3" y1="9" x2="21" y2="9"></line></svg>`;
@@ -2263,11 +2651,11 @@ function inicializarMenuContextualVisor() {
     menu.innerHTML = `
       <button class="context-menu-item" id="ctx-copy" ${tieneSeleccion ? '' : 'disabled style="opacity: 0.4; cursor: not-allowed;"'}>
         <svg viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
-        <span>Copiar</span>
+        <span>${t.ctx_copy}</span>
       </button>
       <button class="context-menu-item" id="ctx-select-all">
         <svg viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect></svg>
-        <span>Seleccionar todo</span>
+        <span>${t.ctx_select_all}</span>
       </button>
       <div class="dropdown-divider"></div>
       <button class="context-menu-item" id="ctx-toggle-structured">
@@ -2277,11 +2665,11 @@ function inicializarMenuContextualVisor() {
       <div class="dropdown-divider"></div>
       <button class="context-menu-item" id="ctx-export-html">
         <svg viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>
-        <span>Exportar HTML Autónomo...</span>
+        <span>${t.ctx_export_html}</span>
       </button>
       <button class="context-menu-item" id="ctx-export-pdf">
         <svg viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><path d="M16 13H8v4h8v-4z"></path></svg>
-        <span>Exportar PDF Premium (Imprimir)...</span>
+        <span>${t.ctx_export_pdf}</span>
       </button>
     `;
     
@@ -2293,7 +2681,7 @@ function inicializarMenuContextualVisor() {
       document.getElementById('ctx-copy').addEventListener('click', () => {
         menu.style.display = 'none';
         navigator.clipboard.writeText(seleccion);
-        alertNotification('Texto copiado al portapapeles');
+        alertNotification(t.ctx_copy_notification);
       });
     }
     
@@ -2304,7 +2692,7 @@ function inicializarMenuContextualVisor() {
       const sel = window.getSelection();
       sel.removeAllRanges();
       sel.addRange(range);
-      alertNotification('Contenido del visor seleccionado');
+      alertNotification(t.ctx_select_all_notification);
     });
     
     document.getElementById('ctx-toggle-structured').addEventListener('click', () => {
@@ -2538,13 +2926,16 @@ function inicializarSidebarComponentes() {
 async function cargarComponentesSidebar() {
   if (!invoke) return;
 
-  DOM.sidebarList.innerHTML = '<div style="color: #64748b; font-size: 12px; padding: 12px; text-align: center;">Cargando biblioteca...</div>';
+  const lang = appState.language || 'es';
+  const t = translations[lang] || translations.es;
+  DOM.sidebarList.innerHTML = `<div style="color: #64748b; font-size: 12px; padding: 12px; text-align: center;">${t.lib_loading}</div>`;
   listadoComponentesEnriquecidos = [];
 
   try {
     const activos = await invoke('listar_activos', { tipo: sidebarActiveType });
     if (!activos || activos.length === 0) {
-      DOM.sidebarList.innerHTML = `<div style="color: #64748b; font-size: 12px; padding: 12px; text-align: center;">No hay activos en /assets/${sidebarActiveType}/</div>`;
+      const msgNoAssets = t.lib_no_assets ? t.lib_no_assets.replace('{tipo}', sidebarActiveType) : `No hay activos en /assets/${sidebarActiveType}/`;
+      DOM.sidebarList.innerHTML = `<div style="color: #64748b; font-size: 12px; padding: 12px; text-align: center;">${msgNoAssets}</div>`;
       return;
     }
 
@@ -2562,8 +2953,8 @@ async function cargarComponentesSidebar() {
           }
         }
 
-        let categoria = 'General';
-        let descripcion = 'Sin descripción disponible.';
+        let categoria = t.lib_default_category || 'General';
+        let descripcion = t.lib_default_desc || 'Sin descripción disponible.';
         const metaRegex = /^#\s*([a-zA-Z0-9_#-]+)\s*`([^`]+)`/;
         const match = firstLine.match(metaRegex);
         if (match) {
@@ -2612,7 +3003,9 @@ function renderizarComponentesFiltrados() {
   });
 
   if (filtrados.length === 0) {
-    DOM.sidebarList.innerHTML = '<div style="color: #64748b; font-size: 12px; padding: 12px; text-align: center;">No hay coincidencias.</div>';
+    const lang = appState.language || 'es';
+    const t = translations[lang] || translations.es;
+    DOM.sidebarList.innerHTML = `<div style="color: #64748b; font-size: 12px; padding: 12px; text-align: center;">${t.lib_no_results}</div>`;
     return;
   }
 

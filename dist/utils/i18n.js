@@ -1,0 +1,485 @@
+export const translations = {
+  es: {
+    // Barra de Herramientas - Botones Principales
+    title_new: "Crear Nuevo Documento",
+    title_open: "Abrir Documento Existente",
+    title_save: "Guardar Cambios (Ctrl+S)",
+    title_export: "Exportar Documento",
+    title_view_editor: "Modo Editor",
+    title_view_split: "Vista Dividida",
+    title_view_preview: "Vista Lectura (Read)",
+    title_btn_md: "Atajos Markdown",
+    title_btn_stats: "Estadísticas de Texto",
+    title_btn_config: "Configuración de la Aplicación",
+    title_btn_library: "Biblioteca de Componentes",
+
+    text_export_html: "Exportar como HTML",
+    text_export_pdf: "Exportar como PDF",
+    text_export_epub: "Exportar como EPUB",
+    text_save_template: "Guardar como Plantilla (XML)",
+
+    // Barra Lateral - Biblioteca
+    lib_title: "Biblioteca de Componentes",
+    lib_new_btn: "+ Nuevo Componente",
+    lib_tab_modules: "Módulos",
+    lib_tab_templates: "Plantillas",
+    lib_loading: "Cargando biblioteca...",
+    lib_no_results: "No hay coincidencias.",
+
+    // Modales Generales
+    btn_close: "Cerrar",
+    btn_cancel: "Cancelar",
+    btn_apply: "Aplicar",
+
+    // Modal Atajos Markdown
+    md_categories_title: "Categorías de Atajos",
+    md_cat_basic: "Texto Básico",
+    md_cat_headings: "Títulos (Encabezados)",
+    md_cat_lists: "Listas",
+    md_cat_media: "Enlaces y Medios",
+    md_cat_code: "Código y Matemáticas",
+    md_cat_structure: "Bloques y Estructura",
+    md_cat_advanced: "Elementos Avanzados",
+
+    // Modales de Atajos Individuales
+    md_title_basic: "Texto Básico",
+    md_title_headings: "Títulos",
+    md_title_lists: "Listas",
+    md_title_media: "Enlaces y Medios",
+    md_title_code: "Código y Matemáticas",
+    md_title_structure: "Bloques y Estructura",
+    md_title_advanced: "Elementos Avanzados",
+
+    // Botones de Atajos
+    btn_bold: "Negrita",
+    btn_italic: "Cursiva",
+    btn_underline: "Subrayado",
+    btn_strikethrough: "Tachado",
+    btn_h1: "Encabezado 1",
+    btn_h2: "Encabezado 2",
+    btn_h3: "Encabezado 3",
+    btn_h4: "Encabezado 4",
+    btn_h5: "Encabezado 5",
+    btn_h6: "Encabezado 6",
+    btn_ul: "Lista Desordenada",
+    btn_ol: "Lista Ordenada",
+    btn_task: "Lista de Tareas",
+    btn_link: "Enlace Web",
+    btn_image: "Imagen",
+    btn_inline_code: "Código en línea",
+    btn_code_block: "Bloque de código",
+    btn_inline_math: "Fórmula en línea",
+    btn_block_math: "Fórmula en bloque",
+    btn_blockquote: "Cita (Blockquote)",
+    btn_paragraph: "Párrafo",
+    btn_table: "Tabla",
+    btn_hr: "Línea divisoria",
+    btn_footnote: "Nota al pie",
+    btn_email: "Enlace de correo",
+    btn_def_list: "Lista de definición",
+
+    // Ejemplos de Ayuda en los Atajos
+    help_basic: "Ejemplo: **negrita** o *cursiva*",
+    help_headings: "Ejemplo: # Título 1, ## Título 2",
+    help_lists: "Ejemplo: - Elemento o - [ ] Tarea",
+    help_media: "Ejemplo: [Google](https://google.com)",
+    help_code: "Ejemplo: `console.log()` o $x^2$",
+    help_structure: "Ejemplo: > Cita o --- para regla",
+    help_advanced: "Ejemplo: [^1] Nota al pie, <correo@ejemplo.com>",
+
+    // Modal Estadísticas
+    stats_title: "Estadísticas del Documento",
+    stats_words: "Palabras",
+    stats_chars_no_space: "Caracteres sin espacios",
+    stats_chars_space: "Caracteres con espacios",
+    stats_links: "Enlaces",
+    stats_selection_title: "Texto Seleccionado",
+
+    // Modal Configuración
+    config_title: "Configuración del Editor",
+    config_theme: "Tema Visual",
+    config_font_editor: "Tipografía del Editor",
+    config_font_reader: "Tipografía de Lectura",
+    config_font_tree: "Tipografía del Árbol",
+    config_size_editor: "Tamaño Fuente Editor",
+    config_size_reader: "Tamaño Fuente Visor",
+    config_size_tree: "Tamaño Fuente Árbol",
+    config_lang: "Idioma de la Interfaz",
+
+    // Modal Variables de Plantilla
+    vars_title: "Valores de Variables",
+    vars_desc: "Este documento XML tiene variables de plantilla. Asigne valores:",
+    vars_btn_apply: "Aplicar y Renderizar",
+
+    // Modal EPUB Export
+    epub_title: "Ajustes de Exportación EPUB",
+    epub_field_title: "Título del Libro",
+    epub_field_author: "Autor",
+    epub_field_lang: "Idioma del Libro",
+    epub_field_cover: "Portada (Ruta absoluta)",
+    epub_btn_generate: "Generar EPUB",
+
+    // Estado del Archivo (StatusBar)
+    status_unsaved: "Sin Guardar *",
+    status_saved: "Guardado",
+
+    // Biblioteca de Componentes - Estado e Info
+    lib_default_category: "General",
+    lib_default_desc: "Sin descripción disponible.",
+    lib_no_assets: "No hay activos en /assets/{tipo}/",
+
+    // Modo Estructurado
+    struct_active_badge: "Modo Estructurado Activo",
+    struct_btn_read_mode_title: "Volver a la lectura normal de Markdown",
+    struct_btn_read_mode_text: "Modo Lectura",
+    struct_btn_tree_tab_title: "Ver representación visual en árbol",
+    struct_btn_tree_tab_text: "🌳 Ver Árbol",
+    struct_btn_json_tab_title: "Ver estructura de datos JSON",
+    struct_btn_json_tab_text: "📄 Ver JSON",
+    struct_btn_xml_tab_title: "Ver estructura de datos XML",
+    struct_btn_xml_tab_text: "🗎 Ver XML",
+    struct_btn_yaml_tab_title: "Ver estructura de datos YAML",
+    struct_btn_yaml_tab_text: "🗎 Ver YAML",
+    struct_btn_json_export_title: "Guardar directamente como archivo .json en tu ordenador",
+    struct_btn_json_export_text: "💾 Exportar JSON",
+    struct_btn_xml_export_title: "Guardar directamente como archivo .xml en tu ordenador",
+    struct_btn_xml_export_text: "💾 Exportar XML",
+    struct_btn_yaml_export_title: "Guardar directamente como archivo .yaml en tu ordenador",
+    struct_btn_yaml_export_text: "💾 Exportar YAML",
+    struct_web_export_unavailable: "La exportación de archivos no está disponible en la web",
+    struct_export_success: "guardado con éxito en: ",
+    struct_export_error: "Error al exportar ",
+
+    // Menú Contextual
+    ctx_copy: "Copiar",
+    ctx_copy_notification: "Texto copiado al portapapeles",
+    ctx_select_all: "Seleccionar todo",
+    ctx_select_all_notification: "Contenido del visor seleccionado",
+    ctx_enable_struct: "Activar Modo Estructurado",
+    ctx_disable_struct: "Desactivar Modo Estructurado",
+    ctx_export_html: "Exportar HTML Autónomo...",
+    ctx_export_pdf: "Exportar PDF Premium (Imprimir)..."
+  },
+  en: {
+    // Toolbar - Main Buttons
+    title_new: "Create New Document",
+    title_open: "Open Existing Document",
+    title_save: "Save Changes (Ctrl+S)",
+    title_export: "Export Document",
+    title_view_editor: "Editor Mode",
+    title_view_split: "Split View",
+    title_view_preview: "Reader Mode (Read)",
+    title_btn_md: "Markdown Shortcuts",
+    title_btn_stats: "Text Statistics",
+    title_btn_config: "Application Settings",
+    title_btn_library: "Component Library",
+
+    text_export_html: "Export as HTML",
+    text_export_pdf: "Export as PDF",
+    text_export_epub: "Export as EPUB",
+    text_save_template: "Save as Template (XML)",
+
+    // Sidebar - Library
+    lib_title: "Component Library",
+    lib_new_btn: "+ New Component",
+    lib_tab_modules: "Modules",
+    lib_tab_templates: "Templates",
+    lib_loading: "Loading library...",
+    lib_no_results: "No matches found.",
+
+    // General Modals
+    btn_close: "Close",
+    btn_cancel: "Cancel",
+    btn_apply: "Apply",
+
+    // Markdown Shortcuts Modal
+    md_categories_title: "Shortcut Categories",
+    md_cat_basic: "Basic Text",
+    md_cat_headings: "Headings",
+    md_cat_lists: "Lists",
+    md_cat_media: "Links & Media",
+    md_cat_code: "Code & Math",
+    md_cat_structure: "Blocks & Structure",
+    md_cat_advanced: "Advanced Elements",
+
+    // Individual Shortcut Modals
+    md_title_basic: "Basic Text",
+    md_title_headings: "Headings",
+    md_title_lists: "Lists",
+    md_title_media: "Links & Media",
+    md_title_code: "Code & Math",
+    md_title_structure: "Blocks & Structure",
+    md_title_advanced: "Advanced Elements",
+
+    // Shortcut Buttons
+    btn_bold: "Bold",
+    btn_italic: "Italic",
+    btn_underline: "Underline",
+    btn_strikethrough: "Strikethrough",
+    btn_h1: "Heading 1",
+    btn_h2: "Heading 2",
+    btn_h3: "Heading 3",
+    btn_h4: "Heading 4",
+    btn_h5: "Heading 5",
+    btn_h6: "Heading 6",
+    btn_ul: "Unordered List",
+    btn_ol: "Ordered List",
+    btn_task: "Task List",
+    btn_link: "Web Link",
+    btn_image: "Image",
+    btn_inline_code: "Inline code",
+    btn_code_block: "Code block",
+    btn_inline_math: "Inline math",
+    btn_block_math: "Block math",
+    btn_blockquote: "Blockquote",
+    btn_paragraph: "Paragraph",
+    btn_table: "Table",
+    btn_hr: "Horizontal rule",
+    btn_footnote: "Footnote",
+    btn_email: "Email Link",
+    btn_def_list: "Definition List",
+
+    // Shortcut Help Examples
+    help_basic: "Example: **bold** or *italic*",
+    help_headings: "Example: # Heading 1, ## Heading 2",
+    help_lists: "Example: - Item or - [ ] Task",
+    help_media: "Example: [Google](https://google.com)",
+    help_code: "Example: `console.log()` or $x^2$",
+    help_structure: "Example: > Quote or --- for rule",
+    help_advanced: "Example: [^1] Footnote, <email@example.com>",
+
+    // Stats Modal
+    stats_title: "Document Statistics",
+    stats_words: "Words",
+    stats_chars_no_space: "Characters (no spaces)",
+    stats_chars_space: "Characters (with spaces)",
+    stats_links: "Links",
+    stats_selection_title: "Selected Text",
+
+    // Config Modal
+    config_title: "Editor Settings",
+    config_theme: "Visual Theme",
+    config_font_editor: "Editor Font Family",
+    config_font_reader: "Reader Font Family",
+    config_font_tree: "Tree Font Family",
+    config_size_editor: "Editor Font Size",
+    config_size_reader: "Reader Font Size",
+    config_size_tree: "Tree Font Size",
+    config_lang: "Interface Language",
+
+    // Template Vars Modal
+    vars_title: "Variable Values",
+    vars_desc: "This XML document contains template variables. Assign values:",
+    vars_btn_apply: "Apply and Render",
+
+    // EPUB Export Modal
+    epub_title: "EPUB Export Settings",
+    epub_field_title: "Book Title",
+    epub_field_author: "Author",
+    epub_field_lang: "Book Language",
+    epub_field_cover: "Cover (Absolute path)",
+    epub_btn_generate: "Generate EPUB",
+
+    // File State (StatusBar)
+    status_unsaved: "Unsaved *",
+    status_saved: "Saved",
+
+    // Component Library - Status & Info
+    lib_default_category: "General",
+    lib_default_desc: "No description available.",
+    lib_no_assets: "No assets found in /assets/{tipo}/",
+
+    // Structured Mode
+    struct_active_badge: "Structured Mode Active",
+    struct_btn_read_mode_title: "Return to normal Markdown reading",
+    struct_btn_read_mode_text: "Reader Mode",
+    struct_btn_tree_tab_title: "View visual tree representation",
+    struct_btn_tree_tab_text: "🌳 View Tree",
+    struct_btn_json_tab_title: "View JSON data structure",
+    struct_btn_json_tab_text: "📄 View JSON",
+    struct_btn_xml_tab_title: "View XML data structure",
+    struct_btn_xml_tab_text: "🗎 View XML",
+    struct_btn_yaml_tab_title: "View YAML data structure",
+    struct_btn_yaml_tab_text: "🗎 View YAML",
+    struct_btn_json_export_title: "Save directly as a .json file on your computer",
+    struct_btn_json_export_text: "💾 Export JSON",
+    struct_btn_xml_export_title: "Save directly as a .xml file on your computer",
+    struct_btn_xml_export_text: "💾 Export XML",
+    struct_btn_yaml_export_title: "Save directly as a .yaml file on your computer",
+    struct_btn_yaml_export_text: "💾 Export YAML",
+    struct_web_export_unavailable: "File export is not available on the web",
+    struct_export_success: "saved successfully at: ",
+    struct_export_error: "Error exporting ",
+
+    // Context Menu
+    ctx_copy: "Copy",
+    ctx_copy_notification: "Text copied to clipboard",
+    ctx_select_all: "Select All",
+    ctx_select_all_notification: "Viewer content selected",
+    ctx_enable_struct: "Enable Structured Mode",
+    ctx_disable_struct: "Disable Structured Mode",
+    ctx_export_html: "Export Self-Contained HTML...",
+    ctx_export_pdf: "Export Premium PDF (Print)..."
+  },
+  la: {
+    // Toolbar - Main Buttons
+    title_new: "Novum Documentum Creare",
+    title_open: "Documentum Aperire",
+    title_save: "Mutationes Servare (Ctrl+S)",
+    title_export: "Documentum Exportare",
+    title_view_editor: "Modus Scribendi",
+    title_view_split: "Visus Divisus",
+    title_view_preview: "Modus Legendi (Read)",
+    title_btn_md: "Compendia Markdown",
+    title_btn_stats: "Statistica Textus",
+    title_btn_config: "Configurationes Systematis",
+    title_btn_library: "Bibliotheca Elementorum",
+
+    text_export_html: "Exportare in HTML",
+    text_export_pdf: "Exportare in PDF",
+    text_export_epub: "Exportare in EPUB",
+    text_save_template: "Servare ut XML Exemplar",
+
+    // Sidebar - Library
+    lib_title: "Bibliotheca Elementorum",
+    lib_new_btn: "+ Novum Elementum",
+    lib_tab_modules: "Moduli",
+    lib_tab_templates: "Exemplaria",
+    lib_loading: "Bibliothecam loading...",
+    lib_no_results: "Nulli nexus inventi.",
+
+    // General Modals
+    btn_close: "Claudere",
+    btn_cancel: "Dimittere",
+    btn_apply: "Applicare",
+
+    // Markdown Shortcuts Modal
+    md_categories_title: "Classes Compendiorum",
+    md_cat_basic: "Textus Fundamenti",
+    md_cat_headings: "Tituli (Capita)",
+    md_cat_lists: "Indices",
+    md_cat_media: "Nexus et Media",
+    md_cat_code: "Codex et Mathematica",
+    md_cat_structure: "Paragrapha et Structura",
+    md_cat_advanced: "Elementa Provecta",
+
+    // Individual Shortcut Modals
+    md_title_basic: "Textus Fundamenti",
+    md_title_headings: "Tituli",
+    md_title_lists: "Indices",
+    md_title_media: "Nexus et Media",
+    md_title_code: "Codex et Mathematica",
+    md_title_structure: "Paragrapha et Structura",
+    md_title_advanced: "Elementa Provecta",
+
+    // Shortcut Buttons
+    btn_bold: "Crassus",
+    btn_italic: "Obliquus",
+    btn_underline: "Sublineatus",
+    btn_strikethrough: "Deletus",
+    btn_h1: "Titulus 1",
+    btn_h2: "Titulus 2",
+    btn_h3: "Titulus 3",
+    btn_h4: "Titulus 4",
+    btn_h5: "Titulus 5",
+    btn_h6: "Titulus 6",
+    btn_ul: "Index Inordinatus",
+    btn_ol: "Index Ordinatus",
+    btn_task: "Index Pensorum",
+    btn_link: "Nexus Interretialis",
+    btn_image: "Imago",
+    btn_inline_code: "Codex in linea",
+    btn_code_block: "Codex in textu",
+    btn_inline_math: "Formula in linea",
+    btn_block_math: "Formula in textu",
+    btn_blockquote: "Citatio (Blockquote)",
+    btn_paragraph: "Paragraphus",
+    btn_table: "Tabula",
+    btn_hr: "Linea divisoria",
+    btn_footnote: "Nota ad calcem",
+    btn_email: "Nexus Litterae Electronicae",
+    btn_def_list: "Index Definitionum",
+
+    // Shortcut Help Examples
+    help_basic: "Exemplum: **crassus** aut *obliquus*",
+    help_headings: "Exemplum: # Titulus 1, ## Titulus 2",
+    help_lists: "Exemplum: - Elementum aut - [ ] Pensum",
+    help_media: "Exemplum: [Google](https://google.com)",
+    help_code: "Exemplum: `console.log()` aut $x^2$",
+    help_structure: "Exemplum: > Citatio aut --- pro linea",
+    help_advanced: "Exemplum: [^1] Nota ad calcem, <littera@exemplum.com>",
+
+    // Stats Modal
+    stats_title: "Statistica Documenti",
+    stats_words: "Verba",
+    stats_chars_no_space: "Characteres sine spatiis",
+    stats_chars_space: "Characteres cum spatiis",
+    stats_links: "Nexus",
+    stats_selection_title: "Textus Selectus",
+
+    // Config Modal
+    config_title: "Configurationes Editoris",
+    config_theme: "Thema Visuale",
+    config_font_editor: "Fontes Editoris",
+    config_font_reader: "Fontes Lectoris",
+    config_font_tree: "Fontes Arboris",
+    config_size_editor: "Magnitudo Fontium Editoris",
+    config_size_reader: "Magnitudo Fontium Visoris",
+    config_size_tree: "Magnitudo Fontium Arboris",
+    config_lang: "Lingua Interficii",
+
+    // Template Vars Modal
+    vars_title: "Valores Variabilium",
+    vars_desc: "Hoc XML documentum habet variabilia. Assigna valores:",
+    vars_btn_apply: "Applicare et Ostendere",
+
+    // EPUB Export Modal
+    epub_title: "Configurationes Exportandi EPUB",
+    epub_field_title: "Titulus Libri",
+    epub_field_author: "Auctor",
+    epub_field_lang: "Lingua Libri",
+    epub_field_cover: "Operculum (Ruta absoluta)",
+    epub_btn_generate: "EPUB Creare",
+
+    // File State (StatusBar)
+    status_unsaved: "Non Servatum *",
+    status_saved: "Servatum",
+
+    // Component Library - Status & Info
+    lib_default_category: "Generale",
+    lib_default_desc: "Nulla descriptio praestabilis.",
+    lib_no_assets: "Nulli nexus inventi in /assets/{tipo}/",
+
+    // Structured Mode
+    struct_active_badge: "Modus Structuratus Activus",
+    struct_btn_read_mode_title: "Redire ad lectionem normalem Markdown",
+    struct_btn_read_mode_text: "Modus Legendi",
+    struct_btn_tree_tab_title: "Videre repraesentationem visualem in arbore",
+    struct_btn_tree_tab_text: "🌳 Videre Arborem",
+    struct_btn_json_tab_title: "Videre structuram datorum JSON",
+    struct_btn_json_tab_text: "📄 Videre JSON",
+    struct_btn_xml_tab_title: "Videre structuram datorum XML",
+    struct_btn_xml_tab_text: "🗎 Videre XML",
+    struct_btn_yaml_tab_title: "Videre structuram datorum YAML",
+    struct_btn_yaml_tab_text: "🗎 Videre YAML",
+    struct_btn_json_export_title: "Servare directe ut archivum .json in computatro tuo",
+    struct_btn_json_export_text: "💾 Exportare JSON",
+    struct_btn_xml_export_title: "Servare directe ut archivum .xml in computatro tuo",
+    struct_btn_xml_export_text: "💾 Exportare XML",
+    struct_btn_yaml_export_title: "Servare directe ut archivum .yaml in computatro tuo",
+    struct_btn_yaml_export_text: "💾 Exportare YAML",
+    struct_web_export_unavailable: "Exportatio archivorum non est praestabilis in tela",
+    struct_export_success: "salvatus cum successu in: ",
+    struct_export_error: "Error in exportando ",
+
+    // Context Menu
+    ctx_copy: "Copiare",
+    ctx_copy_notification: "Textus in capsam translatum est",
+    ctx_select_all: "Eligere Totum",
+    ctx_select_all_notification: "Contentus lectoris selectus",
+    ctx_enable_struct: "Activare Modum Structuratum",
+    ctx_disable_struct: "Deactivare Modum Structuratum",
+    ctx_export_html: "Exportare HTML Autonomum...",
+    ctx_export_pdf: "Exportare PDF Premium (Imprimere)..."
+  }
+};

@@ -51,7 +51,7 @@ export async function exportarDocumentoAHTML(fileName, markdownText, readerFont,
 </html>`;
 
     if (invokeTauri) {
-      const defaultName = fileName + '.html';
+      const defaultName = fileName.replace(/\s+/g, '_') + '.html';
       const pathGuardado = await invokeTauri('exportar_html', { defaultName, content: htmlCompleto });
       if (pathGuardado) {
         notify('HTML autónomo exportado con éxito en: ' + pathGuardado);
@@ -62,7 +62,7 @@ export async function exportarDocumentoAHTML(fileName, markdownText, readerFont,
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = fileName + '.html';
+      a.download = fileName.replace(/\s+/g, '_') + '.html';
       a.click();
       URL.revokeObjectURL(url);
       notify('HTML autónomo descargado con éxito');
@@ -74,9 +74,66 @@ export async function exportarDocumentoAHTML(fileName, markdownText, readerFont,
 }
 
 // 2. DISPARAR DIÁLOGO DE IMPRESIÓN NATIVO PARA PDF
-export function exportarDocumentoAPDF(notify) {
-  window.print();
-  notify('Preparando exportación a PDF (Ventana del Sistema)');
+export async function exportarDocumentoAPDF(fileName, markdownText, readerFont, notify) {
+  try {
+    const response = await fetch('style.css');
+    const cssContent = await response.text();
+    
+    const bodyHtml = typeof marked !== 'undefined' ? marked.parse(markdownText) : markdownText;
+    
+    const htmlCompleto = `<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Impresión - ${fileName}</title>
+  <link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400;1,700&family=Fira+Code:wght@400;500&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&family=Merriweather:ital,wght@0,300;0,400;0,700;1,300&family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+  <style>
+    ${cssContent}
+    body {
+      background-color: #ffffff !important;
+      color: #000000 !important;
+      padding: 40px !important;
+      font-family: '${readerFont}', 'Inter', sans-serif !important;
+    }
+    .markdown-body {
+      max-width: 800px;
+      margin: 0 auto;
+      background: transparent !important;
+      border: none !important;
+      box-shadow: none !important;
+    }
+    @media print {
+      body { padding: 0 !important; }
+    }
+  </style>
+</head>
+<body>
+  <div class="markdown-body">
+    ${bodyHtml}
+  </div>
+  <script>
+    window.onload = () => {
+      setTimeout(() => {
+        window.print();
+      }, 500);
+    };
+  </script>
+</body>
+</html>`;
+
+    const blob = new Blob([htmlCompleto], { type: 'text/html' });
+    const url = URL.createObjectURL(blob);
+    
+    const printWin = window.open(url, 'Imprimir_PDF', 'width=800,height=600,top=100,left=100,resizable=yes,scrollbars=yes');
+    if (!printWin) {
+      window.print();
+    } else {
+      notify('Ventana de impresión abierta');
+    }
+  } catch (error) {
+    console.error('Error al generar PDF:', error);
+    window.print();
+  }
 }
 
 // Auxiliar para asegurar que las etiquetas vacías cumplan estrictamente con XHTML
@@ -194,7 +251,7 @@ export async function exportarDocumentoAEPUB(fileName, markdownText, readerFont,
       blockquoteBg = '#ffffff';
     }
     
-    const defaultSaveName = fileName + '.epub';
+    const defaultSaveName = fileName.replace(/\s+/g, '_') + '.epub';
     const savedPath = await invokeTauri('exportar_epub', {
       defaultName: defaultSaveName,
       title: fileName,

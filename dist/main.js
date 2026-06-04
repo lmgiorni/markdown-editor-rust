@@ -86,6 +86,9 @@ const DOM = {
   tabModules: document.getElementById('tab-modules'),
   tabTemplates: document.getElementById('tab-templates'),
   
+  // Barra Superior del Modo Estructurado
+  structuredHeaderBar: document.getElementById('structured-header-bar'),
+  
   // Selector de tema
   selectTheme: document.getElementById('select-theme'),
   
@@ -200,6 +203,9 @@ function renderMarkdown() {
     const arbol = parseMarkdownToJSON(markdownText);
     renderStructuredTreeVisual(arbol);
     return;
+  } else {
+    if (DOM.structuredHeaderBar) DOM.structuredHeaderBar.style.display = 'none';
+    if (DOM.previewContainer) DOM.previewContainer.classList.remove('structured-layout');
   }
   
   // Validar si la biblioteca de conversión se cargó de forma correcta y offline
@@ -595,7 +601,7 @@ async function guardarComo() {
   try {
     const contenido = DOM.editor.value;
     // Pre-rellenar el diálogo con el nombre del archivo con extensión .md
-    const defaultSaveName = appState.fileName + '.md';
+    const defaultSaveName = appState.fileName.replace(/\s+/g, '_') + '.md';
     const fileData = await invoke('guardar_como', { defaultName: defaultSaveName, content: contenido });
     
     if (fileData) {
@@ -823,6 +829,9 @@ window.addEventListener('DOMContentLoaded', () => {
       }
     });
   });
+
+  // Inicializar los listeners estáticos del modo estructurado
+  inicializarModoEstructurado();
 });
 
 // ==========================================================================
@@ -2397,7 +2406,7 @@ async function exportarAHTML() {
 }
 
 function exportarAPDF() {
-  exportarDocumentoAPDF(alertNotification);
+  exportarDocumentoAPDF(appState.fileName, DOM.editor.value, appState.readerFont, alertNotification);
 }
 
 async function exportarAEPUB() {
@@ -2421,16 +2430,190 @@ function escapeHTML(str) {
     .replace(/'/g, '&#039;');
 }
 
+let ultimoArbolParseado = null;
+
+function inicializarModoEstructurado() {
+  const btnToMd = document.getElementById('btn-tree-to-md');
+  const btnTabTree = document.getElementById('btn-tree-tab-tree');
+  const btnTabJson = document.getElementById('btn-tree-tab-json');
+  const btnTabXml = document.getElementById('btn-tree-tab-xml');
+  const btnTabYaml = document.getElementById('btn-tree-tab-yaml');
+  const btnExportJson = document.getElementById('btn-tree-export-json');
+  const btnExportXml = document.getElementById('btn-tree-export-xml');
+  const btnExportYaml = document.getElementById('btn-tree-export-yaml');
+
+  if (btnToMd) {
+    btnToMd.addEventListener('click', () => {
+      appState.structuredModeActive = false;
+      if (DOM.structuredHeaderBar) DOM.structuredHeaderBar.style.display = 'none';
+      if (DOM.previewContainer) DOM.previewContainer.classList.remove('structured-layout');
+      renderMarkdown();
+    });
+  }
+
+  if (btnTabTree) {
+    btnTabTree.addEventListener('click', () => {
+      appState.structuredActiveTab = 'tree';
+      renderMarkdown();
+    });
+  }
+
+  if (btnTabJson) {
+    btnTabJson.addEventListener('click', () => {
+      appState.structuredActiveTab = 'json';
+      renderMarkdown();
+    });
+  }
+
+  if (btnTabXml) {
+    btnTabXml.addEventListener('click', () => {
+      appState.structuredActiveTab = 'xml';
+      renderMarkdown();
+    });
+  }
+
+  if (btnTabYaml) {
+    btnTabYaml.addEventListener('click', () => {
+      appState.structuredActiveTab = 'yaml';
+      renderMarkdown();
+    });
+  }
+
+  if (btnExportJson) {
+    btnExportJson.addEventListener('click', () => {
+      const lang = appState.language || 'es';
+      const t = translations[lang] || translations.es;
+      if (!ultimoArbolParseado) return;
+      if (!invoke) {
+        alertNotification(t.struct_web_export_unavailable, 'error');
+        return;
+      }
+      const jsonStr = JSON.stringify(ultimoArbolParseado, null, 2).replace(/\\"/g, '"');
+      invoke('exportar_archivo', {
+        defaultName: `${appState.fileName.replace(/\s+/g, '_')}.json`,
+        content: jsonStr,
+        extension: 'json',
+        filterName: 'JSON',
+        directoryType: 'templates'
+      }).then(res => {
+        if (res) alertNotification('JSON ' + t.struct_export_success + res, 'success');
+      }).catch(err => {
+        alertNotification(t.struct_export_error + 'JSON: ' + err, 'error');
+      });
+    });
+  }
+
+  if (btnExportXml) {
+    btnExportXml.addEventListener('click', () => {
+      const lang = appState.language || 'es';
+      const t = translations[lang] || translations.es;
+      if (!ultimoArbolParseado) return;
+      if (!invoke) {
+        alertNotification(t.struct_web_export_unavailable, 'error');
+        return;
+      }
+      const xmlStr = convertJSONToXML(ultimoArbolParseado, appState.fileName);
+      invoke('exportar_archivo', {
+        defaultName: `${appState.fileName.replace(/\s+/g, '_')}.xml`,
+        content: xmlStr,
+        extension: 'xml',
+        filterName: 'XML',
+        directoryType: 'templates'
+      }).then(res => {
+        if (res) alertNotification('XML ' + t.struct_export_success + res, 'success');
+      }).catch(err => {
+        alertNotification(t.struct_export_error + 'XML: ' + err, 'error');
+      });
+    });
+  }
+
+  if (btnExportYaml) {
+    btnExportYaml.addEventListener('click', () => {
+      const lang = appState.language || 'es';
+      const t = translations[lang] || translations.es;
+      if (!ultimoArbolParseado) return;
+      if (!invoke) {
+        alertNotification(t.struct_web_export_unavailable, 'error');
+        return;
+      }
+      const yamlStr = convertJSONToYAML(ultimoArbolParseado);
+      invoke('exportar_archivo', {
+        defaultName: `${appState.fileName.replace(/\s+/g, '_')}.yaml`,
+        content: yamlStr,
+        extension: 'yaml',
+        filterName: 'YAML',
+        directoryType: 'templates'
+      }).then(res => {
+        if (res) alertNotification('YAML ' + t.struct_export_success + res, 'success');
+      }).catch(err => {
+        alertNotification(t.struct_export_error + 'YAML: ' + err, 'error');
+      });
+    });
+  }
+}
+
 // 2. RENDERS DEL MODO ESTRUCTURADO (FASE 12) - DELEGADAS EN DATA-PARSER
 function renderStructuredTreeVisual(obj) {
+  ultimoArbolParseado = obj;
   const lang = appState.language || 'es';
   const t = translations[lang] || translations.es;
+
+  // 1. Mostrar la barra estructurada superior
+  if (DOM.structuredHeaderBar) DOM.structuredHeaderBar.style.display = 'flex';
+  if (DOM.previewContainer) DOM.previewContainer.classList.add('structured-layout');
 
   const isTree = appState.structuredActiveTab === 'tree';
   const isJson = appState.structuredActiveTab === 'json';
   const isXml = appState.structuredActiveTab === 'xml';
   const isYaml = appState.structuredActiveTab === 'yaml';
 
+  // 2. Actualizar las clases active-tab en la barra superior estática
+  const btnTabTree = document.getElementById('btn-tree-tab-tree');
+  const btnTabJson = document.getElementById('btn-tree-tab-json');
+  const btnTabXml = document.getElementById('btn-tree-tab-xml');
+  const btnTabYaml = document.getElementById('btn-tree-tab-yaml');
+
+  if (btnTabTree) btnTabTree.classList.toggle('active-tab', isTree);
+  if (btnTabJson) btnTabJson.classList.toggle('active-tab', isJson);
+  if (btnTabXml) btnTabXml.classList.toggle('active-tab', isXml);
+  if (btnTabYaml) btnTabYaml.classList.toggle('active-tab', isYaml);
+
+  // 3. Traducir textos dinámicos de la barra superior estructurada (badge, tooltip y botón salir/jerarquía)
+  const badgeActive = document.getElementById('struct-badge-active');
+  const btnToMd = document.getElementById('btn-tree-to-md');
+  const btnExportJson = document.getElementById('btn-tree-export-json');
+  const btnExportXml = document.getElementById('btn-tree-export-xml');
+  const btnExportYaml = document.getElementById('btn-tree-export-yaml');
+
+  if (badgeActive) badgeActive.textContent = t.struct_badge_active || t.struct_active_badge;
+  if (btnToMd) {
+    btnToMd.textContent = t.struct_btn_exit || 'Salir';
+    btnToMd.setAttribute('title', t.struct_btn_read_mode_title);
+  }
+  if (btnTabTree) {
+    btnTabTree.innerHTML = `📂 ${t.struct_btn_hierarchy || 'Jerarquía'}`;
+    btnTabTree.setAttribute('title', t.struct_btn_tree_tab_title);
+  }
+  if (btnTabJson) {
+    btnTabJson.setAttribute('title', t.struct_btn_json_tab_title);
+  }
+  if (btnExportJson) {
+    btnExportJson.setAttribute('title', t.struct_btn_json_export_title);
+  }
+  if (btnTabXml) {
+    btnTabXml.setAttribute('title', t.struct_btn_xml_tab_title);
+  }
+  if (btnExportXml) {
+    btnExportXml.setAttribute('title', t.struct_btn_xml_export_title);
+  }
+  if (btnTabYaml) {
+    btnTabYaml.setAttribute('title', t.struct_btn_yaml_tab_title);
+  }
+  if (btnExportYaml) {
+    btnExportYaml.setAttribute('title', t.struct_btn_yaml_export_title);
+  }
+
+  // 4. Renderizar contenido de datos
   let contentHtml = '';
   if (isTree) {
     contentHtml = `<div class="tree-root-container">${buildTreeHTML(obj)}</div>`;
@@ -2445,131 +2628,7 @@ function renderStructuredTreeVisual(obj) {
     contentHtml = `<pre class="structured-code-preview"><code>${escapeHTML(yamlStr)}</code></pre>`;
   }
 
-  let html = `<div class="structured-tree-viewer">
-    <div class="structured-tree-header">
-      <div class="header-left">
-        <span class="structured-badge">${t.struct_active_badge}</span>
-      </div>
-      <div class="header-right">
-        <button class="tree-header-btn" id="btn-tree-to-md" title="${t.struct_btn_read_mode_title}">
-          <svg viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="2" width="13" height="13"><path d="M12 20h9M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>
-          ${t.struct_btn_read_mode_text}
-        </button>
-        
-        <span class="btn-divider">|</span>
-        
-        <button class="tree-header-btn ${isTree ? 'active-tab' : ''}" id="btn-tree-tab-tree" title="${t.struct_btn_tree_tab_title}">
-          ${t.struct_btn_tree_tab_text}
-        </button>
-        
-        <button class="tree-header-btn ${isJson ? 'active-tab' : ''}" id="btn-tree-tab-json" title="${t.struct_btn_json_tab_title}">
-          ${t.struct_btn_json_tab_text}
-        </button>
-        <button class="tree-header-btn" id="btn-tree-export-json" title="${t.struct_btn_json_export_title}">
-          ${t.struct_btn_json_export_text}
-        </button>
-        
-        <button class="tree-header-btn ${isXml ? 'active-tab' : ''}" id="btn-tree-tab-xml" title="${t.struct_btn_xml_tab_title}">
-          ${t.struct_btn_xml_tab_text}
-        </button>
-        <button class="tree-header-btn" id="btn-tree-export-xml" title="${t.struct_btn_xml_export_title}">
-          ${t.struct_btn_xml_export_text}
-        </button>
-        
-        <button class="tree-header-btn ${isYaml ? 'active-tab' : ''}" id="btn-tree-tab-yaml" title="${t.struct_btn_yaml_tab_title}">
-          ${t.struct_btn_yaml_tab_text}
-        </button>
-        <button class="tree-header-btn" id="btn-tree-export-yaml" title="${t.struct_btn_yaml_export_title}">
-          ${t.struct_btn_yaml_export_text}
-        </button>
-      </div>
-    </div>
-    <div class="structured-tree-content">
-      ${contentHtml}
-    </div>
-  </div>`;
-  
-  DOM.preview.innerHTML = html;
-  
-  // Registrar listeners en los botones del Visor Estructurado
-  document.getElementById('btn-tree-to-md').addEventListener('click', () => {
-    appState.structuredModeActive = false;
-    renderMarkdown();
-  });
-  
-  document.getElementById('btn-tree-tab-tree').addEventListener('click', () => {
-    appState.structuredActiveTab = 'tree';
-    renderMarkdown();
-  });
-  
-  document.getElementById('btn-tree-tab-json').addEventListener('click', () => {
-    appState.structuredActiveTab = 'json';
-    renderMarkdown();
-  });
-  
-  document.getElementById('btn-tree-tab-xml').addEventListener('click', () => {
-    appState.structuredActiveTab = 'xml';
-    renderMarkdown();
-  });
-  
-  document.getElementById('btn-tree-tab-yaml').addEventListener('click', () => {
-    appState.structuredActiveTab = 'yaml';
-    renderMarkdown();
-  });
-  
-  document.getElementById('btn-tree-export-json').addEventListener('click', () => {
-    if (!invoke) {
-      alertNotification(t.struct_web_export_unavailable, 'error');
-      return;
-    }
-    const jsonStr = JSON.stringify(obj, null, 2).replace(/\\"/g, '"');
-    invoke('exportar_archivo', {
-      defaultName: `${appState.fileName}.json`,
-      content: jsonStr,
-      extension: 'json',
-      filterName: 'JSON'
-    }).then(res => {
-      if (res) alertNotification('JSON ' + t.struct_export_success + res, 'success');
-    }).catch(err => {
-      alertNotification(t.struct_export_error + 'JSON: ' + err, 'error');
-    });
-  });
-  
-  document.getElementById('btn-tree-export-xml').addEventListener('click', () => {
-    if (!invoke) {
-      alertNotification(t.struct_web_export_unavailable, 'error');
-      return;
-    }
-    const xmlStr = convertJSONToXML(obj, appState.fileName);
-    invoke('exportar_archivo', {
-      defaultName: `${appState.fileName}.xml`,
-      content: xmlStr,
-      extension: 'xml',
-      filterName: 'XML'
-    }).then(res => {
-      if (res) alertNotification('XML ' + t.struct_export_success + res, 'success');
-    }).catch(err => {
-      alertNotification(t.struct_export_error + 'XML: ' + err, 'error');
-    });
-  });
-  
-  document.getElementById('btn-tree-export-yaml').addEventListener('click', () => {
-    if (!invoke) {
-      alertNotification(t.struct_web_export_unavailable, 'error');
-      return;
-    }
-    const yamlStr = convertJSONToYAML(obj);
-    invoke('exportar_archivo', {
-      defaultName: `${appState.fileName}.yaml`,
-      content: yamlStr,
-      extension: 'yaml',
-      filterName: 'YAML'
-    }).then(res => {
-      if (res) alertNotification('YAML ' + t.struct_export_success + res, 'success');
-    }).catch(err => {
-      alertNotification(t.struct_export_error + 'YAML: ' + err, 'error');
-    });
-  });
+  DOM.preview.innerHTML = contentHtml;
 }
 
 // 3. ALERTA FLOTANTE PREMIUM
@@ -2657,6 +2716,10 @@ function inicializarMenuContextualVisor() {
         <svg viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect></svg>
         <span>${t.ctx_select_all}</span>
       </button>
+      <button class="context-menu-item" id="ctx-export-module" ${tieneSeleccion ? '' : 'disabled style="opacity: 0.4; cursor: not-allowed;"'}>
+        <svg viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
+        <span>${t.ctx_export_module}</span>
+      </button>
       <div class="dropdown-divider"></div>
       <button class="context-menu-item" id="ctx-toggle-structured">
         ${icon}
@@ -2682,6 +2745,31 @@ function inicializarMenuContextualVisor() {
         menu.style.display = 'none';
         navigator.clipboard.writeText(seleccion);
         alertNotification(t.ctx_copy_notification);
+      });
+      
+      document.getElementById('ctx-export-module').addEventListener('click', async () => {
+        menu.style.display = 'none';
+        if (!invoke) {
+          alertNotification(t.struct_web_export_unavailable, 'error');
+          return;
+        }
+        try {
+          const baseName = appState.fileName && appState.fileName !== 'Sin título' ? appState.fileName : 'nuevo_modulo';
+          const defaultSaveName = baseName.replace(/\s+/g, '_') + '.md';
+          const fileData = await invoke('guardar_como', { 
+            defaultName: defaultSaveName, 
+            content: seleccion, 
+            directoryType: 'modules' 
+          });
+          if (fileData) {
+            alertNotification(t.ctx_export_module_success + fileData.name, 'success');
+            if (DOM.componentsSidebar && !DOM.componentsSidebar.classList.contains('collapsed')) {
+              cargarComponentesSidebar();
+            }
+          }
+        } catch (err) {
+          alertNotification(t.ctx_export_module_error + err, 'error');
+        }
       });
     }
     
@@ -2758,8 +2846,8 @@ function inicializarExportacionesYTemplates() {
     }
     
     if (invoke) {
-      const defaultSaveName = appState.fileName + '.md';
-      const fileData = await invoke('guardar_como', { defaultName: defaultSaveName, content: content });
+      const defaultSaveName = appState.fileName.replace(/\s+/g, '_') + '.md';
+      const fileData = await invoke('guardar_como', { defaultName: defaultSaveName, content: content, directoryType: 'templates' });
       if (fileData) {
         alertNotification('Plantilla guardada con éxito');
       }
@@ -2768,7 +2856,7 @@ function inicializarExportacionesYTemplates() {
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = appState.fileName + '.md';
+      a.download = appState.fileName.replace(/\s+/g, '_') + '.md';
       a.click();
       URL.revokeObjectURL(url);
       alertNotification('Plantilla descargada con éxito');

@@ -16,7 +16,7 @@ export const translations = {
     text_export_html: "Exportar como HTML",
     text_export_pdf: "Exportar como PDF",
     text_export_epub: "Exportar como EPUB",
-    text_save_template: "Guardar como Plantilla (XML)",
+    text_save_template: "Guardar como Plantilla (MD)",
 
     // Barra Lateral - Biblioteca
     lib_title: "Biblioteca de Componentes",
@@ -158,7 +158,12 @@ export const translations = {
     ctx_enable_struct: "Activar Modo Estructurado",
     ctx_disable_struct: "Desactivar Modo Estructurado",
     ctx_export_html: "Exportar HTML Autónomo...",
-    ctx_export_pdf: "Exportar PDF Premium (Imprimir)..."
+    ctx_export_pdf: "Exportar PDF Premium (Imprimir)...",
+    struct_btn_exit: "Salir",
+    struct_btn_hierarchy: "Jerarquía",
+    ctx_export_module: "Exportar como Módulo...",
+    ctx_export_module_success: "Módulo exportado con éxito en: ",
+    ctx_export_module_error: "Error al exportar módulo: "
   },
   en: {
     // Toolbar - Main Buttons
@@ -177,7 +182,7 @@ export const translations = {
     text_export_html: "Export as HTML",
     text_export_pdf: "Export as PDF",
     text_export_epub: "Export as EPUB",
-    text_save_template: "Save as Template (XML)",
+    text_save_template: "Save as Template (MD)",
 
     // Sidebar - Library
     lib_title: "Component Library",
@@ -319,7 +324,12 @@ export const translations = {
     ctx_enable_struct: "Enable Structured Mode",
     ctx_disable_struct: "Disable Structured Mode",
     ctx_export_html: "Export Self-Contained HTML...",
-    ctx_export_pdf: "Export Premium PDF (Print)..."
+    ctx_export_pdf: "Export Premium PDF (Print)...",
+    struct_btn_exit: "Exit",
+    struct_btn_hierarchy: "Hierarchy",
+    ctx_export_module: "Export as Module...",
+    ctx_export_module_success: "Module exported successfully at: ",
+    ctx_export_module_error: "Error exporting module: "
   },
   la: {
     // Toolbar - Main Buttons
@@ -338,7 +348,7 @@ export const translations = {
     text_export_html: "Exportare in HTML",
     text_export_pdf: "Exportare in PDF",
     text_export_epub: "Exportare in EPUB",
-    text_save_template: "Servare ut XML Exemplar",
+    text_save_template: "Servare ut MD Exemplar",
 
     // Sidebar - Library
     lib_title: "Bibliotheca Elementorum",
@@ -480,6 +490,11 @@ export const translations = {
     ctx_enable_struct: "Activare Modum Structuratum",
     ctx_disable_struct: "Deactivare Modum Structuratum",
     ctx_export_html: "Exportare HTML Autonomum...",
-    ctx_export_pdf: "Exportare PDF Premium (Imprimere)..."
+    ctx_export_pdf: "Exportare PDF Premium (Imprimere)...",
+    struct_btn_exit: "Exire",
+    struct_btn_hierarchy: "Hierarchia",
+    ctx_export_module: "Exportare ut Modulum...",
+    ctx_export_module_success: "Modulus exportatus cum successu in: ",
+    ctx_export_module_error: "Error in exportando modulo: "
   }
 };

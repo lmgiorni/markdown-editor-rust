@@ -164,6 +164,39 @@
 
     <!-- Panel Derecho: Visor de Markdown -->
     <section id="preview-container" class="panel">
+      <!-- Barra Superior del Modo Estructurado (Independiente para evitar selección con Ctrl+A) -->
+      <div id="structured-header-bar" class="structured-header-bar" style="display: none;">
+        <div class="header-left">
+          <span class="structured-badge" id="struct-badge-active">Modo Estructurado Activo</span>
+          <button class="tree-header-btn btn-exit-structured" id="btn-tree-to-md">
+            Salir
+          </button>
+        </div>
+        <span class="btn-divider">|</span>
+        <div class="header-right">
+          <button class="tree-header-btn" id="btn-tree-tab-tree">
+            📂 Jerarquía
+          </button>
+          
+          <div class="structured-group-btn">
+            <span class="group-label">JSON</span>
+            <button class="tree-header-icon-btn" id="btn-tree-tab-json">👁️</button>
+            <button class="tree-header-icon-btn" id="btn-tree-export-json">💾</button>
+          </div>
+
+          <div class="structured-group-btn">
+            <span class="group-label">XML</span>
+            <button class="tree-header-icon-btn" id="btn-tree-tab-xml">👁️</button>
+            <button class="tree-header-icon-btn" id="btn-tree-export-xml">💾</button>
+          </div>
+
+          <div class="structured-group-btn">
+            <span class="group-label">YAML</span>
+            <button class="tree-header-icon-btn" id="btn-tree-tab-yaml">👁️</button>
+            <button class="tree-header-icon-btn" id="btn-tree-export-yaml">💾</button>
+          </div>
+        </div>
+      </div>
       <div id="preview" class="markdown-body"></div>
     </section>
   </main>

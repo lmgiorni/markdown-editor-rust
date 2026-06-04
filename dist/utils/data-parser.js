@@ -57,15 +57,41 @@ export function parseMarkdownToJSON(text) {
       
     } else {
       // B. Detectar si es una Propiedad (Clave: Valor)
-      const colonIdx = content.indexOf(':');
-      if (colonIdx !== -1) {
-        const claveSucia = content.substring(0, colonIdx);
-        const valorSucio = content.substring(colonIdx + 1);
-        
-        // Limpieza por Regex premium de marcadores de formato (*, _, `, ~)
-        const key = claveSucia.replace(/^[\s*_`~]+|[\s*_`~]+$/g, '').trim();
-        const rawVal = valorSucio.replace(/^[\s*_`~]+|[\s*_`~]+$/g, '').trim();
-        
+      let key = '';
+      let rawVal = '';
+      let match = null;
+
+      // Evitar la colisión de dos puntos en claves con namespace (ej. **xmlns:lib**: valor)
+      if ((match = content.match(/^\*\*([^*]+)\*\*:\s*(.*)$/))) {
+        key = match[1].trim();
+        rawVal = match[2].trim();
+      } else if ((match = content.match(/^__([^_]+)__:\s*(.*)$/))) {
+        key = match[1].trim();
+        rawVal = match[2].trim();
+      } else if ((match = content.match(/^\*([^*]+)\*:\s*(.*)$/))) {
+        key = match[1].trim();
+        rawVal = match[2].trim();
+      } else if ((match = content.match(/^_([^_]+)_:\s*(.*)$/))) {
+        key = match[1].trim();
+        rawVal = match[2].trim();
+      } else if ((match = content.match(/^`([^`]+)`:\s*(.*)$/))) {
+        key = match[1].trim();
+        rawVal = match[2].trim();
+      } else {
+        // Fallback a división por dos puntos
+        let colonIdx = content.indexOf(': ');
+        if (colonIdx === -1) {
+          colonIdx = content.indexOf(':');
+        }
+        if (colonIdx !== -1) {
+          const claveSucia = content.substring(0, colonIdx);
+          const valorSucio = content.substring(colonIdx + 1);
+          key = claveSucia.replace(/^[\s*_`~]+|[\s*_`~]+$/g, '').trim();
+          rawVal = valorSucio.replace(/^[\s*_`~]+|[\s*_`~]+$/g, '').trim();
+        }
+      }
+
+      if (key !== '') {
         let parsedVal;
         const lowerVal = rawVal.toLowerCase();
         
@@ -83,7 +109,7 @@ export function parseMarkdownToJSON(text) {
         // III. Flotante (2.5f -> 2.5, o contiene '.')
         else if (/^-?\d+(\.\d+)?f$/.test(rawVal)) {
           parsedVal = parseFloat(rawVal.slice(0, -1));
-        } else if (/^-?\d+\.\d+$/.test(rawVal)) {
+        } else if (/^-?\d+\.\d*[1-9]$/.test(rawVal)) { // Solo float si no termina en 0
           parsedVal = parseFloat(rawVal);
         }
         // IV. Array Vacío (Listas vacías RPG)
@@ -182,41 +208,85 @@ export function sanitizeXMLTagName(name) {
 export function convertJSONToXML(obj, rootName = "Documento") {
   const sanitizedRoot = sanitizeXMLTagName(rootName);
   
-  function serialize(node, name) {
+  function escape(str) {
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&apos;');
+  }
+
+  function serialize(node, name, indentLevel = 0) {
     const tagName = sanitizeXMLTagName(name);
+    const indent = "\t".repeat(indentLevel);
     
     if (node === null || node === undefined) {
-      return `<${tagName}/>`;
+      return `${indent}<${tagName}/>`;
     }
     
     if (typeof node !== 'object') {
-      const strVal = String(node)
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&apos;');
-      return `<${tagName}>${strVal}</${tagName}>`;
+      return `${indent}<${tagName}>${escape(node)}</${tagName}>`;
     }
     
     if (Array.isArray(node)) {
-      return node.map(item => serialize(item, name)).join('\n');
+      return node.map(item => serialize(item, name, indentLevel)).join('\n');
+    }
+    
+    let attrs = [];
+    let children = [];
+    
+    for (let key in node) {
+      const val = node[key];
+      if (key === "_text") continue;
+      
+      if (val !== null && typeof val !== 'object') {
+        let attrName = key;
+        if (!key.startsWith('xmlns') && !key.includes('xmlns:')) {
+          attrName = sanitizeXMLTagName(key);
+          if (key.includes(':')) {
+            attrName = key.split(':').map(part => sanitizeXMLTagName(part)).join(':');
+          }
+        }
+        attrs.push(`${attrName}="${escape(val)}"`);
+      } else {
+        children.push({ key, val });
+      }
+    }
+    
+    const attrsStr = attrs.length > 0 ? " " + attrs.join(" ") : "";
+    const hasInternalText = node.hasOwnProperty("_text");
+    const internalText = hasInternalText ? escape(node["_text"]) : "";
+    
+    if (children.length === 0 && !hasInternalText) {
+      return `${indent}<${tagName}${attrsStr}/>`;
+    }
+    
+    if (children.length === 0 && hasInternalText) {
+      return `${indent}<${tagName}${attrsStr}>${internalText}</${tagName}>`;
     }
     
     let childrenXml = "";
-    for (let key in node) {
-      childrenXml += serialize(node[key], key) + "\n";
-    }
+    children.forEach(child => {
+      childrenXml += serialize(child.val, child.key, indentLevel + 1) + "\n";
+    });
     
-    return `<${tagName}>\n${childrenXml}</${tagName}>`;
+    const textPrefix = hasInternalText ? indent + "\t" + internalText + "\n" : "";
+    return `${indent}<${tagName}${attrsStr}>\n${textPrefix}${childrenXml}${indent}</${tagName}>`;
   }
   
   let finalXml = '<?xml version="1.0" encoding="UTF-8"?>\n';
   let combined = "";
   for (let key in obj) {
-    combined += serialize(obj[key], key) + "\n";
+    combined += serialize(obj[key], key, 0) + "\n";
   }
-  finalXml += `<${sanitizedRoot}>\n${combined}</${sanitizedRoot}>`;
+  
+  const rootKeys = Object.keys(obj);
+  if (rootKeys.length === 1 && typeof obj[rootKeys[0]] === 'object' && !Array.isArray(obj[rootKeys[0]])) {
+    finalXml += combined.trim() + "\n";
+  } else {
+    finalXml += `<${sanitizedRoot}>\n${combined}</${sanitizedRoot}>\n`;
+  }
   
   return finalXml;
 }
@@ -375,6 +445,15 @@ export function convertXMLToJSON(node) {
   
   const obj = {};
   
+  // 1. Cargar atributos como propiedades (incluyendo namespaces como xmlns)
+  if (node.attributes && node.attributes.length > 0) {
+    for (let i = 0; i < node.attributes.length; i++) {
+      const attr = node.attributes[i];
+      obj[attr.nodeName] = parseTypedValue(attr.nodeValue);
+    }
+  }
+  
+  // 2. Cargar nodos hijos
   if (node.hasChildNodes()) {
     for (let i = 0; i < node.childNodes.length; i++) {
       const child = node.childNodes[i];
@@ -387,9 +466,10 @@ export function convertXMLToJSON(node) {
       if (child.nodeType === 3 || child.nodeType === 4) {
         const textVal = child.nodeValue.trim();
         if (textVal) {
-          if (node.childNodes.length === 1) {
+          if (node.childNodes.length === 1 && Object.keys(obj).length === 0) {
             return parseTypedValue(textVal);
           }
+          obj["_text"] = parseTypedValue(textVal);
         }
         continue;
       }
@@ -433,10 +513,12 @@ function parseTypedValue(val) {
   if (lowerVal === 'sí' || lowerVal === 'si' || lowerVal === 'true') return true;
   if (lowerVal === 'no' || lowerVal === 'false') return false;
   if (cleanVal === '[]') return [];
-  if (/^-?\d+i$/.test(cleanVal)) return parseInt(cleanVal.slice(0, -1), 10);
-  if (/^-?\d+(\.\d+)?f$/.test(cleanVal)) return parseFloat(cleanVal.slice(0, -1));
-  if (/^-?\d+\.\d+$/.test(cleanVal)) return parseFloat(cleanVal);
-  if (/^-?\d+$/.test(cleanVal)) return parseInt(cleanVal, 10);
+  
+  // Evitar coerción si tiene ceros a la izquierda (ej. serialNo="0000057" o Reel="020")
+  if (/^-?(0|[1-9]\d*)$/.test(cleanVal)) return parseInt(cleanVal, 10);
+  // Solo convertir a float si no termina en 0 en la parte decimal (ej. 1.5 es ok, 1.0 o 1.50 no es ok)
+  if (/^-?(0|[1-9]\d*)\.\d*[1-9]$/.test(cleanVal)) return parseFloat(cleanVal);
+  
   return cleanVal;
 }
 

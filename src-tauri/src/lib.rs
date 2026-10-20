@@ -27,6 +27,16 @@ pub struct TemaMetadata {
     file_path: String,
 }
 
+#[derive(serde::Serialize)]
+pub struct IdiomaMetadata {
+    #[serde(rename = "code")]
+    code: String,
+    #[serde(rename = "name")]
+    name: String,
+    #[serde(rename = "filePath")]
+    file_path: String,
+}
+
 // Utilidad para sanitizar nombres de archivo reemplazando espacios por guiones bajos
 fn sanitizar_nombre_archivo(path: std::path::PathBuf) -> std::path::PathBuf {
     if let Some(file_name) = path.file_name().and_then(|s| s.to_str()) {
@@ -258,6 +268,95 @@ fn leer_tema(file_path: String) -> Result<String, String> {
     fs::read_to_string(&file_path).map_err(|e| e.to_string())
 }
 
+#[tauri::command]
+fn listar_idiomas(app_handle: tauri::AppHandle) -> Result<Vec<IdiomaMetadata>, String> {
+    let base_dir = app_handle.path().app_data_dir()
+        .map_err(|e| format!("No se pudo obtener el directorio de datos de la app: {}", e))?;
+    
+    let path = base_dir.join("assets").join("languages");
+    
+    if !path.exists() {
+        return Ok(Vec::new());
+    }
+    
+    let mut idiomas = Vec::new();
+    let entries = fs::read_dir(path).map_err(|e| e.to_string())?;
+    
+    for entry in entries {
+        if let Ok(entry) = entry {
+            let path_buf = entry.path();
+            if path_buf.is_file() {
+                if let Some(ext) = path_buf.extension() {
+                    if ext == "json" {
+                        let file_stem = path_buf.file_stem()
+                            .and_then(|s| s.to_str())
+                            .unwrap_or("")
+                            .to_string();
+                        let file_path = path_buf.to_string_lossy().to_string();
+                        
+                        let mut name = file_stem.clone();
+                        if let Ok(content) = fs::read_to_string(&path_buf) {
+                            if let Ok(v) = serde_json::from_str::<serde_json::Value>(&content) {
+                                if let Some(n) = v.get("meta_language_name").and_then(|s| s.as_str()) {
+                                    name = n.to_string();
+                                }
+                            }
+                        }
+
+                        idiomas.push(IdiomaMetadata {
+                            code: file_stem,
+                            name,
+                            file_path,
+                        });
+                    }
+                }
+            }
+        }
+    }
+    
+    idiomas.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
+    Ok(idiomas)
+}
+
+#[tauri::command]
+fn leer_idioma(file_path: String) -> Result<String, String> {
+    fs::read_to_string(&file_path).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn abrir_carpeta_idiomas(app_handle: tauri::AppHandle) -> Result<(), String> {
+    let base_dir = app_handle.path().app_data_dir()
+        .map_err(|e| format!("No se pudo obtener el directorio de datos de la app: {}", e))?;
+    let path = base_dir.join("assets").join("languages");
+    fs::create_dir_all(&path).map_err(|e| e.to_string())?;
+
+    #[cfg(target_os = "windows")]
+    {
+        std::process::Command::new("explorer")
+            .arg(&path)
+            .spawn()
+            .map_err(|e| format!("No se pudo abrir el explorador de archivos: {}", e))?;
+    }
+
+    #[cfg(target_os = "macos")]
+    {
+        std::process::Command::new("open")
+            .arg(&path)
+            .spawn()
+            .map_err(|e| format!("No se pudo abrir el buscador: {}", e))?;
+    }
+
+    #[cfg(target_os = "linux")]
+    {
+        std::process::Command::new("xdg-open")
+            .arg(&path)
+            .spawn()
+            .map_err(|e| format!("No se pudo abrir el gestor de archivos: {}", e))?;
+    }
+
+    Ok(())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
   tauri::Builder::default()
@@ -273,6 +372,25 @@ pub fn run() {
       fs::create_dir_all(&templates_dir).unwrap_or_default();
       fs::create_dir_all(&modules_dir).unwrap_or_default();
       fs::create_dir_all(&themes_dir).unwrap_or_default();
+      let languages_dir = assets_dir.join("languages");
+      fs::create_dir_all(&languages_dir).unwrap_or_default();
+
+      // Inyectar idiomas base si no existen en la carpeta de usuario
+      let es_path = languages_dir.join("es.json");
+      if !es_path.exists() {
+          let es_content = include_str!("../../assets/languages/es.json");
+          fs::write(es_path, es_content).unwrap_or_default();
+      }
+      let en_path = languages_dir.join("en.json");
+      if !en_path.exists() {
+          let en_content = include_str!("../../assets/languages/en.json");
+          fs::write(en_path, en_content).unwrap_or_default();
+      }
+      let la_path = languages_dir.join("la.json");
+      if !la_path.exists() {
+          let la_content = include_str!("../../assets/languages/la.json");
+          fs::write(la_path, la_content).unwrap_or_default();
+      }
 
       // Inyectar activos base en modules si está vacío
       if let Ok(mut entries) = fs::read_dir(&modules_dir) {
@@ -416,7 +534,10 @@ pub fn run() {
         listar_activos,
         leer_activo,
         listar_temas,
-        leer_tema
+        leer_tema,
+        listar_idiomas,
+        leer_idioma,
+        abrir_carpeta_idiomas
     ])
     .run(tauri::generate_context!())
     .expect("error while running tauri application");

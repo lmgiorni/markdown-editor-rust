@@ -1,129 +1,80 @@
-# Especificación Técnica: Sistema de Localización (i18n)
+# Especificación Técnica: Sistema de Localización Modular (i18n)
 
-Este documento detalla la arquitectura, el diseño y la implementación técnica del motor de localización (i18n) multiidioma en la aplicación **Summa Scriptura**.
+Este documento detalla la arquitectura, el diseño y la implementación técnica del motor de localización modular (i18n) en la aplicación **Summa Scriptura**.
 
 ---
 
 ## 1. Filosofía de Diseño
 
 El sistema de localización de Summa Scriptura fue diseñado bajo las siguientes premisas:
-*   **Ligereza e Independencia**: Evitar dependencias externas o librerías pesadas para mantener la aplicación rápida y autónoma.
-*   **Sin Parpadeos (Zero-Flicker)**: El cambio de idioma se realiza en tiempo de ejecución (caliente) en pocos milisegundos, actualizando los elementos del DOM de forma selectiva.
-*   **Persistencia**: El idioma seleccionado se conserva entre sesiones del usuario mediante almacenamiento local.
-*   **Traducciones Específicas**: Además de Español e Inglés, incluye Latín (*Latine*) para adecuarse al contexto histórico y eclesiástico del proyecto.
+*   **Modularidad y Desacoplamiento**: Los idiomas existen como archivos JSON independientes en disco (`assets/languages/`), idéntico al modelo de Temas y Componentes.
+*   **Autonomía del Usuario**: Cualquier usuario o traductor puede crear, editar o corregir idiomas con un simple bloc de notas sin tocar el código fuente del programa.
+*   **Detección Dinámica en Runtime**: Al arrancar, el motor escanea los archivos disponibles y puebla el selector de idiomas de la ventana de configuración automáticamente.
+*   **Sin Parpadeos (Zero-Flicker)**: El cambio de idioma se realiza en caliente en milisegundos, actualizando los elementos del DOM de forma selectiva.
+*   **Persistencia**: El idioma seleccionado se conserva entre sesiones mediante `localStorage`.
+*   **Acceso Directo**: Se incluye un botón de acceso directo en la configuración para abrir la carpeta de idiomas en el Explorador de Windows.
 
 ---
 
 ## 2. Componentes del Sistema
 
-El motor de localización se compone de tres piezas principales integradas:
-
 ```
-[i18n.js (Diccionario)] ──> [main.js (Estado y Lógica DOM)] ──> [index.html (Configuración)]
-                                       │
-                                       └──> [Vista de Lectura / Modo Estructurado / Sidebar]
+[assets/languages/*.json] ──> [Rust / Tauri (listar_idiomas, leer_idioma)]
+                                          │
+                                          ▼
+                                [i18n.js & main.js] ──> [index.html (Configuración Dinámica)]
+                                          │
+                                          └──> [Vista de Lectura / Modo Estructurado / Sidebar]
 ```
 
-### 2.1. El Diccionario de Traducción (`i18n.js`)
+### 2.1. Archivos de Idioma en Disco (`assets/languages/`)
+Cada idioma es un archivo `.json` independiente nombrado con su código (ej. `es.json`, `en.json`, `la.json`).
+Estructura de metadatos:
+```json
+{
+  "meta_language_code": "es",
+  "meta_language_name": "Español",
+  "title_new": "Crear Nuevo Documento",
+  ...
+}
+```
+
+### 2.2. Motor Nativo (Rust / Tauri)
+Ubicación: `src-tauri/src/lib.rs`
+*   `listar_idiomas`: Escanea `assets/languages/`, extrae el campo `meta_language_name` y retorna la lista ordenada.
+*   `leer_idioma`: Lee el contenido en texto del archivo seleccionado.
+*   `abrir_carpeta_idiomas`: Abre la carpeta en el Explorador de archivos del sistema operativo.
+
+### 2.3. Gestor de Localización Frontend (`i18n.js`)
 Ubicación: `dist/utils/i18n.js`
+*   `translations`: Objeto con diccionarios en memoria y fallback por si se ejecuta en navegador web o antes de la lectura asíncrona.
+*   `listarIdiomasDisponibles`: Invoca `listar_idiomas` de Tauri.
+*   `cargarIdiomaDesdeDisco`: Carga el archivo `.json`, lo fusiona en memoria y actualiza el diccionario activo.
 
-Exporta una constante modular `translations` que contiene sub-objetos para cada idioma (`es`, `en`, `la`). Cada sub-objeto comparte las mismas claves identificadoras:
-
-*   **Barra de Herramientas**: Tooltips explicativos de los botones de control.
-*   **Biblioteca de Componentes**: Etiquetas de pestañas, placeholders, estados de carga y descripciones/categorías por defecto.
-*   **Atajos Markdown**: Los nombres de los 24 atajos estructurados organizados por ventanas flotantes.
-*   **Modo Estructurado**: Botones superiores de la vista de árbol, leyendas de exportación y avisos del sistema.
-*   **Menú Contextual**: Elementos interactivos del menú secundario del visor.
-*   **Barra de Estado**: Indicadores dinámicos de archivo guardado/modificado.
-
-### 2.2. La Interfaz de Selección (`index.html`)
+### 2.4. La Interfaz de Selección (`index.html`)
 Ubicación: `dist/index.html`
-
-El modal de configuración (`#modal-config`) contiene un selector nativo vinculable:
-```html
-<div class="config-row">
-  <label for="select-language">Idioma de la Interfaz</label>
-  <select id="select-language" class="config-select">
-    <option value="es">Español</option>
-    <option value="en">English</option>
-    <option value="la">Latine (Latín)</option>
-  </select>
-</div>
-```
+*   El selector `<select id="select-language">` se rellena dinámicamente con los idiomas detectados.
+*   Botón `<button id="btn-open-languages-dir">📂</button>` para abrir la carpeta directamente en el Explorador.
 
 ---
 
 ## 3. Flujo Lógico y Ciclo de Vida
 
-El ciclo de vida del idioma se gestiona mediante eventos y sincronización de estado:
-
-### 3.1. Inicialización en el Arranque
-1. Al cargar la aplicación, se consulta el almacén local del navegador:
-   ```javascript
-   appState.language = localStorage.getItem('md-language') || 'es';
-   ```
-2. Se sincroniza el elemento selector visual para que coincida con el idioma recuperado.
-3. Se invoca a la función central `actualizarTextosInterfaz(appState.language)` para aplicar los textos correctos antes de mostrar la UI.
-
-### 3.2. Cambio de Idioma (En Caliente)
-Cuando el usuario cambia de idioma en el desplegable de configuración:
-1. Se intercepta el evento de cambio (`change`).
-2. Se actualiza el estado global (`appState.language`).
-3. Se persiste el nuevo valor en la clave `md-language` de `localStorage`.
-4. Se vuelve a ejecutar `actualizarTextosInterfaz(lang)` con el nuevo código de idioma.
+1. **Inicialización al Arranque:**
+   - Se consulta `localStorage` para obtener el último idioma elegido (por defecto `es`).
+   - `inicializarIdiomas()` obtiene la lista de archivos mediante `listar_idiomas` y genera las opciones del menú.
+   - Lee el archivo `.json` correspondiente desde disco y ejecuta `actualizarTextosInterfaz(lang)` para traducir toda la interfaz.
+2. **Cambio de Idioma:**
+   - Al seleccionar otra opción en el desplegable, `cambiarIdioma(lang)` lee el archivo `.json` asociado desde disco, actualiza el estado, guarda en `localStorage` y refresca inmediatamente la pantalla.
 
 ---
 
-## 4. El Algoritmo de Traducción del DOM
+## 4. Cómo Añadir o Modificar un Idioma
 
-La función central `actualizarTextosInterfaz(lang)` realiza actualizaciones del árbol DOM mediante selectores específicos:
-
-```javascript
-function actualizarTextosInterfaz(lang) {
-  const t = translations[lang];
-  if (!t) return;
-
-  // 1. Tooltips de la Barra de Herramientas
-  const setTooltip = (el, text) => { if (el) el.setAttribute('title', text); };
-  setTooltip(DOM.btnNew, t.title_new);
-  setTooltip(DOM.btnSave, t.title_save);
-  // ...
-
-  // 2. Textos de Contenido Fijo
-  const setSpanText = (el, text) => { if (el) { const span = el.querySelector('span'); if (span) span.textContent = text; } };
-  setSpanText(DOM.optExportHtml, t.text_export_html);
-  // ...
-
-  // 3. Biblioteca de Componentes (Pestañas y Placeholders)
-  if (DOM.tabModules) DOM.tabModules.textContent = t.lib_tab_modules;
-  if (DOM.tabTemplates) DOM.tabTemplates.textContent = t.lib_tab_templates;
-  if (DOM.sidebarSearch) DOM.sidebarSearch.setAttribute('placeholder', ...);
-
-  // 4. Modales de Atajos y Mensajes de Ayuda
-  // Actualiza los títulos y los ejemplos en los pies de página de los modales flotantes.
-
-  // 5. Barra de Estado
-  actualizarBarraDeEstadoTextos();
-
-  // 6. Recarga de Contenido Dinámico Abierto
-  if (DOM.componentsSidebar && !DOM.componentsSidebar.classList.contains('collapsed')) {
-    cargarComponentesSidebar(); // Vuelve a cargar y traducir los módulos/plantillas locales
-  }
-
-  // 7. Forzar Repintado del Visor
-  renderMarkdown(); // Asegura la traducción inmediata del Modo Estructurado y Menús
-}
-```
-
----
-
-## 5. Mantenimiento y Extensión
-
-Para añadir soporte a un nuevo idioma (por ejemplo, *italiano*):
-
-1. **Añadir el diccionario**: Abra `dist/utils/i18n.js` y cree un bloque con la clave `it` dentro de `translations`, copiando la misma estructura de claves que `es`.
-2. **Añadir la opción en el HTML**: Abra `dist/index.html` y añada el `<option>` al selector:
-   ```html
-   <option value="it">Italiano</option>
-   ```
-3. El motor de JavaScript asociará de forma automática el nuevo idioma al cambiar la opción en la configuración.
+1. En la ventana de **Configuración**, haz clic en el botón **📂** al lado del selector de idiomas para abrir la carpeta.
+2. Para corregir una frase: Abre el archivo correspondiente (ej. `es.json`) en cualquier editor de texto, cambia el valor deseado y guarda el archivo.
+3. Para crear un idioma nuevo (ej. Francés):
+   - Duplica `es.json` y renómbralo a `fr.json`.
+   - Cambia `"meta_language_code": "fr"` y `"meta_language_name": "Français"`.
+   - Traduce los textos que desees.
+   - Al reiniciar Summa Scriptura, "Français" aparecerá automáticamente en la lista de idiomas disponibles.

@@ -504,3 +504,42 @@ export const translations = {
     ctx_export_module_error: "Error in exportando modulo: "
   }
 };
+
+
+export async function listarIdiomasDisponibles(invoke) {
+  if (!invoke) {
+    return [
+      { code: 'es', name: 'Español' },
+      { code: 'en', name: 'English' },
+      { code: 'la', name: 'Latine (Latín)' }
+    ];
+  }
+  try {
+    const lista = await invoke('listar_idiomas');
+    if (Array.isArray(lista) && lista.length > 0) {
+      return lista;
+    }
+  } catch (err) {
+    console.warn('Error al listar idiomas desde disco:', err);
+  }
+  return [
+    { code: 'es', name: 'Español' },
+    { code: 'en', name: 'English' },
+    { code: 'la', name: 'Latine (Latín)' }
+  ];
+}
+
+export async function cargarIdiomaDesdeDisco(code, filePath, invoke) {
+  if (!invoke || !filePath) return translations[code] || translations.es;
+  try {
+    const raw = await invoke('leer_idioma', { filePath });
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      translations[code] = { ...(translations.es || {}), ...parsed };
+      return translations[code];
+    }
+  } catch (err) {
+    console.warn('No se pudo cargar el archivo de idioma desde disco:', filePath, err);
+  }
+  return translations[code] || translations.es;
+}

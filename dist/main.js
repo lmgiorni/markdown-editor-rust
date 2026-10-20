@@ -6,7 +6,7 @@ import { HistorialCambios } from './utils/history-manager.js';
 import { parseMarkdownToJSON, convertJSONToXML, buildTreeHTML, convertJSONToMarkdown, convertXMLToJSON, convertJSONToYAML, convertYAMLToJSON } from './utils/data-parser.js';
 import { escanearVariablesDePlantilla, obtenerTextoModuloConSangria } from './utils/template-engine.js';
 import { exportarDocumentoAHTML, exportarDocumentoAPDF, exportarDocumentoAEPUB } from './utils/export-service.js';
-import { translations } from './utils/i18n.js';
+import { translations, listarIdiomasDisponibles, cargarIdiomaDesdeDisco } from './utils/i18n.js';
 
 // Configuración y Acceso Seguro al Puente de Tauri
 const invoke = window.__TAURI__ ? window.__TAURI__.core.invoke : null;
@@ -97,6 +97,7 @@ const DOM = {
   selectReaderFont: document.getElementById('select-reader-font'),
   selectStructuredFont: document.getElementById('select-structured-font'),
   selectLanguage: document.getElementById('select-language'),
+  btnOpenLanguagesDir: document.getElementById('btn-open-languages-dir'),
   rangeEditorSize: document.getElementById('range-editor-size'),
   rangeReaderSize: document.getElementById('range-reader-size'),
   rangeStructuredSize: document.getElementById('range-structured-size'),
@@ -1355,14 +1356,68 @@ if (DOM.btnFontDec) {
 if (DOM.btnFontInc) {
   DOM.btnFontInc.addEventListener('click', () => ajustarTamañoGeneral(1));
 }
+let listaIdiomasCargados = [];
+
+async function inicializarIdiomas() {
+  if (!DOM.selectLanguage) return;
+
+  try {
+    listaIdiomasCargados = await listarIdiomasDisponibles(invoke);
+    DOM.selectLanguage.innerHTML = '';
+
+    if (!listaIdiomasCargados || listaIdiomasCargados.length === 0) {
+      DOM.selectLanguage.innerHTML = '<option value="es">Español</option>';
+      return;
+    }
+
+    listaIdiomasCargados.forEach(item => {
+      const opt = document.createElement('option');
+      opt.value = item.code;
+      opt.textContent = item.name;
+      opt.dataset.filePath = item.filePath || '';
+      if (item.code === appState.language) {
+        opt.selected = true;
+      }
+      DOM.selectLanguage.appendChild(opt);
+    });
+
+    // Cargar desde disco el idioma guardado
+    const idiomaActivo = listaIdiomasCargados.find(i => i.code === appState.language) || listaIdiomasCargados[0];
+    if (idiomaActivo) {
+      appState.language = idiomaActivo.code;
+      if (idiomaActivo.filePath) {
+        await cargarIdiomaDesdeDisco(idiomaActivo.code, idiomaActivo.filePath, invoke);
+      }
+      actualizarTextosInterfaz(appState.language);
+    }
+  } catch (err) {
+    console.error('Error al inicializar idiomas dinámicos:', err);
+  }
+}
+
 if (DOM.selectLanguage) {
   DOM.selectLanguage.addEventListener('change', (e) => cambiarIdioma(e.target.value));
 }
 
-function cambiarIdioma(lang) {
+if (DOM.btnOpenLanguagesDir) {
+  DOM.btnOpenLanguagesDir.addEventListener('click', () => {
+    if (invoke) {
+      invoke('abrir_carpeta_idiomas').catch(err => {
+        console.error('Error al abrir la carpeta de idiomas:', err);
+      });
+    }
+  });
+}
+
+async function cambiarIdioma(lang) {
   appState.language = lang;
   localStorage.setItem('md-language', lang);
   if (DOM.selectLanguage) DOM.selectLanguage.value = lang;
+
+  const item = listaIdiomasCargados.find(i => i.code === lang);
+  if (item && item.filePath) {
+    await cargarIdiomaDesdeDisco(item.code, item.filePath, invoke);
+  }
   actualizarTextosInterfaz(lang);
 }
 
@@ -2453,6 +2508,7 @@ Este es tu nuevo espacio de escritura histórica y gestión. Todo lo que escriba
   inicializarSidebarComponentes();
   inicializarTemas();
   inicializarThemePlayground();
+  inicializarIdiomas();
 });
 
 // ==========================================================================

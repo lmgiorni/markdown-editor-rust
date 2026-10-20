@@ -583,11 +583,12 @@
           <!-- Idioma de la Interfaz -->
           <div class="config-row">
             <label for="select-language" data-i18n="config_lang">Idioma de la Interfaz</label>
-            <select id="select-language" class="config-select">
-              <option value="es" selected>Español</option>
-              <option value="en">English</option>
-              <option value="la">Latine</option>
-            </select>
+            <div class="config-control-group" style="display: flex; gap: 8px; width: 100%;">
+              <select id="select-language" class="config-select" style="flex: 1;">
+                <option value="es" selected>Español</option>
+              </select>
+              <button type="button" id="btn-open-languages-dir" class="btn-subtle" title="Abrir carpeta de idiomas en el explorador" style="padding: 0 10px; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; border-radius: 4px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);">📂</button>
+            </div>
           </div>
         </div>
       </div>

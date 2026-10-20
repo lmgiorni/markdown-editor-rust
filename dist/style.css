@@ -2485,9 +2485,9 @@ dd {
   background: var(--bg-modal, rgba(17, 20, 31, 0.96));
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
-  border: 1px solid var(--border-subtle, rgba(139, 92, 246, 0.25));
+  border: 1px solid var(--border-subtle);
   border-radius: 14px;
-  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.7);
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
   display: none;
   flex-direction: column;
   user-select: none;
@@ -2564,7 +2564,7 @@ dd {
 .color-preview-swatch {
   height: 36px;
   border-radius: 6px;
-  border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.2));
+  border: 1px solid var(--border-subtle);
   background-color: transparent;
   position: relative;
   overflow: hidden;
@@ -2576,7 +2576,7 @@ dd {
 }
 
 #color-preview-original:hover {
-  border-color: rgba(255, 255, 255, 0.45);
+  border-color: var(--border-focus, var(--accent));
   transform: scale(1.02);
 }
 
@@ -2764,7 +2764,7 @@ dd {
   flex: 1;
   height: 32px;
   border-radius: 5px;
-  border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.15));
+  border: 1px solid var(--border-subtle);
   cursor: pointer;
   position: relative;
   transition: all var(--transition-fast);
@@ -2773,18 +2773,18 @@ dd {
 }
 
 .color-slot.empty {
-  border: 1px dashed rgba(255, 255, 255, 0.15);
-  background-color: rgba(255, 255, 255, 0.02);
+  border: 1px dashed var(--border-subtle);
+  background-color: var(--bg-input, rgba(0, 0, 0, 0.02));
 }
 
 .color-slot:hover {
   transform: translateY(-1px);
-  border-color: rgba(255, 255, 255, 0.35);
+  border-color: var(--accent);
 }
 
 .color-slot.active {
-  border-color: var(--accent, #bc13fe);
-  box-shadow: 0 0 0 2px rgba(188, 19, 254, 0.4);
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--border-focus, var(--accent));
 }
 
 /* Menú Contextual de Armonías de Color */

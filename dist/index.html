@@ -661,7 +661,7 @@
     <header class="playground-header" id="playground-drag-handle">
       <div class="playground-title-container">
         <span class="playground-icon">🎨</span>
-        <h3>Theme Playground</h3>
+        <h3 id="playground-title" data-i18n="playground_title">Theme Playground</h3>
       </div>
       <button id="btn-close-playground" class="playground-close-btn" title="Ocultar Visualizador">&times;</button>
     </header>
@@ -718,10 +718,137 @@
     </div>
     <footer class="playground-footer">
       <span class="playground-status-indicator" id="playground-status-text">Visualizando borrador local</span>
-      <button id="btn-apply-theme-global" class="config-action-btn btn-primary-premium" style="margin-top: 0; padding: 6px 14px; font-size: 12px; font-weight: 600;">Aplicar Tema al Sistema</button>
+      <button id="btn-apply-theme-global" data-i18n="playground_apply" class="config-action-btn btn-primary-premium" style="margin-top: 0; padding: 6px 14px; font-size: 12px; font-weight: 600;">Aplicar Tema al Sistema</button>
     </footer>
     <!-- Tirador para redimensionar en la esquina inferior derecha -->
     <div class="playground-resizer" id="playground-resize-handle"></div>
+  </div>
+
+  
+  <!-- 6. Modal Color Picker Triangular Flotante -->
+  <div id="modal-color-picker" class="floating-color-picker">
+    <header class="playground-header" id="color-picker-drag-handle">
+      <div class="playground-title-container">
+        <span class="playground-icon">🎨</span>
+        <h3 data-i18n="color_picker_title">Selector de Color</h3>
+      </div>
+      <button id="btn-close-color-picker" class="playground-close-btn" title="Cerrar">&times;</button>
+    </header>
+    <div class="color-picker-body">
+      <div class="color-picker-main-row">
+        <!-- Canvas con el anillo de tono y el triángulo interior -->
+        <div class="color-canvas-container">
+          <canvas id="color-triangle-canvas" width="220" height="220"></canvas>
+        </div>
+        <!-- Panel lateral: Muestras, Opacidad y Formatos -->
+        <div class="color-side-panel">
+          <div class="color-swatch-comparison">
+            <div class="color-swatch-box">
+              <span class="color-swatch-label" data-i18n="color_picker_current">Actual</span>
+              <div id="color-preview-original" class="color-preview-swatch" title="Clic para restaurar color original">
+                <div class="color-swatch-fill" id="color-fill-original"></div>
+              </div>
+            </div>
+            <div class="color-swatch-box">
+              <span class="color-swatch-label" data-i18n="color_picker_new">Nuevo</span>
+              <div id="color-preview-new" class="color-preview-swatch">
+                <div class="color-swatch-fill" id="color-fill-new"></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="color-slider-group">
+            <label><span data-i18n="color_picker_opacity">Opacidad</span>: <span id="color-alpha-val">100%</span></label>
+            <div class="alpha-slider-wrap" id="alpha-slider-wrap">
+              <div class="alpha-slider-gradient" id="alpha-slider-gradient"></div>
+              <input type="range" id="color-range-alpha" min="0" max="100" value="100" class="alpha-slider">
+            </div>
+          </div>
+
+          <div class="color-format-selector">
+            <label class="radio-label">
+              <input type="radio" name="color-output-format" value="hex" id="radio-format-hex" checked>
+              <span data-i18n="color_picker_format_hex">Hexadecimal</span>
+            </label>
+            <label class="radio-label">
+              <input type="radio" name="color-output-format" value="rgba" id="radio-format-rgba">
+              <span data-i18n="color_picker_format_rgba">RGBA</span>
+            </label>
+          </div>
+
+          <div class="color-inputs-grid">
+            <div class="color-input-field full-width">
+              <label>HEX</label>
+              <input type="text" id="color-input-hex" value="#ffffff" spellcheck="false">
+            </div>
+            <div class="color-input-field">
+              <label>R</label>
+              <input type="number" id="color-input-r" min="0" max="255" value="255">
+            </div>
+            <div class="color-input-field">
+              <label>G</label>
+              <input type="number" id="color-input-g" min="0" max="255" value="255">
+            </div>
+            <div class="color-input-field">
+              <label>B</label>
+              <input type="number" id="color-input-b" min="0" max="255" value="255">
+            </div>
+            <div class="color-input-field">
+              <label>A</label>
+              <input type="number" id="color-input-a" min="0" max="1" step="0.01" value="1">
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Paleta de memoria (6 casillas permanentes en la sesión) -->
+      <div class="color-palette-section">
+        <div class="color-palette-header">
+          <span>Paleta de Sesión</span>
+          <button type="button" id="btn-save-to-palette" class="btn-subtle-sm" data-i18n="color_picker_save_slot">+ Guardar en casilla</button>
+        </div>
+        <div class="color-palette-slots" id="color-palette-slots">
+          <div class="color-slot active" data-index="0" title="Casilla 1"></div>
+          <div class="color-slot" data-index="1" title="Casilla 2"></div>
+          <div class="color-slot" data-index="2" title="Casilla 3"></div>
+          <div class="color-slot" data-index="3" title="Casilla 4"></div>
+          <div class="color-slot" data-index="4" title="Casilla 5"></div>
+          <div class="color-slot" data-index="5" title="Casilla 6"></div>
+        </div>
+      </div>
+    </div>
+    <footer class="modal-footer" style="padding: 10px 16px; border-top: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.08)); display: flex; justify-content: flex-end; gap: 8px;">
+      <button id="btn-cancel-color-picker" class="modal-btn-cancel" data-i18n="color_picker_btn_cancel">Cancelar</button>
+      <button id="btn-apply-color-picker" class="modal-btn-apply" data-i18n="color_picker_btn_apply">Aceptar</button>
+    </footer>
+  </div>
+
+  <!-- 7. Ventana Modal de Confirmación del Sistema (Reemplazo de tauri.localhost says) -->
+  <div id="modal-system-confirm" class="modal-overlay">
+    <div class="modal-box modal-confirm-box">
+      <header class="modal-header confirm-modal-header">
+        <div class="confirm-header-title">
+          <span class="confirm-icon" id="confirm-dialog-icon">⚠️</span>
+          <h3 id="confirm-dialog-title">Confirmación del Sistema</h3>
+        </div>
+        <button id="btn-close-confirm-dialog" class="modal-close-btn">&times;</button>
+      </header>
+      <div class="modal-body confirm-dialog-body">
+        <p class="confirm-message-main" id="confirm-dialog-message">Tienes cambios sin guardar en tu documento actual.</p>
+        <p class="confirm-message-detail" id="confirm-dialog-detail">¿Deseas guardarlos antes de continuar?</p>
+      </div>
+      <footer class="modal-footer confirm-dialog-footer">
+        <button type="button" id="btn-confirm-cancel" class="btn-confirm-action btn-confirm-cancel">Cancelar</button>
+        <button type="button" id="btn-confirm-discard" class="btn-confirm-action btn-confirm-discard">Descartar cambios</button>
+        <button type="button" id="btn-confirm-save" class="btn-confirm-action btn-confirm-save">Guardar cambios</button>
+      </footer>
+    </div>
+  </div>
+
+  <!-- Menú contextual para las casillas de color (clic derecho) -->
+  <div id="palette-context-menu" class="palette-context-menu" style="display: none;">
+    <button type="button" id="ctx-palette-complementary" data-i18n="color_picker_ctx_complementary">Color Complementario</button>
+    <button type="button" id="ctx-palette-analogous" data-i18n="color_picker_ctx_analogous">Color Análogo</button>
   </div>
 
   <!-- Carga de Librerías y Scripts -->

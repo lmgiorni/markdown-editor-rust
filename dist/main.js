@@ -1,3 +1,4 @@
+import { inicializarColorPicker, abrirColorPicker } from './utils/color-picker.js';
 // ==========================================================================
 // LÓGICA INTERACTIVA PREMIUM - FRONTEND DEL EDITOR DE MARKDOWN (TAURI v2)
 // ==========================================================================
@@ -197,7 +198,7 @@ function aplicarConfiguracionVisual() {
 // ==========================================================================
 
 function renderMarkdown() {
-  const markdownText = DOM.editor.value;
+  const markdownText = DOM.editor ? (DOM.editor.value || '') : '';
   
   // FASE 12: Si el modo estructurado está activo, renderizar el árbol en tiempo real
   if (appState.structuredModeActive) {
@@ -488,10 +489,92 @@ function habilitarEdicionNombre() {
 // OPERACIONES DE DISCO (COMUNICACIÓN IPC CON EL MOTOR RUST BACKEND)
 // ==========================================================================
 
-function nuevoArchivo() {
+
+// ==========================================================================
+// VENTANA MODAL DE CONFIRMACIÓN DEL SISTEMA (REEMPLAZO DE tauri.localhost says)
+// ==========================================================================
+
+function solicitarConfirmacionSistema({ titulo, mensaje, detalle, tipo, btnSaveText, btnDiscardText, btnCancelText }) {
+  return new Promise((resolve) => {
+    const modal = document.getElementById('modal-system-confirm');
+    const titleEl = document.getElementById('confirm-dialog-title');
+    const msgEl = document.getElementById('confirm-dialog-message');
+    const detailEl = document.getElementById('confirm-dialog-detail');
+    const iconEl = document.getElementById('confirm-dialog-icon');
+    const btnSave = document.getElementById('btn-confirm-save');
+    const btnDiscard = document.getElementById('btn-confirm-discard');
+    const btnCancel = document.getElementById('btn-confirm-cancel');
+    const btnClose = document.getElementById('btn-close-confirm-dialog');
+
+    if (!modal) {
+      resolve('cancel');
+      return;
+    }
+
+    if (titleEl) titleEl.textContent = titulo || 'Confirmación';
+    if (msgEl) msgEl.textContent = mensaje || '';
+    if (detailEl) detailEl.textContent = detalle || '';
+    if (iconEl) iconEl.textContent = tipo === 'info' ? '💡' : '⚠️';
+
+    if (btnSave) {
+      btnSave.textContent = btnSaveText || 'Guardar cambios';
+      btnSave.style.display = btnSaveText === false ? 'none' : 'inline-block';
+    }
+    if (btnDiscard) {
+      btnDiscard.textContent = btnDiscardText || 'Descartar cambios';
+      btnDiscard.style.display = btnDiscardText === false ? 'none' : 'inline-block';
+    }
+    if (btnCancel) {
+      btnCancel.textContent = btnCancelText || 'Cancelar';
+      btnCancel.style.display = btnCancelText === false ? 'none' : 'inline-block';
+    }
+
+    modal.classList.add('active');
+
+    const limpiarYResolver = (resultado) => {
+      modal.classList.remove('active');
+      btnSave?.removeEventListener('click', onSave);
+      btnDiscard?.removeEventListener('click', onDiscard);
+      btnCancel?.removeEventListener('click', onCancel);
+      btnClose?.removeEventListener('click', onCancel);
+      modal.removeEventListener('click', onBackdrop);
+      resolve(resultado);
+    };
+
+    const onSave = () => limpiarYResolver('save');
+    const onDiscard = () => limpiarYResolver('discard');
+    const onCancel = () => limpiarYResolver('cancel');
+    const onBackdrop = (e) => {
+      if (e.target === modal) limpiarYResolver('cancel');
+    };
+
+    btnSave?.addEventListener('click', onSave);
+    btnDiscard?.addEventListener('click', onDiscard);
+    btnCancel?.addEventListener('click', onCancel);
+    btnClose?.addEventListener('click', onCancel);
+    modal.addEventListener('click', onBackdrop);
+  });
+}
+
+async function nuevoArchivo() {
   if (!appState.isSaved) {
-    const confirmar = confirm('Tienes cambios pendientes sin guardar. ¿Deseas descartarlos y crear un documento nuevo?');
-    if (!confirmar) return;
+    const lang = appState.language || 'es';
+    const t = translations[lang] || translations.es;
+    const accion = await solicitarConfirmacionSistema({
+      titulo: t.confirm_title_new || 'Nuevo Documento',
+      mensaje: t.confirm_msg_unsaved_new || 'Tienes cambios pendientes sin guardar. ¿Qué deseas hacer antes de crear un nuevo documento?',
+      detalle: 'Si guardas, tus cambios quedarán asegurados en el disco antes de crear el documento vacío.',
+      tipo: 'warning',
+      btnSaveText: t.confirm_btn_save || 'Guardar cambios',
+      btnDiscardText: t.confirm_btn_discard || 'Descartar cambios',
+      btnCancelText: t.confirm_btn_cancel || 'Cancelar'
+    });
+
+    if (accion === 'cancel') return;
+    if (accion === 'save') {
+      const guardado = await guardarArchivo();
+      if (!guardado) return;
+    }
   }
   
   DOM.editor.value = '';
@@ -504,12 +587,27 @@ function nuevoArchivo() {
 
 async function abrirArchivo() {
   if (!appState.isSaved) {
-    const confirmar = confirm('Tienes cambios pendientes sin guardar. ¿Deseas abrir otro archivo y descartar los actuales?');
-    if (!confirmar) return;
+    const lang = appState.language || 'es';
+    const t = translations[lang] || translations.es;
+    const accion = await solicitarConfirmacionSistema({
+      titulo: t.confirm_title_open || 'Abrir Documento',
+      mensaje: t.confirm_msg_unsaved_open || 'Tienes cambios pendientes sin guardar. ¿Qué deseas hacer antes de abrir otro documento?',
+      detalle: 'Si guardas, tus cambios quedarán asegurados en el disco antes de cargar el nuevo archivo.',
+      tipo: 'warning',
+      btnSaveText: t.confirm_btn_save || 'Guardar cambios',
+      btnDiscardText: t.confirm_btn_discard || 'Descartar cambios',
+      btnCancelText: t.confirm_btn_cancel || 'Cancelar'
+    });
+
+    if (accion === 'cancel') return;
+    if (accion === 'save') {
+      const guardado = await guardarArchivo();
+      if (!guardado) return;
+    }
   }
 
   if (!invoke) {
-    alert('La conexión con el sistema de archivos nativo no está disponible fuera de Tauri.');
+    alertNotification('La conexión con el sistema de archivos nativo no está disponible fuera de Tauri.', 'error');
     return;
   }
 
@@ -795,7 +893,9 @@ document.querySelectorAll('.modal-overlay').forEach(overlay => {
 
 // Función física de arrastre (Drag & Drop) para los modales flotantes (Optimizado para 60 FPS)
 function habilitarArrastreModal(modalOverlay) {
+  if (!modalOverlay) return;
   const modalBox = modalOverlay.querySelector('.modal-box');
+  if (!modalBox) return;
   const header = modalBox.querySelector('.modal-header');
   if (!header) return;
   
@@ -1462,6 +1562,24 @@ function actualizarTextosInterfaz(lang) {
   setModalHeader(DOM.modalConfig, t.config_title);
   setModalHeader(DOM.modalEpubExport, t.epub_title);
   setModalHeader(DOM.modalTemplateVars, t.vars_title);
+  const modalColorPicker = document.getElementById('modal-color-picker');
+  if (modalColorPicker && t.color_picker_title) setModalHeader(modalColorPicker, t.color_picker_title);
+
+  // Theme Playground & Color Picker
+  const playgroundTitle = document.getElementById('playground-title');
+  if (playgroundTitle && t.playground_title) playgroundTitle.textContent = t.playground_title;
+  const btnApplyTheme = document.getElementById('btn-apply-theme-global');
+  if (btnApplyTheme && t.playground_apply) btnApplyTheme.textContent = t.playground_apply;
+  const btnApplyColor = document.getElementById('btn-apply-color-picker');
+  if (btnApplyColor && t.color_picker_btn_apply) btnApplyColor.textContent = t.color_picker_btn_apply;
+  const btnCancelColor = document.getElementById('btn-cancel-color-picker');
+  if (btnCancelColor && t.color_picker_btn_cancel) btnCancelColor.textContent = t.color_picker_btn_cancel;
+  const btnSaveSlot = document.getElementById('btn-save-to-palette');
+  if (btnSaveSlot && t.color_picker_save_slot) btnSaveSlot.textContent = '+ ' + t.color_picker_save_slot;
+  const ctxComp = document.getElementById('ctx-palette-complementary');
+  if (ctxComp && t.color_picker_ctx_complementary) ctxComp.textContent = t.color_picker_ctx_complementary;
+  const ctxAna = document.getElementById('ctx-palette-analogous');
+  if (ctxAna && t.color_picker_ctx_analogous) ctxAna.textContent = t.color_picker_ctx_analogous;
 
   // 5. Botones de Categorías y Títulos Flotantes
   const setCategoryBtn = (cat, text) => {
@@ -2022,19 +2140,51 @@ DOM.editor.addEventListener('click', () => {
   }
 });
 
-// Ajuste automático de selección al hacer doble click en el Editor para remover espacios vacíos
+// Ajuste automático de selección y Detección de Colores Hex/RGBA para el Color Picker
 DOM.editor.addEventListener('dblclick', () => {
   setTimeout(() => {
     const textarea = DOM.editor;
     const start = textarea.selectionStart;
     const end = textarea.selectionEnd;
-    const text = textarea.value.substring(start, end);
+    const allText = textarea.value;
+    const text = allText.substring(start, end);
     
     const trimmed = text.trim();
     if (trimmed.length > 0 && trimmed !== text) {
       const leadingCount = text.match(/^\s*/)[0].length;
       const trailingCount = text.match(/\s*$/)[0].length;
       textarea.setSelectionRange(start + leadingCount, end - trailingCount);
+    }
+
+    // Detección inteligente de valor de color Hexadecimal o RGBA
+    const lineStart = allText.lastIndexOf('\n', start - 1) + 1;
+    let lineEnd = allText.indexOf('\n', end);
+    if (lineEnd === -1) lineEnd = allText.length;
+    const line = allText.substring(lineStart, lineEnd);
+    const offsetInLine = start - lineStart;
+
+    const colorRegex = /(#[0-9a-fA-F]{3,8}|rgba?\s*\([^)]+\))/g;
+    let match;
+    while ((match = colorRegex.exec(line)) !== null) {
+      const mStart = match.index;
+      const mEnd = match.index + match[0].length;
+      if (offsetInLine >= mStart && offsetInLine <= mEnd) {
+        const absStart = lineStart + mStart;
+        const absEnd = lineStart + mEnd;
+        const colorFound = match[0];
+
+        textarea.setSelectionRange(absStart, absEnd);
+
+        abrirColorPicker(colorFound, (nuevoColor) => {
+          textarea.setRangeText(nuevoColor, absStart, absEnd, 'select');
+          textarea.dispatchEvent(new Event('input', { bubbles: true }));
+          setSavedState(false);
+          if (typeof refrescarPlaygroundLocal === 'function') {
+            refrescarPlaygroundLocal();
+          }
+        });
+        break;
+      }
     }
   }, 0);
 });
@@ -2509,6 +2659,7 @@ Este es tu nuevo espacio de escritura histórica y gestión. Todo lo que escriba
   inicializarTemas();
   inicializarThemePlayground();
   inicializarIdiomas();
+  inicializarColorPicker();
 });
 
 // ==========================================================================
@@ -3129,15 +3280,22 @@ function inicializarExportacionesYTemplates() {
   
 
   // Listeners de Cierre de Modales
-  DOM.modalTemplateVars.querySelector('.modal-close-btn').addEventListener('click', () => {
-    DOM.modalTemplateVars.classList.remove('active');
-  });
-  DOM.btnCancelVars.addEventListener('click', () => {
-    DOM.modalTemplateVars.classList.remove('active');
-  });
-  DOM.modalTemplateVars.addEventListener('click', (e) => {
-    if (e.target === DOM.modalTemplateVars) DOM.modalTemplateVars.classList.remove('active');
-  });
+  const closeBtnVars = DOM.modalTemplateVars ? DOM.modalTemplateVars.querySelector('.modal-close-btn') : null;
+  if (closeBtnVars) {
+    closeBtnVars.addEventListener('click', () => {
+      DOM.modalTemplateVars.classList.remove('active');
+    });
+  }
+  if (DOM.btnCancelVars) {
+    DOM.btnCancelVars.addEventListener('click', () => {
+      if (DOM.modalTemplateVars) DOM.modalTemplateVars.classList.remove('active');
+    });
+  }
+  if (DOM.modalTemplateVars) {
+    DOM.modalTemplateVars.addEventListener('click', (e) => {
+      if (e.target === DOM.modalTemplateVars) DOM.modalTemplateVars.classList.remove('active');
+    });
+  }
 
   DOM.btnApplyVars.addEventListener('click', () => {
     let replacedText = appState.currentTemplateText;
@@ -3489,9 +3647,22 @@ function inicializarThemePlayground() {
 
     // Advertencia de cambios sin guardar
     if (!appState.isSaved) {
-      const confirmacion = confirm('Tienes cambios sin guardar en tu documento actual.\n¿Deseas guardarlos antes de abrir el tema para edición?\n\n[Aceptar] Guardará y abrirá el tema.\n[Cancelar] Abrirá el tema descartando cambios actuales.');
-      if (confirmacion) {
-        await guardarArchivo();
+      const lang = appState.language || 'es';
+      const t = translations[lang] || translations.es;
+      const accion = await solicitarConfirmacionSistema({
+        titulo: t.confirm_title_theme || 'Editar Tema Visual',
+        mensaje: t.confirm_msg_unsaved_theme || 'Tienes cambios sin guardar en tu documento actual. ¿Deseas guardarlos antes de abrir el tema para edición?',
+        detalle: '[Guardar cambios] Guardará y abrirá el tema.\n[Descartar cambios] Abrirá el tema descartando cambios actuales.',
+        tipo: 'warning',
+        btnSaveText: t.confirm_btn_save || 'Guardar cambios',
+        btnDiscardText: t.confirm_btn_discard || 'Descartar cambios',
+        btnCancelText: t.confirm_btn_cancel || 'Cancelar'
+      });
+
+      if (accion === 'cancel') return;
+      if (accion === 'save') {
+        const guardado = await guardarArchivo();
+        if (!guardado) return;
       }
     }
 
@@ -3503,8 +3674,20 @@ function inicializarThemePlayground() {
       let recovered = false;
       
       if (savedDraftPath === selectedThemePath && savedDraftText) {
-        const recover = confirm('Se detectó un borrador sin guardar para este tema. ¿Deseas recuperarlo para continuar editando desde donde quedaste?');
-        if (recover) {
+        const lang = appState.language || 'es';
+        const t = translations[lang] || translations.es;
+        const accion = await solicitarConfirmacionSistema({
+          titulo: t.confirm_title_draft || 'Recuperar Borrador',
+          mensaje: t.confirm_msg_draft_theme || 'Se detectó un borrador sin guardar para este tema visual. ¿Deseas recuperarlo para continuar donde quedaste?',
+          detalle: 'Puedes reanudar tu edición anterior o comenzar desde el tema original guardado en disco.',
+          tipo: 'info',
+          btnSaveText: t.confirm_btn_recover || 'Recuperar borrador',
+          btnDiscardText: t.confirm_btn_load_orig || 'Cargar original',
+          btnCancelText: t.confirm_btn_cancel || 'Cancelar'
+        });
+
+        if (accion === 'cancel') return;
+        if (accion === 'save') {
           mdText = savedDraftText;
           recovered = true;
         }
@@ -3554,6 +3737,9 @@ function inicializarThemePlayground() {
   // 2. Botón de cerrar visualizador
   btnClosePlayground.addEventListener('click', () => {
     playgroundBox.classList.remove('active');
+    if (DOM.modalConfig) {
+      DOM.modalConfig.classList.add('active');
+    }
   });
 
   // 3. Arrastre de la ventana flotante (Mousedown, Mousemove, Mouseup)

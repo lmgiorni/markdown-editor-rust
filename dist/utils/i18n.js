@@ -161,6 +161,8 @@ export const translations = {
     ctx_export_pdf: "Exportar PDF Premium (Imprimir)...",
     struct_btn_exit: "Salir",
     struct_btn_hierarchy: "Jerarquía",
+    struct_btn_save: "Guardar",
+    struct_save_disabled_title: "Selecciona una pestaña de formato (JSON, XML o YAML) para guardar",
     ctx_export_module: "Exportar como Módulo...",
     ctx_export_module_success: "Módulo exportado con éxito en: ",
     ctx_export_module_error: "Error al exportar módulo: "
@@ -327,6 +329,8 @@ export const translations = {
     ctx_export_pdf: "Export Premium PDF (Print)...",
     struct_btn_exit: "Exit",
     struct_btn_hierarchy: "Hierarchy",
+    struct_btn_save: "Save",
+    struct_save_disabled_title: "Select a format tab (JSON, XML or YAML) to save",
     ctx_export_module: "Export as Module...",
     ctx_export_module_success: "Module exported successfully at: ",
     ctx_export_module_error: "Error exporting module: "
@@ -493,6 +497,8 @@ export const translations = {
     ctx_export_pdf: "Exportare PDF Premium (Imprimere)...",
     struct_btn_exit: "Exire",
     struct_btn_hierarchy: "Hierarchia",
+    struct_btn_save: "Servare",
+    struct_save_disabled_title: "Tabulam formae (JSON, XML vel YAML) elige ad servandum",
     ctx_export_module: "Exportare ut Modulum...",
     ctx_export_module_success: "Modulus exportatus cum successu in: ",
     ctx_export_module_error: "Error in exportando modulo: "

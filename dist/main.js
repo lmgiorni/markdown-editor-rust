@@ -334,6 +334,31 @@ function renderMarkdown() {
   DOM.wordCountStatus.textContent = `${palabras} ${palabraText}`;
 }
 
+let autosaveTimeout = null;
+
+function guardarBorradorRecuperacion() {
+  if (autosaveTimeout) clearTimeout(autosaveTimeout);
+  autosaveTimeout = setTimeout(() => {
+    if (appState.isSaved) {
+      localStorage.removeItem('md-autosave-draft');
+      localStorage.removeItem('md-autosave-path');
+      localStorage.removeItem('md-autosave-name');
+      return;
+    }
+    localStorage.setItem('md-autosave-draft', DOM.editor.value);
+    if (appState.filePath) {
+      localStorage.setItem('md-autosave-path', appState.filePath);
+    } else {
+      localStorage.removeItem('md-autosave-path');
+    }
+    if (appState.fileName) {
+      localStorage.setItem('md-autosave-name', appState.fileName);
+    } else {
+      localStorage.removeItem('md-autosave-name');
+    }
+  }, 1000);
+}
+
 // Modifica el indicador de cambios sin guardar
 function setSavedState(saved) {
   appState.isSaved = saved;
@@ -341,6 +366,12 @@ function setSavedState(saved) {
   if (saved) {
     DOM.statusDot.className = 'dot-saved';
     DOM.statusDot.setAttribute('title', 'Todos los cambios están guardados en tu disco');
+    
+    // Limpiar borrador de recuperación automática
+    localStorage.removeItem('md-autosave-draft');
+    localStorage.removeItem('md-autosave-path');
+    localStorage.removeItem('md-autosave-name');
+
     // Si guardamos un tema, refrescar el Playground de forma instantánea
     if (typeof refrescarPlaygroundLocal === 'function') {
       refrescarPlaygroundLocal();
@@ -348,6 +379,7 @@ function setSavedState(saved) {
   } else {
     DOM.statusDot.className = 'dot-unsaved';
     DOM.statusDot.setAttribute('title', 'Tienes cambios sin guardar en tu editor');
+    guardarBorradorRecuperacion();
   }
   actualizarNombreArchivo();
   
@@ -585,6 +617,13 @@ async function guardarArchivo() {
     appState.fileName = name;
     
     setSavedState(true);
+    
+    // Limpiar borrador temporal del Playground si aplica
+    if (appState.filePath && appState.filePath.includes('themes')) {
+      localStorage.removeItem('md-theme-draft-text');
+      localStorage.removeItem('md-theme-draft-path');
+    }
+
     alertNotification('Cambios guardados con éxito', 'success');
   } catch (error) {
     console.error('Error al guardar:', error);
@@ -615,6 +654,13 @@ async function guardarComo() {
       }
       appState.fileName = name;
       setSavedState(true);
+      
+      // Limpiar borrador temporal del Playground si aplica
+      if (appState.filePath && appState.filePath.includes('themes')) {
+        localStorage.removeItem('md-theme-draft-text');
+        localStorage.removeItem('md-theme-draft-path');
+      }
+
       alertNotification('Archivo guardado con éxito', 'success');
     }
   } catch (error) {
@@ -1956,6 +2002,8 @@ DOM.editor.addEventListener('input', () => {
   renderMarkdown();
   if (appState.isSaved) {
     setSavedState(false);
+  } else {
+    guardarBorradorRecuperacion();
   }
   if (historial) {
     historial.registrarEscritura();
@@ -2247,8 +2295,26 @@ window.addEventListener('keydown', (e) => {
 window.addEventListener('DOMContentLoaded', () => {
   aplicarConfiguracionVisual();
   actualizarTextosInterfaz(appState.language || 'es');
+  
+  // Sistema de Recuperación Automática (Auto-Recovery)
+  const autosavedDraft = localStorage.getItem('md-autosave-draft');
+  const autosavedPath = localStorage.getItem('md-autosave-path');
+  const autosavedName = localStorage.getItem('md-autosave-name');
+  
+  if (autosavedDraft) {
+    DOM.editor.value = autosavedDraft;
+    if (autosavedPath) {
+      appState.filePath = autosavedPath;
+    }
+    if (autosavedName) {
+      appState.fileName = autosavedName;
+    }
+    setSavedState(false);
+  } else {
+    setSavedState(true);
+  }
+  
   renderMarkdown();
-  setSavedState(true);
   
   // Registrar cursores en las barras de scroll
   registrarCursorEnScrollbar(DOM.editor);
@@ -2438,9 +2504,9 @@ function inicializarModoEstructurado() {
   const btnTabJson = document.getElementById('btn-tree-tab-json');
   const btnTabXml = document.getElementById('btn-tree-tab-xml');
   const btnTabYaml = document.getElementById('btn-tree-tab-yaml');
-  const btnExportJson = document.getElementById('btn-tree-export-json');
-  const btnExportXml = document.getElementById('btn-tree-export-xml');
-  const btnExportYaml = document.getElementById('btn-tree-export-yaml');
+  const btnExportActive = document.getElementById('btn-tree-export-active');
+
+
 
   if (btnToMd) {
     btnToMd.addEventListener('click', () => {
@@ -2479,7 +2545,60 @@ function inicializarModoEstructurado() {
     });
   }
 
-  if (btnExportJson) {
+  if (btnExportActive) {
+    btnExportActive.addEventListener('click', () => {
+      const lang = appState.language || 'es';
+      const t = translations[lang] || translations.es;
+      if (!ultimoArbolParseado || appState.structuredActiveTab === 'tree') return;
+      if (!invoke) {
+        alertNotification(t.struct_web_export_unavailable, 'error');
+        return;
+      }
+
+      const activeTab = appState.structuredActiveTab;
+      if (activeTab === 'json') {
+        const jsonStr = JSON.stringify(ultimoArbolParseado, null, 2).replace(/\\"/g, '"');
+        invoke('exportar_archivo', {
+          defaultName: `${appState.fileName.replace(/\s+/g, '_')}.json`,
+          content: jsonStr,
+          extension: 'json',
+          filterName: 'JSON',
+          directoryType: 'templates'
+        }).then(res => {
+          if (res) alertNotification('JSON ' + t.struct_export_success + res, 'success');
+        }).catch(err => {
+          alertNotification(t.struct_export_error + 'JSON: ' + err, 'error');
+        });
+      } else if (activeTab === 'xml') {
+        const xmlStr = convertJSONToXML(ultimoArbolParseado, appState.fileName);
+        invoke('exportar_archivo', {
+          defaultName: `${appState.fileName.replace(/\s+/g, '_')}.xml`,
+          content: xmlStr,
+          extension: 'xml',
+          filterName: 'XML',
+          directoryType: 'templates'
+        }).then(res => {
+          if (res) alertNotification('XML ' + t.struct_export_success + res, 'success');
+        }).catch(err => {
+          alertNotification(t.struct_export_error + 'XML: ' + err, 'error');
+        });
+      } else if (activeTab === 'yaml') {
+        const yamlStr = convertJSONToYAML(ultimoArbolParseado);
+        invoke('exportar_archivo', {
+          defaultName: `${appState.fileName.replace(/\s+/g, '_')}.yaml`,
+          content: yamlStr,
+          extension: 'yaml',
+          filterName: 'YAML',
+          directoryType: 'templates'
+        }).then(res => {
+          if (res) alertNotification('YAML ' + t.struct_export_success + res, 'success');
+        }).catch(err => {
+          alertNotification(t.struct_export_error + 'YAML: ' + err, 'error');
+        });
+      }
+    });
+  }
+  if (false && btnExportJson) {
     btnExportJson.addEventListener('click', () => {
       const lang = appState.language || 'es';
       const t = translations[lang] || translations.es;
@@ -2503,7 +2622,7 @@ function inicializarModoEstructurado() {
     });
   }
 
-  if (btnExportXml) {
+  if (false) {
     btnExportXml.addEventListener('click', () => {
       const lang = appState.language || 'es';
       const t = translations[lang] || translations.es;
@@ -2527,7 +2646,7 @@ function inicializarModoEstructurado() {
     });
   }
 
-  if (btnExportYaml) {
+  if (false) {
     btnExportYaml.addEventListener('click', () => {
       const lang = appState.language || 'es';
       const t = translations[lang] || translations.es;
@@ -2581,9 +2700,9 @@ function renderStructuredTreeVisual(obj) {
   // 3. Traducir textos dinámicos de la barra superior estructurada (badge, tooltip y botón salir/jerarquía)
   const badgeActive = document.getElementById('struct-badge-active');
   const btnToMd = document.getElementById('btn-tree-to-md');
-  const btnExportJson = document.getElementById('btn-tree-export-json');
-  const btnExportXml = document.getElementById('btn-tree-export-xml');
-  const btnExportYaml = document.getElementById('btn-tree-export-yaml');
+  const btnExportActive = document.getElementById('btn-tree-export-active');
+
+
 
   if (badgeActive) badgeActive.textContent = t.struct_badge_active || t.struct_active_badge;
   if (btnToMd) {
@@ -2597,22 +2716,111 @@ function renderStructuredTreeVisual(obj) {
   if (btnTabJson) {
     btnTabJson.setAttribute('title', t.struct_btn_json_tab_title);
   }
-  if (btnExportJson) {
+  if (btnTabXml) {
+    btnTabXml.setAttribute('title', t.struct_btn_xml_tab_title);
+  }
+  if (btnTabYaml) {
+    btnTabYaml.setAttribute('title', t.struct_btn_yaml_tab_title);
+  }
+
+  const labelTreeSave = document.getElementById('label-tree-save');
+  if (btnExportActive) {
+    if (isTree) {
+      btnExportActive.disabled = true;
+      btnExportActive.classList.add('disabled');
+      btnExportActive.setAttribute('title', t.struct_save_disabled_title || 'Selecciona un formato (JSON, XML o YAML) para guardar');
+      if (labelTreeSave) labelTreeSave.textContent = t.struct_btn_save || 'Guardar';
+    } else {
+      btnExportActive.disabled = false;
+      btnExportActive.classList.remove('disabled');
+      let formatTitle = '';
+      if (isJson) formatTitle = t.struct_btn_json_export_title || 'Guardar directamente como archivo .json en tu ordenador';
+      else if (isXml) formatTitle = t.struct_btn_xml_export_title || 'Guardar directamente como archivo .xml en tu ordenador';
+      else if (isYaml) formatTitle = t.struct_btn_yaml_export_title || 'Guardar directamente como archivo .yaml en tu ordenador';
+      btnExportActive.setAttribute('title', formatTitle);
+    }
+  }
+  /* OLD_CODE_REMOVED
+    }
+  }
+  if (false) {
+      if (labelTreeSave) labelTreeSave.textContent = t.struct_btn_save || 'Guardar';
+    }
+  }
+  if (false) {
+  }
+  if (btnExportActive) {
+    btnExportActive.addEventListener('click', () => {
+      const lang = appState.language || 'es';
+      const t = translations[lang] || translations.es;
+      if (!ultimoArbolParseado || appState.structuredActiveTab === 'tree') return;
+      if (!invoke) {
+        alertNotification(t.struct_web_export_unavailable, 'error');
+        return;
+      }
+
+      const activeTab = appState.structuredActiveTab;
+      if (activeTab === 'json') {
+        const jsonStr = JSON.stringify(ultimoArbolParseado, null, 2).replace(/\\"/g, '"');
+        invoke('exportar_archivo', {
+          defaultName: `${appState.fileName.replace(/\s+/g, '_')}.json`,
+          content: jsonStr,
+          extension: 'json',
+          filterName: 'JSON',
+          directoryType: 'templates'
+        }).then(res => {
+          if (res) alertNotification('JSON ' + t.struct_export_success + res, 'success');
+        }).catch(err => {
+          alertNotification(t.struct_export_error + 'JSON: ' + err, 'error');
+        });
+      } else if (activeTab === 'xml') {
+        const xmlStr = convertJSONToXML(ultimoArbolParseado, appState.fileName);
+        invoke('exportar_archivo', {
+          defaultName: `${appState.fileName.replace(/\s+/g, '_')}.xml`,
+          content: xmlStr,
+          extension: 'xml',
+          filterName: 'XML',
+          directoryType: 'templates'
+        }).then(res => {
+          if (res) alertNotification('XML ' + t.struct_export_success + res, 'success');
+        }).catch(err => {
+          alertNotification(t.struct_export_error + 'XML: ' + err, 'error');
+        });
+      } else if (activeTab === 'yaml') {
+        const yamlStr = convertJSONToYAML(ultimoArbolParseado);
+        invoke('exportar_archivo', {
+          defaultName: `${appState.fileName.replace(/\s+/g, '_')}.yaml`,
+          content: yamlStr,
+          extension: 'yaml',
+          filterName: 'YAML',
+          directoryType: 'templates'
+        }).then(res => {
+          if (res) alertNotification('YAML ' + t.struct_export_success + res, 'success');
+        }).catch(err => {
+          alertNotification(t.struct_export_error + 'YAML: ' + err, 'error');
+        });
+      }
+    });
+  }
+  if (false && btnExportJson) {
     btnExportJson.setAttribute('title', t.struct_btn_json_export_title);
   }
   if (btnTabXml) {
     btnTabXml.setAttribute('title', t.struct_btn_xml_tab_title);
   }
-  if (btnExportXml) {
+  if (false) {
     btnExportXml.setAttribute('title', t.struct_btn_xml_export_title);
   }
   if (btnTabYaml) {
     btnTabYaml.setAttribute('title', t.struct_btn_yaml_tab_title);
   }
-  if (btnExportYaml) {
+  if (false) {
     btnExportYaml.setAttribute('title', t.struct_btn_yaml_export_title);
   }
 
+  }
+
+  */
   // 4. Renderizar contenido de datos
   let contentHtml = '';
   if (isTree) {
@@ -3232,7 +3440,23 @@ function inicializarThemePlayground() {
     }
 
     try {
-      const mdText = await invoke('leer_tema', { filePath: selectedThemePath });
+      const savedDraftPath = localStorage.getItem('md-theme-draft-path');
+      const savedDraftText = localStorage.getItem('md-theme-draft-text');
+      
+      let mdText = '';
+      let recovered = false;
+      
+      if (savedDraftPath === selectedThemePath && savedDraftText) {
+        const recover = confirm('Se detectó un borrador sin guardar para este tema. ¿Deseas recuperarlo para continuar editando desde donde quedaste?');
+        if (recover) {
+          mdText = savedDraftText;
+          recovered = true;
+        }
+      }
+      
+      if (!mdText) {
+        mdText = await invoke('leer_tema', { filePath: selectedThemePath });
+      }
       
       // Cargar en el editor
       DOM.editor.value = mdText;
@@ -3246,7 +3470,13 @@ function inicializarThemePlayground() {
       appState.filePath = selectedThemePath;
       appState.fileName = themeFileName;
       
-      setSavedState(true);
+      // Si se recuperó un borrador, se marca como no guardado
+      if (recovered) {
+        setSavedState(false);
+      } else {
+        setSavedState(true);
+      }
+      
       renderMarkdown();
       
       // Cerrar el modal de configuración de apariencia
@@ -3428,6 +3658,12 @@ function actualizarFocoContextualPlayground() {
 function refrescarPlaygroundLocal() {
   const playgroundBox = document.getElementById('modal-theme-playground');
   if (!playgroundBox || !playgroundBox.classList.contains('active')) return;
+
+  // Salvar borrador temporal en localStorage como medida de seguridad contra pérdidas
+  if (appState.filePath && appState.filePath.includes('themes')) {
+    localStorage.setItem('md-theme-draft-text', DOM.editor.value);
+    localStorage.setItem('md-theme-draft-path', appState.filePath);
+  }
 
   try {
     const mdText = DOM.editor.value;

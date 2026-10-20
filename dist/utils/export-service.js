@@ -79,6 +79,50 @@ export async function exportarDocumentoAPDF(fileName, markdownText, readerFont, 
     const response = await fetch('style.css');
     const cssContent = await response.text();
     
+    // Obtener los estilos del tema activo actual para aplicarlos a la impresión
+    const computedStyle = getComputedStyle(document.documentElement);
+    const extractedBg = computedStyle.getPropertyValue('--bg-app').trim() || '#ffffff';
+    
+    // Determinar si el tema es oscuro para realizar adaptaciones legibles en papel
+    let isDark = false;
+    if (extractedBg.startsWith('#')) {
+      const hex = extractedBg.slice(1);
+      let r = 255;
+      if (hex.length === 3) {
+        r = parseInt(hex[0], 16) * 17;
+      } else if (hex.length === 6) {
+        r = parseInt(hex.slice(0, 2), 16);
+      }
+      isDark = r < 130;
+    } else if (extractedBg.includes('rgba') || extractedBg.includes('rgb')) {
+      const match = extractedBg.match(/\d+/);
+      if (match) {
+        const r = parseInt(match[0]);
+        isDark = r < 130;
+      }
+    } else {
+      isDark = extractedBg.includes('dark') || extractedBg.includes('black');
+    }
+    
+    // Extraer variables cromáticas del tema
+    let accentColor = computedStyle.getPropertyValue('--accent').trim() || '#6366f1';
+    let codeColor = computedStyle.getPropertyValue('--text-code-inline').trim() || '#be185d';
+    let blockquoteBg = computedStyle.getPropertyValue('--bg-blockquote').trim() || 'rgba(99, 102, 241, 0.03)';
+    let tableHeaderBg = computedStyle.getPropertyValue('--bg-table-header').trim() || 'rgba(0, 0, 0, 0.02)';
+    let tableZebraBg = computedStyle.getPropertyValue('--bg-table-zebra').trim() || 'rgba(0, 0, 0, 0.01)';
+    let borderSubtle = computedStyle.getPropertyValue('--border-subtle').trim() || 'rgba(0, 0, 0, 0.08)';
+    
+    // Si el tema es oscuro, adaptamos fondos a tonos muy claros para no gastar tinta y mantener el contraste
+    if (isDark) {
+      tableHeaderBg = 'rgba(0, 0, 0, 0.04)';
+      tableZebraBg = 'rgba(0, 0, 0, 0.01)';
+      blockquoteBg = 'rgba(99, 102, 241, 0.03)';
+      borderSubtle = 'rgba(0, 0, 0, 0.08)';
+      if (codeColor === '#f472b6' || codeColor.toLowerCase() === '#f472b6') {
+        codeColor = '#be185d';
+      }
+    }
+    
     const bodyHtml = typeof marked !== 'undefined' ? marked.parse(markdownText) : markdownText;
     
     const htmlCompleto = `<!DOCTYPE html>
@@ -89,9 +133,29 @@ export async function exportarDocumentoAPDF(fileName, markdownText, readerFont, 
   <link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400;1,700&family=Fira+Code:wght@400;500&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&family=Merriweather:ital,wght@0,300;0,400;0,700;1,300&family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
   <style>
     ${cssContent}
+    
+    /* Adaptaciones de Tema para Impresión PDF */
+    :root {
+      --bg-app: #ffffff !important;
+      --bg-panel: #ffffff !important;
+      --bg-reader: #ffffff !important;
+      --text-reader: #1e293b !important;
+      --text-strong: #0f172a !important;
+      --text-main: #1e293b !important;
+      --text-muted: #64748b !important;
+      --accent: ${accentColor} !important;
+      --accent-color: ${accentColor} !important;
+      --text-code-inline: ${codeColor} !important;
+      --bg-code: #f8fafc !important;
+      --bg-blockquote: ${blockquoteBg} !important;
+      --bg-table-header: ${tableHeaderBg} !important;
+      --bg-table-zebra: ${tableZebraBg} !important;
+      --border-subtle: ${borderSubtle} !important;
+    }
+    
     body {
       background-color: #ffffff !important;
-      color: #000000 !important;
+      color: #1e293b !important;
       padding: 40px !important;
       font-family: '${readerFont}', 'Inter', sans-serif !important;
     }

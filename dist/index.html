@@ -78,9 +78,27 @@
         </div>
       </div>
 
-      <!-- Contenedor editable del nombre de archivo -->
-      <div id="file-name-container" title="Haz click para renombrar el archivo">
-        <span id="file-info">Sin título.md</span>
+      <!-- Bloque Unificado de Documento (Nombre + Versionado + Reubicación de Carpeta) -->
+      <div id="document-control-block" class="document-control-block">
+        <div id="file-name-container" title="Haz click para renombrar el archivo">
+          <span id="file-info">Sin título.md</span>
+        </div>
+        <div class="doc-block-divider"></div>
+        <button id="btn-version-doc" class="doc-block-btn" title="Crear nueva versión del documento (+)" data-i18n-title="tooltip_version_doc">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="doc-block-icon">
+            <line x1="12" y1="5" x2="12" y2="19"></line>
+            <line x1="5" y1="12" x2="19" y2="12"></line>
+          </svg>
+        </button>
+        <div class="doc-block-divider"></div>
+        <button id="btn-relocate-doc" class="doc-block-btn" title="Establecer o cambiar carpeta de destino" data-i18n-title="tooltip_relocate_doc">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="doc-block-icon">
+            <path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"></path>
+            <line x1="8" y1="11" x2="8" y2="16"></line>
+            <line x1="8" y1="16" x2="13" y2="16"></line>
+            <line x1="8" y1="13" x2="11" y2="13"></line>
+          </svg>
+        </button>
       </div>
     </div>
 
@@ -195,8 +213,8 @@
   <!-- Barra de Estado Inferior -->
   <footer id="statusbar">
     <div class="statusbar-left">
-      <span id="status-dot" class="dot-saved"></span>
-      <span id="active-filepath-display">Sin archivo cargado en disco</span>
+      <span id="status-dot" class="dot-unsaved" title="Sin archivo guardado en disco"></span>
+      <span id="active-filepath-display">Sin archivo guardado en disco</span>
     </div>
     <div class="statusbar-right">
       <span id="word-count-status">0 palabras</span>
@@ -589,6 +607,17 @@
               </select>
               <button type="button" id="btn-open-languages-dir" class="btn-subtle" title="Abrir carpeta de idiomas en el explorador" style="padding: 0 10px; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; border-radius: 4px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);">📂</button>
             </div>
+          </div>
+
+          <!-- Dígitos de Versionado Automático -->
+          <div class="config-row">
+            <label for="select-versioning-digits" data-i18n="config_versioning_digits">Dígitos de Versionado</label>
+            <select id="select-versioning-digits" class="config-select">
+              <option value="2">2 dígitos (_V_01)</option>
+              <option value="3" selected>3 dígitos (_V_001)</option>
+              <option value="4">4 dígitos (_V_0001)</option>
+              <option value="5">5 dígitos (_V_00001)</option>
+            </select>
           </div>
         </div>
       </div>

@@ -164,5 +164,14 @@
   "confirm_btn_discard": "Mutationes abicere",
   "confirm_btn_cancel": "Cancellare",
   "confirm_btn_recover": "Recuperare exemplar",
-  "confirm_btn_load_orig": "Originale caricare"
+  "confirm_btn_load_orig": "Originale caricare",
+  "tooltip_version_doc": "Novam documenti versionem creare (+)",
+  "tooltip_relocate_doc": "Statue vel muta destinatum directorium",
+  "config_versioning_digits": "Digiti Numerationis",
+  "versioning_initial_notice": "Documentum primum in disco servare debes antequam versionem incipias.",
+  "versioning_initial_saved": "Primum documentum servatum est ut prima versio: ",
+  "versioning_success": "Nova versio creata est: ",
+  "versioning_backed_up": " (praevia versio servata)",
+  "relocate_success": "Novus locus constitutus: ",
+  "status_no_file_disk": "Nullum documentum in disco"
 }

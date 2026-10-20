@@ -118,6 +118,107 @@ fn guardar_como(default_name: String, content: String) -> Result<Option<FileData
 }
 
 #[tauri::command]
+fn seleccionar_carpeta() -> Result<Option<String>, String> {
+    let folder = FileDialog::new().pick_folder();
+    Ok(folder.map(|p| p.to_string_lossy().to_string()))
+}
+
+#[tauri::command]
+fn versionar_documento(file_path: String, content: String, digits: usize) -> Result<FileData, String> {
+    let path_buf = std::path::PathBuf::from(&file_path);
+    if !path_buf.exists() {
+        return Err("El archivo actual no existe en el disco. Debe guardarse antes de versionar.".to_string());
+    }
+
+    let parent_dir = path_buf.parent().ok_or_else(|| "No se pudo obtener el directorio contenedor.".to_string())?;
+    let stem = path_buf.file_stem().and_then(|s| s.to_str()).ok_or_else(|| "Nombre de archivo inválido.".to_string())?;
+    let extension = path_buf.extension().and_then(|s| s.to_str()).unwrap_or("md");
+
+    // Detectar si el stem actual ya termina en _V_###
+    let (base_stem, current_v) = if let Some(idx) = stem.rfind("_V_") {
+        let suffix = &stem[idx + 3..];
+        if !suffix.is_empty() && suffix.chars().all(|c| c.is_ascii_digit()) {
+            let num: usize = suffix.parse().unwrap_or(0);
+            (&stem[..idx], Some(num))
+        } else {
+            (stem, None)
+        }
+    } else {
+        (stem, None)
+    };
+
+    // Escanear el directorio para encontrar la versión máxima existente
+    let mut max_version: usize = 0;
+    if let Ok(entries) = fs::read_dir(parent_dir) {
+        let prefix = format!("{}_V_", base_stem);
+        for entry in entries.flatten() {
+            let p = entry.path();
+            if p.is_file() {
+                if let Some(fstem) = p.file_stem().and_then(|s| s.to_str()) {
+                    if fstem.starts_with(&prefix) {
+                        let suffix = &fstem[prefix.len()..];
+                        if !suffix.is_empty() && suffix.chars().all(|c| c.is_ascii_digit()) {
+                            if let Ok(num) = suffix.parse::<usize>() {
+                                if num > max_version {
+                                    max_version = num;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    let pad_width = if digits < 2 { 2 } else { digits };
+
+    let (next_version_num, next_path) = match current_v {
+        None => {
+            // El archivo en disco no tenía versión previa (ej: Capitulo_Lore.md)
+            // Paso 1: Renombrar el archivo actual a la versión 1 (o max_version + 1 si ya existían versiones previas)
+            let v_backup = if max_version == 0 { 1 } else { max_version + 1 };
+            let v_new = v_backup + 1;
+
+            let backup_name = format!("{}_V_{:0width$}.{}", base_stem, v_backup, extension, width = pad_width);
+            let backup_path = parent_dir.join(&backup_name);
+
+            fs::rename(&path_buf, &backup_path)
+                .map_err(|e| format!("Error al respaldar archivo previo como '{}': {}", backup_name, e))?;
+
+            let new_name = format!("{}_V_{:0width$}.{}", base_stem, v_new, extension, width = pad_width);
+            let new_path = parent_dir.join(&new_name);
+
+            fs::write(&new_path, &content)
+                .map_err(|e| format!("Error al escribir nueva versión '{}': {}", new_name, e))?;
+
+            (v_new, new_path)
+        }
+        Some(v) => {
+            // El archivo actual ya estaba versionado (ej: Capitulo_Lore_V_001.md)
+            let next_v = std::cmp::max(v, max_version) + 1;
+            let new_name = format!("{}_V_{:0width$}.{}", base_stem, next_v, extension, width = pad_width);
+            let new_path = parent_dir.join(&new_name);
+
+            fs::write(&new_path, &content)
+                .map_err(|e| format!("Error al escribir nueva versión '{}': {}", new_name, e))?;
+
+            (next_v, new_path)
+        }
+    };
+
+    let new_path_str = next_path.to_string_lossy().to_string();
+    let new_name_str = next_path.file_name()
+        .map(|n| n.to_string_lossy().to_string())
+        .unwrap_or_else(|| format!("{}_V_{:0width$}.{}", base_stem, next_version_num, extension, width = pad_width));
+
+    Ok(FileData {
+        path: new_path_str,
+        name: new_name_str,
+        content,
+    })
+}
+
+#[tauri::command]
 fn exportar_html(default_name: String, content: String) -> Option<String> {
     let mut file_path = FileDialog::new()
         .add_filter("HTML", &["html"])
@@ -528,6 +629,8 @@ pub fn run() {
         abrir_archivo, 
         guardar_archivo, 
         guardar_como, 
+        seleccionar_carpeta,
+        versionar_documento, 
         exportar_html,
         exportar_archivo,
         exportar_epub,

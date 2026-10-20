@@ -164,5 +164,14 @@
   "confirm_btn_discard": "Descartar cambios",
   "confirm_btn_cancel": "Cancelar",
   "confirm_btn_recover": "Recuperar borrador",
-  "confirm_btn_load_orig": "Cargar original"
+  "confirm_btn_load_orig": "Cargar original",
+  "tooltip_version_doc": "Crear nueva versión del documento (+)",
+  "tooltip_relocate_doc": "Establecer o cambiar carpeta de destino",
+  "config_versioning_digits": "Dígitos de Versionado",
+  "versioning_initial_notice": "Debes guardar el documento inicial en disco antes de comenzar su versionado.",
+  "versioning_initial_saved": "Documento inicial guardado como primera versión: ",
+  "versioning_success": "Nueva versión creada: ",
+  "versioning_backed_up": " (versión previa respaldada)",
+  "relocate_success": "Nueva ruta establecida: ",
+  "status_no_file_disk": "Sin archivo guardado en disco"
 }

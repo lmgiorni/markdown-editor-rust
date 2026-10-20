@@ -150,31 +150,82 @@ body {
 }
 
 /* ==========================================================================
-   EDICIÓN DEL NOMBRE DE ARCHIVO
+   BLOQUE UNIFICADO DE DOCUMENTO (NOMBRE + VERSIONADO + REUBICACIÓN)
    ========================================================================== */
+.document-control-block {
+  display: inline-flex;
+  align-items: center;
+  background-color: var(--bg-input);
+  border: 1px solid var(--border-subtle);
+  border-radius: 6px;
+  margin-left: 10px;
+  height: 32px;
+  box-sizing: border-box;
+  overflow: hidden;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.document-control-block:hover {
+  border-color: var(--border-focus);
+}
+
 #file-name-container {
   display: flex;
   align-items: center;
-  padding: 4px 10px;
-  border-radius: 6px;
+  padding: 0 10px;
+  height: 100%;
   cursor: pointer;
-  transition: var(--transition-fast);
-  margin-left: 12px;
-  max-width: 260px;
+  transition: background-color var(--transition-fast);
+  max-width: 240px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 #file-name-container:hover {
-  background-color: rgba(255, 255, 255, 0.04);
-  box-shadow: 0 0 0 1px var(--border-subtle);
+  background-color: rgba(255, 255, 255, 0.05);
+}
+
+.doc-block-divider {
+  width: 1px;
+  height: 18px;
+  background-color: var(--border-subtle);
+  flex-shrink: 0;
+}
+
+.doc-block-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 100%;
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 0;
+  transition: background-color var(--transition-fast), color var(--transition-fast);
+}
+
+.doc-block-btn:hover {
+  background-color: rgba(255, 255, 255, 0.08);
+  color: var(--text-main);
+}
+
+.doc-block-btn:active {
+  background-color: rgba(255, 255, 255, 0.14);
+}
+
+.doc-block-icon {
+  width: 15px;
+  height: 15px;
+  stroke: currentColor;
 }
 
 #file-info {
-  font-size: 13.5px;
+  font-size: 13px;
   font-weight: 500;
-  color: var(--text-main, #cbd5e1); /* slate-300 */
+  color: var(--text-main, #cbd5e1);
 }
 
 /* Input Editable para Renombrar */
@@ -183,12 +234,12 @@ body {
   border: 1px solid var(--border-focus);
   color: var(--text-main);
   font-family: var(--font-sans);
-  font-size: 13.5px;
+  font-size: 13px;
   font-weight: 500;
-  padding: 4px 8px;
-  border-radius: 6px;
+  padding: 2px 6px;
+  border-radius: 4px;
   outline: none;
-  width: 200px;
+  width: 180px;
   box-shadow: 0 0 8px rgba(139, 92, 246, 0.2);
 }
 
@@ -987,8 +1038,8 @@ body {
 }
 
 .dot-unsaved {
-  background-color: #f59e0b; /* Ámbar */
-  box-shadow: 0 0 6px rgba(245, 158, 11, 0.45);
+  background-color: #ef4444; /* Rojo - no guardado / solo en memoria */
+  box-shadow: 0 0 6px rgba(239, 68, 68, 0.45);
 }
 
 /* ==========================================================================

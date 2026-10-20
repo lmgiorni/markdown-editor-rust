@@ -164,5 +164,14 @@
   "confirm_btn_discard": "Discard changes",
   "confirm_btn_cancel": "Cancel",
   "confirm_btn_recover": "Recover draft",
-  "confirm_btn_load_orig": "Load original"
+  "confirm_btn_load_orig": "Load original",
+  "tooltip_version_doc": "Create new document version (+)",
+  "tooltip_relocate_doc": "Set or change destination folder",
+  "config_versioning_digits": "Versioning Digits",
+  "versioning_initial_notice": "You must save the initial document to disk before starting versioning.",
+  "versioning_initial_saved": "Initial document saved as first version: ",
+  "versioning_success": "New version created: ",
+  "versioning_backed_up": " (previous version backed up)",
+  "relocate_success": "New path established: ",
+  "status_no_file_disk": "No file saved on disk"
 }

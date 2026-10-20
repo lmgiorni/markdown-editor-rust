@@ -31,7 +31,8 @@ let appState = {
   readerFontSize: parseInt(localStorage.getItem('md-reader-font-size')) || 15,
   structuredFontSize: parseInt(localStorage.getItem('md-structured-font-size')) || 13,
   activeTheme: localStorage.getItem('md-theme') || 'Cyberpunk-Dark',
-  language: localStorage.getItem('md-language') || 'es'
+  language: localStorage.getItem('md-language') || 'es',
+  versioningDigits: parseInt(localStorage.getItem('md-versioning-digits') || '3', 10)
 };
 
 // Referencias seguras y completas a Elementos del DOM
@@ -40,6 +41,10 @@ const DOM = {
   preview: document.getElementById('preview'),
   fileInfo: document.getElementById('file-info'),
   fileNameContainer: document.getElementById('file-name-container'),
+  documentControlBlock: document.getElementById('document-control-block'),
+  btnVersionDoc: document.getElementById('btn-version-doc'),
+  btnRelocateDoc: document.getElementById('btn-relocate-doc'),
+  selectVersioningDigits: document.getElementById('select-versioning-digits'),
   statusDot: document.getElementById('status-dot'),
   wordCountStatus: document.getElementById('word-count-status'),
   appContainer: document.getElementById('app-container'),
@@ -176,6 +181,7 @@ function aplicarConfiguracionVisual() {
   if (DOM.selectReaderFont) DOM.selectReaderFont.value = appState.readerFont;
   if (DOM.selectStructuredFont) DOM.selectStructuredFont.value = appState.structuredFont;
   if (DOM.selectLanguage) DOM.selectLanguage.value = appState.language;
+  if (DOM.selectVersioningDigits) DOM.selectVersioningDigits.value = String(appState.versioningDigits || 3);
   if (DOM.rangeEditorSize) DOM.rangeEditorSize.value = appState.editorFontSize;
   if (DOM.rangeReaderSize) DOM.rangeReaderSize.value = appState.readerFontSize;
   if (DOM.rangeStructuredSize) DOM.rangeStructuredSize.value = appState.structuredFontSize;
@@ -402,16 +408,24 @@ function actualizarNombreArchivo() {
     display = display.substring(0, lastDot);
   }
   
-  const statusText = appState.isSaved ? t.status_saved : t.status_unsaved;
-  DOM.fileInfo.textContent = `${display}.md (${statusText})`;
-  DOM.activeFilepathDisplay.textContent = appState.filePath || (lang === 'es' ? 'Sin archivo guardado en disco' : (lang === 'en' ? 'No file saved on disk' : 'Nullum documentum in disco'));
-  
-  if (appState.isSaved) {
-    DOM.statusDot.className = 'dot-saved';
-    DOM.statusDot.setAttribute('title', lang === 'es' ? 'Todos los cambios están guardados en tu disco' : (lang === 'en' ? 'All changes are saved on your disk' : 'Omnes mutationes in disco servatae sunt'));
-  } else {
+  if (appState.filePath === null) {
+    // Si el documento nunca ha sido guardado en disco
+    DOM.fileInfo.textContent = appState.isSaved ? `${display}.md` : `${display}.md (${t.status_unsaved})`;
+    DOM.activeFilepathDisplay.textContent = t.status_no_file_disk || (lang === 'es' ? 'Sin archivo guardado en disco' : (lang === 'en' ? 'No file saved on disk' : 'Nullum documentum in disco'));
     DOM.statusDot.className = 'dot-unsaved';
-    DOM.statusDot.setAttribute('title', lang === 'es' ? 'Tienes cambios sin guardar en tu editor' : (lang === 'en' ? 'You have unsaved changes in your editor' : 'Mutationes non servatas habes in scriptorio'));
+    DOM.statusDot.setAttribute('title', lang === 'es' ? 'Sin archivo guardado en disco (en memoria)' : (lang === 'en' ? 'No file saved on disk (in memory)' : 'Nullum documentum in disco'));
+  } else {
+    const statusText = appState.isSaved ? t.status_saved : t.status_unsaved;
+    DOM.fileInfo.textContent = `${display}.md (${statusText})`;
+    DOM.activeFilepathDisplay.textContent = appState.filePath;
+    
+    if (appState.isSaved) {
+      DOM.statusDot.className = 'dot-saved';
+      DOM.statusDot.setAttribute('title', lang === 'es' ? 'Todos los cambios están guardados en tu disco' : (lang === 'en' ? 'All changes are saved on your disk' : 'Omnes mutationes in disco servatae sunt'));
+    } else {
+      DOM.statusDot.className = 'dot-unsaved';
+      DOM.statusDot.setAttribute('title', lang === 'es' ? 'Tienes cambios sin guardar en tu editor' : (lang === 'en' ? 'You have unsaved changes in your editor' : 'Mutationes non servatas habes in scriptorio'));
+    }
   }
 }
 
@@ -765,6 +779,135 @@ async function guardarComo() {
   } catch (error) {
     console.error('Error al guardar como:', error);
     alertNotification('Error al guardar el archivo: ' + error, 'error');
+  }
+}
+
+// ==========================================================================
+// VERSIONADO AUTOMÁTICO Y REUBICACIÓN DE RUTA DE GUARDADO
+// ==========================================================================
+
+async function versionarDocumentoActual() {
+  const lang = appState.language || 'es';
+  const t = translations[lang] || translations.es;
+  const digits = appState.versioningDigits || 3;
+  const currentContent = DOM.editor.value;
+
+  if (appState.filePath === null) {
+    // Caso 1: El documento nunca ha sido guardado en disco
+    alertNotification(t.versioning_initial_notice || 'Debes guardar el documento inicial en disco antes de comenzar su versionado.', 'info');
+    
+    let baseName = appState.fileName;
+    const lastDot = baseName.lastIndexOf('.');
+    if (lastDot > 0) baseName = baseName.substring(0, lastDot);
+    const vMatch = baseName.match(/^(.*?)_V_\d+$/);
+    if (vMatch) {
+      baseName = vMatch[1];
+    }
+    const initialVersionName = `${baseName}_V_${'1'.padStart(digits, '0')}.md`;
+    
+    try {
+      if (invoke) {
+        const fileData = await invoke('guardar_como', {
+          defaultName: initialVersionName,
+          content: currentContent
+        });
+        if (fileData) {
+          appState.filePath = fileData.path;
+          let name = fileData.name;
+          const dotIdx = name.lastIndexOf('.');
+          if (dotIdx > 0) name = name.substring(0, dotIdx);
+          appState.fileName = name;
+          setSavedState(true);
+          alertNotification((t.versioning_initial_saved || 'Documento inicial guardado como primera versión: ') + fileData.name, 'success');
+        }
+      } else {
+        descargarArchivo(initialVersionName, currentContent, 'text/markdown');
+        appState.fileName = initialVersionName.replace(/\.md$/, '');
+        setSavedState(true);
+        alertNotification((t.versioning_initial_saved || 'Documento inicial guardado como primera versión: ') + initialVersionName, 'success');
+      }
+    } catch (err) {
+      console.error('Error al guardar versión inicial:', err);
+      alertNotification('Error al guardar documento inicial: ' + err, 'error');
+    }
+    return;
+  }
+
+  // Caso 2: El documento ya existe en disco
+  try {
+    if (invoke) {
+      const fileData = await invoke('versionar_documento', {
+        filePath: appState.filePath,
+        content: currentContent,
+        digits: digits
+      });
+      if (fileData) {
+        appState.filePath = fileData.path;
+        let name = fileData.name;
+        const dotIdx = name.lastIndexOf('.');
+        if (dotIdx > 0) name = name.substring(0, dotIdx);
+        appState.fileName = name;
+        setSavedState(true);
+        alertNotification((t.versioning_success || 'Nueva versión creada: ') + fileData.name + (t.versioning_backed_up || ' (versión previa respaldada)'), 'success');
+      }
+    } else {
+      let baseName = appState.fileName;
+      const lastDot = baseName.lastIndexOf('.');
+      if (lastDot > 0) baseName = baseName.substring(0, lastDot);
+      let nextV = 2;
+      const vMatch = baseName.match(/^(.*?)_V_(\d+)$/);
+      if (vMatch) {
+        baseName = vMatch[1];
+        nextV = parseInt(vMatch[2], 10) + 1;
+      }
+      const newName = `${baseName}_V_${String(nextV).padStart(digits, '0')}.md`;
+      descargarArchivo(newName, currentContent, 'text/markdown');
+      appState.fileName = newName.replace(/\.md$/, '');
+      setSavedState(true);
+      alertNotification((t.versioning_success || 'Nueva versión creada: ') + newName, 'success');
+    }
+  } catch (err) {
+    console.error('Error al versionar documento:', err);
+    alertNotification('Error al versionar documento: ' + err, 'error');
+  }
+}
+
+async function reubicarCarpetaDocumento() {
+  const lang = appState.language || 'es';
+  const t = translations[lang] || translations.es;
+  const currentContent = DOM.editor.value;
+
+  try {
+    if (invoke) {
+      const folder = await invoke('seleccionar_carpeta');
+      if (!folder) return; // Cancelado por el usuario
+      
+      let fileName = appState.fileName;
+      if (!fileName.endsWith('.md')) fileName += '.md';
+      fileName = fileName.replace(/\s+/g, '_');
+      
+      const separator = folder.includes('/') ? '/' : '\\';
+      const cleanFolder = folder.endsWith('/') || folder.endsWith('\\') ? folder.slice(0, -1) : folder;
+      const newPath = `${cleanFolder}${separator}${fileName}`;
+      
+      const savedPath = await invoke('guardar_archivo', {
+        path: newPath,
+        content: currentContent
+      });
+      
+      appState.filePath = savedPath || newPath;
+      let name = fileName;
+      const dotIdx = name.lastIndexOf('.');
+      if (dotIdx > 0) name = name.substring(0, dotIdx);
+      appState.fileName = name;
+      setSavedState(true);
+      alertNotification((t.relocate_success || 'Nueva ruta establecida: ') + (savedPath || newPath), 'success');
+    } else {
+      alertNotification('La selección de carpetas del sistema solo está disponible en la aplicación de escritorio.', 'info');
+    }
+  } catch (err) {
+    console.error('Error al reubicar documento:', err);
+    alertNotification('Error al cambiar carpeta de destino: ' + err, 'error');
   }
 }
 
@@ -1530,6 +1673,8 @@ function actualizarTextosInterfaz(lang) {
   setTooltip(DOM.btnNew, t.title_new);
   setTooltip(DOM.btnOpen, t.title_open);
   setTooltip(DOM.btnSave, t.title_save);
+  setTooltip(DOM.btnVersionDoc, t.tooltip_version_doc);
+  setTooltip(DOM.btnRelocateDoc, t.tooltip_relocate_doc);
   setTooltip(DOM.btnExport, t.title_export);
   setTooltip(DOM.btnComponentsToggle, t.title_btn_library);
   setTooltip(DOM.viewEditor, t.title_view_editor);
@@ -1716,20 +1861,7 @@ function actualizarBarraDeEstadoTextos() {
   const t = translations[lang] || translations.es;
   if (!t) return;
 
-  const pathDisplay = DOM.activeFilepathDisplay;
-  if (pathDisplay && !appState.filePath) {
-    pathDisplay.textContent = lang === 'es' ? 'Sin archivo cargado en disco' : (lang === 'en' ? 'No file loaded on disk' : 'Nullum documentum in disco');
-  }
-
-  const fileInfo = DOM.fileInfo;
-  if (fileInfo) {
-    const isUnsaved = !appState.isSaved;
-    if (isUnsaved) {
-      fileInfo.textContent = `${appState.fileName}.md (${t.status_unsaved})`;
-    } else {
-      fileInfo.textContent = `${appState.fileName}.md (${t.status_saved})`;
-    }
-  }
+  actualizarNombreArchivo();
 }
 
 let panelBajoCursor = null;
@@ -2250,6 +2382,22 @@ DOM.btnConfig.addEventListener('click', () => abrirModal(DOM.modalConfig));
 
 // Click sobre el nombre de archivo superior para renombrarlo
 DOM.fileNameContainer.addEventListener('click', habilitarEdicionNombre);
+
+if (DOM.btnVersionDoc) {
+  DOM.btnVersionDoc.addEventListener('click', versionarDocumentoActual);
+}
+if (DOM.btnRelocateDoc) {
+  DOM.btnRelocateDoc.addEventListener('click', reubicarCarpetaDocumento);
+}
+
+if (DOM.selectVersioningDigits) {
+  DOM.selectVersioningDigits.value = String(appState.versioningDigits || 3);
+  DOM.selectVersioningDigits.addEventListener('change', (e) => {
+    const val = parseInt(e.target.value, 10) || 3;
+    appState.versioningDigits = val;
+    localStorage.setItem('md-versioning-digits', String(val));
+  });
+}
 
 // ==========================================================================
 // DESPLAZAMIENTO GESTUAL POR ARRASTRE FÍSICO CON INERCIA (DRAG TO SCROLL)

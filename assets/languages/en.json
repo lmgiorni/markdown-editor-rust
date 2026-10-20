@@ -173,5 +173,10 @@
   "versioning_success": "New version created: ",
   "versioning_backed_up": " (previous version backed up)",
   "relocate_success": "New path established: ",
-  "status_no_file_disk": "No file saved on disk"
+  "status_no_file_disk": "No file saved on disk",
+  "config_root_folder": "Root Documents Folder",
+  "tooltip_change_root": "Select another root folder",
+  "tooltip_reset_root": "Reset to system default Documents folder",
+  "root_folder_changed": "Root folder updated: ",
+  "root_folder_reset": "Root folder reset to: "
 }

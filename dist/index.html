@@ -619,6 +619,16 @@
               <option value="5">5 dígitos (_V_00001)</option>
             </select>
           </div>
+
+          <!-- Carpeta Raíz de Documentos (Multiplataforma) -->
+          <div class="config-row">
+            <label for="input-root-folder" data-i18n="config_root_folder">Carpeta Raíz de Documentos</label>
+            <div class="config-control-group" style="display: flex; gap: 8px; width: 100%;">
+              <input type="text" id="input-root-folder" class="config-input-path" readonly title="Ruta base para guardar y reubicar documentos" placeholder="Cargando ruta del sistema...">
+              <button type="button" id="btn-change-root-folder" class="btn-subtle" title="Seleccionar otra carpeta raíz" data-i18n-title="tooltip_change_root" style="padding: 0 10px; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; border-radius: 4px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);">📂</button>
+              <button type="button" id="btn-reset-root-folder" class="btn-subtle" title="Restablecer a la carpeta de Documentos predeterminada del sistema" data-i18n-title="tooltip_reset_root" style="padding: 0 10px; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; border-radius: 4px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);">↺</button>
+            </div>
+          </div>
         </div>
       </div>
     </div>

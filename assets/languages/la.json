@@ -173,5 +173,10 @@
   "versioning_success": "Nova versio creata est: ",
   "versioning_backed_up": " (praevia versio servata)",
   "relocate_success": "Novus locus constitutus: ",
-  "status_no_file_disk": "Nullum documentum in disco"
+  "status_no_file_disk": "Nullum documentum in disco",
+  "config_root_folder": "Radix Directorii Documentorum",
+  "tooltip_change_root": "Aliud directorium radicis eligere",
+  "tooltip_reset_root": "Ad solitum directorium systematis restituere",
+  "root_folder_changed": "Radix directorii renovata: ",
+  "root_folder_reset": "Radix directorii restituta ad: "
 }

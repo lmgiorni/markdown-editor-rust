@@ -173,5 +173,10 @@
   "versioning_success": "Nueva versión creada: ",
   "versioning_backed_up": " (versión previa respaldada)",
   "relocate_success": "Nueva ruta establecida: ",
-  "status_no_file_disk": "Sin archivo guardado en disco"
+  "status_no_file_disk": "Sin archivo guardado en disco",
+  "config_root_folder": "Carpeta Raíz de Documentos",
+  "tooltip_change_root": "Seleccionar otra carpeta raíz",
+  "tooltip_reset_root": "Restablecer a la carpeta de Documentos predeterminada del sistema",
+  "root_folder_changed": "Carpeta raíz actualizada: ",
+  "root_folder_reset": "Carpeta raíz restablecida a: "
 }

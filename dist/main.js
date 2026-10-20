@@ -32,7 +32,10 @@ let appState = {
   structuredFontSize: parseInt(localStorage.getItem('md-structured-font-size')) || 13,
   activeTheme: localStorage.getItem('md-theme') || 'Cyberpunk-Dark',
   language: localStorage.getItem('md-language') || 'es',
-  versioningDigits: parseInt(localStorage.getItem('md-versioning-digits') || '3', 10)
+  versioningDigits: parseInt(localStorage.getItem('md-versioning-digits') || '3', 10),
+  systemDefaultRootFolder: '',
+  customRootFolder: localStorage.getItem('md-root-folder') || '',
+  lastUsedFolder: localStorage.getItem('md-last-used-folder') || ''
 };
 
 // Referencias seguras y completas a Elementos del DOM
@@ -45,6 +48,9 @@ const DOM = {
   btnVersionDoc: document.getElementById('btn-version-doc'),
   btnRelocateDoc: document.getElementById('btn-relocate-doc'),
   selectVersioningDigits: document.getElementById('select-versioning-digits'),
+  inputRootFolder: document.getElementById('input-root-folder'),
+  btnChangeRootFolder: document.getElementById('btn-change-root-folder'),
+  btnResetRootFolder: document.getElementById('btn-reset-root-folder'),
   statusDot: document.getElementById('status-dot'),
   wordCountStatus: document.getElementById('word-count-status'),
   appContainer: document.getElementById('app-container'),
@@ -744,6 +750,48 @@ async function guardarArchivo() {
   }
 }
 
+// ==========================================================================
+// GESTIÓN MULTIPLATAFORMA DE CARPETA RAÍZ Y RUTAS DE TRABAJO
+// ==========================================================================
+
+async function inicializarRutaBaseDocumentos() {
+  if (invoke) {
+    try {
+      const rutaBase = await invoke('obtener_ruta_base_documentos');
+      if (rutaBase) {
+        appState.systemDefaultRootFolder = rutaBase;
+        actualizarVisualizacionRutaRaiz();
+      }
+    } catch (e) {
+      console.error('Error al resolver carpeta nativa de documentos:', e);
+    }
+  }
+}
+
+function obtenerRutaRaizEfectiva() {
+  return appState.customRootFolder || appState.systemDefaultRootFolder || '';
+}
+
+function obtenerDirectorioArranqueDialogo() {
+  if (appState.filePath) {
+    const sep = appState.filePath.includes('/') ? '/' : '\\';
+    const parts = appState.filePath.split(sep);
+    parts.pop();
+    const folder = parts.join(sep);
+    if (folder) return folder;
+  }
+  if (appState.lastUsedFolder) {
+    return appState.lastUsedFolder;
+  }
+  return obtenerRutaRaizEfectiva();
+}
+
+function actualizarVisualizacionRutaRaiz() {
+  if (DOM.inputRootFolder) {
+    DOM.inputRootFolder.value = obtenerRutaRaizEfectiva();
+  }
+}
+
 async function guardarComo() {
   if (!invoke) {
     alertNotification('La comunicación con Tauri no está activa.', 'error');
@@ -754,10 +802,23 @@ async function guardarComo() {
     const contenido = DOM.editor.value;
     // Pre-rellenar el diálogo con el nombre del archivo con extensión .md
     const defaultSaveName = appState.fileName.replace(/\s+/g, '_') + '.md';
-    const fileData = await invoke('guardar_como', { defaultName: defaultSaveName, content: contenido });
+    const rutaInicial = obtenerDirectorioArranqueDialogo();
+    const fileData = await invoke('guardar_como', { 
+      defaultName: defaultSaveName, 
+      content: contenido,
+      defaultPath: rutaInicial || null
+    });
     
     if (fileData) {
       appState.filePath = fileData.path;
+      const sep = fileData.path.includes('/') ? '/' : '\\';
+      const parts = fileData.path.split(sep);
+      parts.pop();
+      const folderSaved = parts.join(sep);
+      if (folderSaved) {
+        appState.lastUsedFolder = folderSaved;
+        localStorage.setItem('md-last-used-folder', folderSaved);
+      }
       
       // Guardar nombre sin la extensión para la barra de menú
       let name = fileData.name;
@@ -807,12 +868,22 @@ async function versionarDocumentoActual() {
     
     try {
       if (invoke) {
+        const rutaInicial = obtenerDirectorioArranqueDialogo();
         const fileData = await invoke('guardar_como', {
           defaultName: initialVersionName,
-          content: currentContent
+          content: currentContent,
+          defaultPath: rutaInicial || null
         });
         if (fileData) {
           appState.filePath = fileData.path;
+          const sep = fileData.path.includes('/') ? '/' : '\\';
+          const parts = fileData.path.split(sep);
+          parts.pop();
+          const folderSaved = parts.join(sep);
+          if (folderSaved) {
+            appState.lastUsedFolder = folderSaved;
+            localStorage.setItem('md-last-used-folder', folderSaved);
+          }
           let name = fileData.name;
           const dotIdx = name.lastIndexOf('.');
           if (dotIdx > 0) name = name.substring(0, dotIdx);
@@ -879,8 +950,12 @@ async function reubicarCarpetaDocumento() {
 
   try {
     if (invoke) {
-      const folder = await invoke('seleccionar_carpeta');
+      const rutaInicial = obtenerDirectorioArranqueDialogo();
+      const folder = await invoke('seleccionar_carpeta', { rutaInicial: rutaInicial || null });
       if (!folder) return; // Cancelado por el usuario
+      
+      appState.lastUsedFolder = folder;
+      localStorage.setItem('md-last-used-folder', folder);
       
       let fileName = appState.fileName;
       if (!fileName.endsWith('.md')) fileName += '.md';
@@ -1675,6 +1750,8 @@ function actualizarTextosInterfaz(lang) {
   setTooltip(DOM.btnSave, t.title_save);
   setTooltip(DOM.btnVersionDoc, t.tooltip_version_doc);
   setTooltip(DOM.btnRelocateDoc, t.tooltip_relocate_doc);
+  setTooltip(DOM.btnChangeRootFolder, t.tooltip_change_root);
+  setTooltip(DOM.btnResetRootFolder, t.tooltip_reset_root);
   setTooltip(DOM.btnExport, t.title_export);
   setTooltip(DOM.btnComponentsToggle, t.title_btn_library);
   setTooltip(DOM.viewEditor, t.title_view_editor);
@@ -2399,6 +2476,34 @@ if (DOM.selectVersioningDigits) {
   });
 }
 
+if (DOM.btnChangeRootFolder) {
+  DOM.btnChangeRootFolder.addEventListener('click', async () => {
+    if (invoke) {
+      const actual = obtenerRutaRaizEfectiva();
+      const seleccionada = await invoke('seleccionar_carpeta', { rutaInicial: actual || null });
+      if (seleccionada) {
+        appState.customRootFolder = seleccionada;
+        localStorage.setItem('md-root-folder', seleccionada);
+        actualizarVisualizacionRutaRaiz();
+        const lang = appState.language || 'es';
+        const t = translations[lang] || translations.es;
+        alertNotification((t.root_folder_changed || 'Carpeta raíz actualizada: ') + seleccionada, 'success');
+      }
+    }
+  });
+}
+
+if (DOM.btnResetRootFolder) {
+  DOM.btnResetRootFolder.addEventListener('click', () => {
+    appState.customRootFolder = '';
+    localStorage.removeItem('md-root-folder');
+    actualizarVisualizacionRutaRaiz();
+    const lang = appState.language || 'es';
+    const t = translations[lang] || translations.es;
+    alertNotification((t.root_folder_reset || 'Carpeta raíz restablecida a: ') + appState.systemDefaultRootFolder, 'info');
+  });
+}
+
 // ==========================================================================
 // DESPLAZAMIENTO GESTUAL POR ARRASTRE FÍSICO CON INERCIA (DRAG TO SCROLL)
 // ==========================================================================
@@ -2647,6 +2752,7 @@ window.addEventListener('keydown', (e) => {
 // Inicio oficial de la aplicación
 window.addEventListener('DOMContentLoaded', () => {
   aplicarConfiguracionVisual();
+  inicializarRutaBaseDocumentos();
   actualizarTextosInterfaz(appState.language || 'es');
   
   // Sistema de Recuperación Automática (Auto-Recovery)

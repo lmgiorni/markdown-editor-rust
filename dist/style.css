@@ -926,6 +926,28 @@ body {
   box-shadow: 0 0 8px rgba(139, 92, 246, 0.2);
 }
 
+.config-input-path {
+  background-color: var(--bg-code, #161b26);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-main);
+  padding: 8px 12px;
+  border-radius: 8px;
+  outline: none;
+  font-size: 12px;
+  font-family: var(--font-mono, monospace);
+  flex: 1;
+  min-width: 0;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  overflow: hidden;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.config-input-path:focus {
+  border-color: var(--border-focus);
+  box-shadow: 0 0 8px rgba(139, 92, 246, 0.2);
+}
+
 /* Deslizadores deslizables (Sliders) */
 .config-label-with-value {
   display: flex;

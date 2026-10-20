@@ -84,14 +84,28 @@ fn guardar_archivo(path: String, content: String) -> Result<String, String> {
 }
 
 #[tauri::command]
-fn guardar_como(default_name: String, content: String) -> Result<Option<FileData>, String> {
-    let mut file_path = match FileDialog::new()
+fn guardar_como(default_name: String, content: String, default_path: Option<String>) -> Result<Option<FileData>, String> {
+    let mut dialog = FileDialog::new()
         .add_filter("Markdown", &["md", "markdown"])
-        .set_file_name(&default_name)
-        .save_file() {
-            Some(path) => path,
-            None => return Ok(None),
-        };
+        .set_file_name(&default_name);
+
+    if let Some(ref dir_str) = default_path {
+        let p = std::path::PathBuf::from(dir_str);
+        if p.exists() {
+            if p.is_dir() {
+                dialog = dialog.set_directory(&p);
+            } else if let Some(parent) = p.parent() {
+                if parent.exists() {
+                    dialog = dialog.set_directory(parent);
+                }
+            }
+        }
+    }
+
+    let mut file_path = match dialog.save_file() {
+        Some(path) => path,
+        None => return Ok(None),
+    };
         
     // Asegurarse de que termine con la extensión .md siempre
     if file_path.extension().and_then(|ext| ext.to_str()) != Some("md") {
@@ -118,8 +132,32 @@ fn guardar_como(default_name: String, content: String) -> Result<Option<FileData
 }
 
 #[tauri::command]
-fn seleccionar_carpeta() -> Result<Option<String>, String> {
-    let folder = FileDialog::new().pick_folder();
+fn obtener_ruta_base_documentos(app_handle: tauri::AppHandle) -> Result<String, String> {
+    let docs_dir = app_handle.path().document_dir()
+        .map_err(|e| format!("No se pudo obtener la carpeta de documentos del sistema: {}", e))?;
+    let summa_dir = docs_dir.join("SummaScriptura");
+    if !summa_dir.exists() {
+        let _ = fs::create_dir_all(&summa_dir);
+    }
+    Ok(summa_dir.to_string_lossy().to_string())
+}
+
+#[tauri::command]
+fn seleccionar_carpeta(ruta_inicial: Option<String>) -> Result<Option<String>, String> {
+    let mut dialog = FileDialog::new();
+    if let Some(ref ruta) = ruta_inicial {
+        let p = std::path::PathBuf::from(ruta);
+        if p.exists() {
+            if p.is_dir() {
+                dialog = dialog.set_directory(&p);
+            } else if let Some(parent) = p.parent() {
+                if parent.exists() {
+                    dialog = dialog.set_directory(parent);
+                }
+            }
+        }
+    }
+    let folder = dialog.pick_folder();
     Ok(folder.map(|p| p.to_string_lossy().to_string()))
 }
 
@@ -629,6 +667,7 @@ pub fn run() {
         abrir_archivo, 
         guardar_archivo, 
         guardar_como, 
+        obtener_ruta_base_documentos,
         seleccionar_carpeta,
         versionar_documento, 
         exportar_html,

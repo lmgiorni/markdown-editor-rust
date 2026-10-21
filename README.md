@@ -1,87 +1,119 @@
 # Summa Scriptura ✍️
 
-Un entorno de redacción moderno, ultra-ligero y de alto rendimiento en Rust, diseñado especialmente para creadores de contenido que buscan una escritura fluida y libre de distracciones, con la capacidad única de traducir texto jerárquico directamente a datos estructurados (JSON/XML) en tiempo real.
-
-![Estado del Proyecto](https://img.shields.io/badge/Status-In--Development-yellow)
-![Plataforma](https://img.shields.io/badge/Platform-Windows-blue)
-![Lenguaje](https://img.shields.io/badge/Language-Rust-orange)
-
-## 🌟 Descripción General
-
-Este proyecto nace de la necesidad de crear una herramienta de escritura y forjado de datos que sea **ágil, eficiente y compilada**, evitando el consumo excesivo de recursos común en editores basados en tecnologías web (como Electron). Su enfoque principal es proporcionar un entorno de alta fidelidad donde puedas concentrarte en la creación del contenido y el lore, mientras dispones de una visualización en tiempo real elegante, robusta, con tipografía premium y con un visualizador interactivo de datos estructurados.
-
-## ✨ Características Principales
-
-### 🛠️ Editor y Visualización Sincronizada
-- **Vista Dividida (Split View)**: Panel de escritura a la izquierda y renderizado de lectura a la derecha.
-- **Sincronización Inteligente de Scrolls**: Desplazamiento coordinado por porcentaje bidireccional y exacto. Si te desplazas en un panel, el otro acompaña de forma proporcional según la extensión del documento.
-- **Resaltado y Foco de Selección Quirúrgico**:
-  - Al seleccionar texto en el editor, el visor resalta de forma exacta los mismos caracteres, ocultando las marcas visuales de Markdown (como asteriscos de negrita o cursiva) y centrando el texto en pantalla.
-  - Al hacer clic en un fragmento de lectura en el visor, el cursor del editor se posiciona y se desplaza automáticamente a esa sección.
-- **Renderizado en Tiempo Real**: Actualizaciones inmediatas que incluyen soporte avanzado para:
-  - **Tablas Proporcionales**: Celdas elegantes que se expanden automáticamente para aprovechar todo el ancho disponible del panel.
-  - **Fórmulas Matemáticas**: Renderizado centrado y con estilo Serif para bloques matemáticos delimitados por `$$`.
-
-### 📐 Modos de Interfaz (Layouts)
-- **Split View**: Modo estándar para edición y revisión simultánea.
-- **Preview Only (Read)**: Oculta completamente la zona de edición para ofrecer una lectura limpia y fluida.
-- **Focus Mode**: Elimina la vista previa para maximizar la concentración en la redacción creativa.
-
-### 💻 Integración Nativa
-- **Gestión de Archivos**: Soporte para crear (`Nuevo`), `Abrir` y `Guardar` archivos `.md` directamente desde el explorador del sistema.
-- **Barra de Título Dinámica**: Muestra el nombre actual del archivo editable y un indicador visual (`*`) cuando existen cambios pendientes de guardar.
-- **Atajos de Teclado**:
-  - `Ctrl + N`: Crear un nuevo documento.
-  - `Ctrl + O`: Abrir un archivo existente.
-  - `Ctrl + S`: Guardar los cambios actuales.
-
-### 📊 Panel de Estadísticas
-- Muestra el conteo de palabras, caracteres (con y sin espacios) y enlaces en un panel superior plegable y en una ventana emergente flotante independiente.
-
-## 🎨 Diseño y Estructura Visual
-
-La interfaz ha sido estructurada de izquierda a derecha de forma lógica y balanceada:
-1. **Acciones de Archivo**: Botones rápidos de `Nuevo`, `Abrir` y `Guardar` en el extremo izquierdo.
-2. **Identidad**: Nombre del archivo editable en el centro.
-3. **Modos de Vista**: Botones de `Split`, `Focus` y `Preview` alineados a la derecha de la barra divisoria central.
-4. **Herramientas de Apoyo**: Accesos rápidos a comandos de Markdown (`MD`), estadísticas (`Stats`) y configuración (`Config`) en el margen derecho.
-
-### Tipografía Premium y Estabilidad
-- El editor implementa un sistema dinámico de fuentes del sistema de Windows (Consolas, Georgia, Arial, Segoe UI).
-- Sistema de prevención de fallas (*fallback*): Si alguna tipografía premium no está instalada, el editor utiliza fuentes seguras de fábrica, asegurando un inicio de aplicación 100% estable.
-
-## 🚀 Stack Tecnológico
-
-- **Backend**: [Rust](https://www.rust-lang.org/) (Garantiza seguridad de memoria y velocidad de ejecución).
-- **Framework de Aplicación**: [Tauri](https://tauri.app/) (Aplicaciones de escritorio ligeras y nativas usando tecnologías web).
-- **Frontend**: HTML5, CSS3 (Glassmorphism), Vanilla JavaScript (ES6+).
-- **Procesamiento de Texto**: `pulldown-cmark` (Parser de Markdown eficiente conforme a los estándares en Rust) e integraciones personalizadas en JS.
-## 🛠️ Instalación y Ejecución
-
-### Requisitos previos
-Tener instalado el compilador de Rust (`rustc`) y su gestor de paquetes (`cargo`).
-
-### Pasos para ejecutar
-1. Clonar el repositorio:
-   ```bash
-   git clone https://github.com/lmgiorni/markdown-editor-rust.git
-   ```
-2. Acceder a la carpeta del proyecto:
-   ```bash
-   cd markdown-editor-rust
-   ```
-3. Ejecutar en modo desarrollo:
-   ```bash
-   cargo run
-   ```
-
-## 🗺️ Hoja de Ruta (Roadmap)
-
-- [x] Implementación de soporte para tablas proporcionales elegantes.
-- [x] Soporte para fórmulas matemáticas.
-- [ ] Exportación directa a PDF y HTML.
-- [ ] Sistema de plantillas predefinidas de escritura.
-- [ ] Soporte para inserción directa de imágenes locales.
+**Entorno de autoría, jerarquía de contenido y forjado de datos estructurados.**  
+Diseñado para autores, diseñadores de juegos, redactores técnicos y directores de proyecto que requieren concentración absoluta, jerarquía impecable y la capacidad de transformar texto descriptivo en datos estructurados listos para producción.
 
 ---
-*Desarrollado con un enfoque en la eficiencia, la sensatez técnica y el diseño centrado en el usuario.*
+
+## 🧭 ¿Qué es Summa Scriptura y por qué es diferente?
+
+La mayoría de los editores Markdown convencionales nacieron pensados únicamente para tomar notas simples o generar documentación web básica. Por otro lado, las suites ofimáticas tradicionales son pesadas, rígidas y aíslan el texto del flujo de datos de los motores de juego y sistemas de desarrollo.
+
+**Summa Scriptura** fue concebido desde la práctica del diseño de juegos y la gestión de contenido complejo. Resuelve tres necesidades concretas en una sola herramienta:
+
+1. **Escritura pura y concentrada:** Redacción ágil sin elementos que distraigan, con tipografía calibrada y sincronización visual inmediata.
+2. **Forjado de datos en tiempo real:** Capacidad de traducir texto y compendios jerárquicos directamente a formatos estructurados (**JSON, XML, YAML y Árbol interactivo**), facilitando la creación de lore, sistemas de reglas, catálogos de ítems y parámetros numéricos sin salir del editor.
+3. **Rendimiento nativo y ligereza:** Construido sobre **Rust** y **Tauri 2.0**, eliminando el consumo excesivo de memoria RAM y los retrasos característicos de las aplicaciones montadas en navegadores empaquetados pesados.
+
+---
+
+## ⚡ Capacidades Principales
+
+### 1. Forjado de Datos Estructurados (Modo Árbol / JSON / XML / YAML)
+- **Compilador de datos en vivo:** Transforma automáticamente las secciones, listas y propiedades de tu documento Markdown en estructuras de datos normalizadas.
+- **Visualizador en árbol:** Permite inspeccionar la jerarquía de tu documento como ramas de datos desplegables.
+- **Salida simultánea en JSON, XML y YAML:** Ideal para conectar notas de diseño directamente con bases de datos, motores como Unity/Unreal/Godot o pipelines de producción. Con botón de guardado directo en el formato activo.
+
+### 2. Biblioteca Modular y Plantillas con Variables
+- **Panel lateral de biblioteca:** Acceso instantáneo a módulos reutilizables (bloques de estadísticas, perfiles de personajes, tablas de armas) y plantillas completas de diseño.
+- **Inyección con variables dinámicas:** Al insertar una plantilla con campos dinámicos (como `{Nombre}`, `{Rango}`, `{Coste}`), la aplicación despliega una ventana emergente para completar los datos antes de inyectar el contenido en el editor.
+- **Guardar como plantilla:** Guarda cualquier documento de trabajo en la biblioteca personal con un solo clic.
+
+### 3. Edición, Sincronización y Modos de Visualización
+- **Tres modos de visualización:**
+  - *Vista Dividida (Split View):* Edición a la izquierda y visor de lectura a la derecha.
+  - *Vista Lectura (Read / Preview):* Pantalla completa orientada a la revisión limpia del contenido.
+  - *Modo Editor (Focus):* Oculta el visor para concentración total durante la redacción inicial.
+- **Sincronización milimétrica de desplazamiento:** Desplazamiento coordinado por porcentaje exacto entre el panel de escritura y el de lectura.
+- **Foco de selección bidireccional:**
+  - Al seleccionar texto en el editor, el visor de lectura localiza y resalta de inmediato los mismos fragmentos en pantalla.
+  - Al hacer clic sobre cualquier párrafo o título en el visor de lectura, el cursor del editor viaja de inmediato a esa línea exacta.
+
+### 4. Soporte Tipográfico y Markdown Ampliado
+- **Fórmulas matemáticas completas:** Renderizado matemático de alta fidelidad tanto en línea (`$x^2$`) como en bloques independientes (`$$\sum...$$`) mediante integración con **KaTeX**.
+- **Bloques de Alerta (Callouts):** Citas visuales con iconografía y código de color según la intención (`[!NOTE]`, `[!TIP]`, `[!IMPORTANT]`, `[!WARNING]`, `[!CAUTION]`).
+- **Elementos avanzados de publicación:**
+  - Bloques plegables interactivos (`<details>` y `<summary>`).
+  - Notas al pie con numeración automática (`[^1]`).
+  - Listas de definición claras para glosarios y diccionarios de diseño.
+  - Formato de texto enriquecido: Resaltado (`==texto==`), superíndice (`^texto^`) y subíndice (`~texto~`).
+  - Tablas proporcionales con ancho completo y comentarios ocultos para anotaciones internas del autor.
+
+### 5. Atajos Modulares y Ventanas Flotantes Desacoplables
+- **Catálogo de 7 categorías temáticas:** Texto Básico, Títulos, Listas, Enlaces y Medios, Bloques y Estructura, Código y Matemáticas, y Elementos Avanzados.
+- **Comportamiento contextual:** Aplicar un formato sobre una palabra la encierra automáticamente; aplicarlo sobre una línea vacía prepara el marcador; volver a pulsar un formato ya aplicado lo retira limpiamente.
+- **Desacople a ventanas flotantes:** Cada categoría puede mantenerse en el panel lateral o desacoplarse como una ventana flotante independiente (arrastrable, minimizable y con memoria de posición), ideal para trabajar con monitores secundarios.
+
+### 6. Control de Documentos, Versionado y Archivos Recientes
+- **Versionado automático con un clic:** Genera copias de versión incrementales (`_V_001`, `_V_002`...) de forma automática, respaldando el estado anterior en disco.
+- **Dígitos de versionado configurables:** Permite elegir entre 2, 3, 4 o 5 dígitos según la escala del proyecto.
+- **Gestión de carpeta raíz:** Selección de directorio base para guardar y reubicar documentos fácilmente, con soporte multiplataforma.
+- **Historial de documentos recientes:** Acceso rápido mediante `Ctrl + Shift + Clic` en el botón de abrir, con límite configurable entre 5 y 10 archivos y barra de desplazamiento visible.
+- **Arrastrar y soltar nativo (Drag & Drop):** Apertura directa de archivos arrastrando documentos `.md`, `.markdown`, `.txt`, `.json`, `.xml` o `.yaml` directamente sobre la interfaz.
+
+### 7. Exportación Multi-Formato Profesional
+- **HTML:** Exporta páginas limpias y autocontenidas listas para compartir en la web.
+- **PDF:** Documentos listos para impresión o distribución con tipografía cuidada y salto de página optimizado.
+- **EPUB:** Genera libros electrónicos completos con maquetación seleccionable (Alto Contraste Eink optimizado para lectores de tinta electrónica o Estilo Satinado fiel a la aplicación), empaquetando imágenes y texto estructurado.
+
+### 8. Personalización Satinada e Internacionalización
+- **Theme Playground:** Ajuste de paleta de color interactivo en vivo, con generación de colores análogos, complementarios, control de opacidad y casillas de guardado rápido.
+- **Configuración tipográfica triple:** Permite definir de forma independiente la fuente tipográfica y tamaño del Editor, del Visor de lectura y del Árbol estructurado.
+- **Internacionalización dinámica:** Cambio instantáneo entre **Español**, **English** y **Lingua Latina**, con arquitectura de archivos `.json` abierta para incorporar más idiomas.
+
+---
+
+## 🛠️ Especificaciones Técnicas
+
+- **Núcleo de aplicación:** [Rust](https://www.rust-lang.org/) (Seguridad de memoria, velocidad nativa y consumo de recursos mínimo).
+- **Entorno de ejecución:** [Tauri 2.0](https://tauri.app/) (Enlace nativo con WebView2 en Windows, WebKit en macOS y WebKitGTK en Linux).
+- **Interfaz de usuario:** HTML5, CSS3 satinado moderno con variables dinámicas, Vanilla JavaScript (ES6+ modular, sin frameworks innecesarios).
+- **Motor matemático:** KaTeX integrado localmente (funcionamiento 100% offline).
+- **Procesamiento de texto:** Motor reactivo propio con soporte para extensiones Markdown de autoría.
+
+---
+
+## 🚀 Compilación y Ejecución Local
+
+### Requisitos
+- Compilador de Rust instalado (`rustc` y `cargo`).
+- Dependencias básicas del sistema para WebView.
+
+### Modo de prueba (Desarrollo)
+Para iniciar la aplicación directamente desde la terminal de Windows (PowerShell):
+```powershell
+cd d:\mi_editor_markdown
+cargo run --manifest-path src-tauri/Cargo.toml
+```
+
+### Generación del ejecutable final (.exe en Windows)
+Para compilar la versión optimizada lista para usar con doble clic:
+```powershell
+cd d:\mi_editor_markdown
+cargo build --release --manifest-path src-tauri/Cargo.toml
+```
+El archivo ejecutable se generará en:
+`d:\mi_editor_markdown\src-tauri\target\release\app.exe`
+
+> Para detalles sobre empaquetado de instaladores (`.exe` con asistente / `.msi`) y la automatización multiplataforma (Windows, macOS y Linux) mediante GitHub Actions, consulta la guía interna en:  
+> [SUMA_SCRIPTURA_COMPILAR_FINAL.md](___PROCESS/_old/SUMA_SCRIPTURA_COMPILAR_FINAL.md)
+
+---
+
+## 📄 Términos de Licencia y Autoría
+
+- **Autor y Dirección de Proyecto:** Leandro Giorni  
+- **Año de Creación:** 2026  
+- **Modelo de Licencia:** Freeware Propietario con autorización de uso comercial y personal.  
+
+Este software es gratuito y de uso libre para proyectos individuales, académicos y comerciales. Quedan reservados todos los derechos de autoría, propiedad intelectual y código fuente a Leandro Giorni. No se permite la redistribución modificada ni la descompilación del software sin autorización expresa del autor.

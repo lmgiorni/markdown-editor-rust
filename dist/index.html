@@ -31,6 +31,17 @@
           <polyline points="2 10 22 10"></polyline>
         </svg>
       </button>
+      <!-- Menú Flotante de Documentos Recientes -->
+      <div id="menu-recent-files" class="recent-files-menu" style="display: none;">
+        <div class="recent-menu-header">
+          <span class="recent-menu-title" id="recent-menu-title">Documentos recientes</span>
+          <span class="recent-menu-hint">Ctrl+Shift+O</span>
+        </div>
+        <div class="recent-menu-list" id="recent-menu-list"></div>
+        <div class="recent-menu-footer">
+          <button type="button" id="btn-clear-recent-files" class="btn-clear-recent">Limpiar historial</button>
+        </div>
+      </div>
 
       <button id="btn-save" title="Guardar (Ctrl+S)" class="toolbar-btn">
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="btn-icon">
@@ -776,7 +787,19 @@
           <div class="stat-card selection-card">
             <span class="stat-num" id="stat-sel-chars-with-space">0</span>
             <span class="stat-label">Caract. seleccionados (con esp.)</span>
-          </div>
+          
+          <!-- Fila Acerca de Summa Scriptura -->
+          <div class="config-row-about" style="margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--border-subtle); display: flex; justify-content: space-between; align-items: center;">
+            <button type="button" id="btn-open-about" class="btn-about-trigger" style="display: inline-flex; align-items: center; gap: 8px; padding: 7px 14px; border-radius: 6px; background: rgba(255,255,255,0.06); border: 1px solid var(--border-subtle); color: var(--text-main); font-size: 13px; font-weight: 600; cursor: pointer;">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10"></circle>
+                <line x1="12" y1="16" x2="12" y2="12"></line>
+                <line x1="12" y1="8" x2="12.01" y2="8"></line>
+              </svg>
+              <span id="text-btn-about">Acerca de Summa Scriptura</span>
+            </button>
+            <span style="font-size: 11.5px; color: var(--text-muted); opacity: 0.8;">Summa Scriptura v1.0.0</span>
+          </div></div>
         </div>
       </div>
     </div>
@@ -1174,6 +1197,69 @@
   <div id="palette-context-menu" class="palette-context-menu" style="display: none;">
     <button type="button" id="ctx-palette-complementary" data-i18n="color_picker_ctx_complementary">Color Complementario</button>
     <button type="button" id="ctx-palette-analogous" data-i18n="color_picker_ctx_analogous">Color Análogo</button>
+  </div>
+
+  
+  <!-- Modal Acerca de... (About) -->
+  <div id="modal-about" class="modal-overlay">
+    <div class="modal-box modal-about-box" style="max-width: 520px;">
+      <header class="modal-header">
+        <h3 id="about-modal-title">Acerca de Summa Scriptura</h3>
+        <button id="btn-close-about" class="modal-close-btn">&times;</button>
+      </header>
+      <div class="modal-body about-body" style="padding: 24px; display: flex; flex-direction: column; align-items: center; text-align: center; gap: 16px;">
+        <div class="about-logo" style="width: 68px; height: 68px; border-radius: 16px; background: linear-gradient(135deg, var(--accent, #6366f1), #a855f7); display: flex; align-items: center; justify-content: center; box-shadow: 0 8px 24px rgba(99, 102, 241, 0.35);">
+          <svg xmlns="http://www.w3.org/2000/svg" width="38" height="38" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+            <polyline points="14 2 14 8 20 8"></polyline>
+            <path d="M12 18v-6"></path>
+            <path d="M9 15l3 3 3-3"></path>
+          </svg>
+        </div>
+        <div class="about-header-meta">
+          <h2 style="margin: 0; font-size: 22px; font-weight: 700; color: var(--text-main);">Summa Scriptura</h2>
+          <p style="margin: 4px 0 0 0; font-size: 13px; color: var(--accent-hover, #818cf8); font-weight: 600;">
+            <span id="about-lbl-version">Versión</span> 1.0.0 &bull; <span id="about-lbl-year">Año</span> 2026
+          </p>
+          <p style="margin: 6px 0 0 0; font-size: 12.5px; color: var(--text-muted); font-weight: 500;" id="about-copyright-text">
+            Todos los derechos reservados a Leandro Giorni.
+          </p>
+        </div>
+        <p style="margin: 0; font-size: 13.5px; line-height: 1.55; color: var(--text-main); opacity: 0.9;" id="about-desc-text">
+          Editor y estructurador Markdown diseñado para autores, diseñadores de juegos y redactores que buscan concentración, jerarquía impecable y fluidez creativa.
+        </p>
+        <div class="about-license-card" style="width: 100%; box-sizing: border-box; text-align: left; padding: 14px 16px; background: rgba(255, 255, 255, 0.03); border: 1px solid var(--border-subtle); border-radius: 8px;">
+          <h4 style="margin: 0 0 6px 0; font-size: 13px; font-weight: 700; color: var(--text-main); display: flex; align-items: center; gap: 6px;" id="about-license-title">
+            <span>⚖️</span> Términos de Licencia
+          </h4>
+          <p style="margin: 0 0 8px 0; font-size: 12px; font-weight: 600; color: var(--accent-hover, #818cf8);" id="about-license-type">
+            Freeware Propietario con autorización de uso comercial y personal.
+          </p>
+          <p style="margin: 0; font-size: 11.5px; line-height: 1.5; color: var(--text-muted);" id="about-license-desc">
+            Este software es gratuito y de uso libre para proyectos personales y comerciales. Quedan reservados todos los derechos de autoría, propiedad intelectual y código fuente a Leandro Giorni. No se permite la redistribución modificada ni la descompilación del software sin autorización expresa del autor.
+          </p>
+        </div>
+      </div>
+      <footer class="modal-footer" style="display: flex; justify-content: flex-end; gap: 10px; padding: 12px 20px;">
+        <button type="button" id="btn-close-about-footer" class="btn-confirm-action btn-confirm-save">Cerrar</button>
+      </footer>
+    </div>
+  </div>
+
+  <!-- Overlay de Arrastrar y Soltar Archivos (Drag & Drop) -->
+  <div id="dnd-overlay" class="dnd-drop-overlay" style="display: none;">
+    <div class="dnd-drop-box">
+      <div class="dnd-drop-icon">
+        <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+          <polyline points="14 2 14 8 20 8"></polyline>
+          <path d="M12 18v-6"></path>
+          <path d="M9 15l3 3 3-3"></path>
+        </svg>
+      </div>
+      <h3 id="dnd-overlay-title" style="margin: 0; font-size: 18px; color: var(--text-main);">Soltar archivo para abrir</h3>
+      <p id="dnd-overlay-subtitle" style="margin: 0; font-size: 13px; color: var(--text-muted);">.md, .markdown, .txt, .json, .xml, .yaml</p>
+    </div>
   </div>
 
   <!-- Carga de Librerías y Scripts -->

@@ -235,5 +235,22 @@
   "tip_comment": "Hidden Comment - Syntax: <!-- comment -->",
   "tip_footnote": "Footnote - Syntax: [^1]",
   "tip_def_list": "Definition List - Syntax: Term : Definition",
-  "tip_details": "Collapsible Block - Syntax: <details>"
+  "tip_details": "Collapsible Block - Syntax: <details>",
+  "recent_files_title": "Recent documents",
+  "recent_files_empty": "No recent documents",
+  "recent_files_clear": "Clear history",
+  "tooltip_open_with_recent": "Open File (Ctrl+O) — Recents (Ctrl+Shift+Click or Ctrl+Shift+O)",
+  "recent_file_not_found": "File not found at specified path.",
+  "dnd_format_unsupported": "Unsupported format. Allowed formats: .md, .markdown, .txt, .json, .xml, .yaml",
+  "dnd_overlay_msg": "Drop file to open",
+  "btn_about": "About Summa Scriptura",
+  "about_title": "About Summa Scriptura",
+  "about_version": "Version",
+  "about_year": "Year",
+  "about_copyright": "All rights reserved to Leandro Giorni.",
+  "about_description": "Markdown editor and structurer designed for authors, game designers, and writers seeking focus, clean hierarchy, and creative flow.",
+  "about_license_title": "License Terms",
+  "about_license_type": "Proprietary Freeware with authorized commercial and personal use.",
+  "about_license_desc": "This software is free to use for personal and commercial projects. All intellectual property, authorship, and source code rights remain reserved to Leandro Giorni. Modified redistribution or decompilation is not permitted without explicit permission.",
+  "about_support_btn": "Voluntary Contribution"
 }

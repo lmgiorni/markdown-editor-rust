@@ -47,6 +47,27 @@ fn sanitizar_nombre_archivo(path: std::path::PathBuf) -> std::path::PathBuf {
 }
 
 #[tauri::command]
+fn abrir_archivo_desde_ruta(file_path: String) -> Result<FileData, String> {
+    let path = std::path::PathBuf::from(&file_path);
+    if !path.exists() {
+        return Err(format!("El archivo no existe en la ruta: {}", file_path));
+    }
+    let name_str = path.file_name()
+        .ok_or_else(|| "No se pudo obtener el nombre del archivo de la ruta seleccionada.".to_string())?
+        .to_string_lossy()
+        .to_string();
+        
+    let content = fs::read_to_string(&path)
+        .map_err(|e| format!("Error de lectura en '{}': {}", file_path, e))?;
+    
+    Ok(FileData {
+        path: file_path,
+        name: name_str,
+        content,
+    })
+}
+
+#[tauri::command]
 fn abrir_archivo() -> Result<Option<FileData>, String> {
     let file_path = match FileDialog::new()
         .add_filter("Markdown & Datos (*.md, *.json, *.xml, *.yaml, *.yml)", &["md", "markdown", "txt", "json", "xml", "yaml", "yml"])
@@ -679,7 +700,8 @@ pub fn run() {
       Ok(())
     })
     .invoke_handler(tauri::generate_handler![
-        abrir_archivo, 
+        abrir_archivo,
+        abrir_archivo_desde_ruta, 
         guardar_archivo, 
         guardar_como, 
         obtener_ruta_base_documentos,

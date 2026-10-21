@@ -61,6 +61,15 @@ const DOM = {
   btnNew: document.getElementById('btn-new'),
   btnOpen: document.getElementById('btn-open'),
   btnSave: document.getElementById('btn-save'),
+  menuRecentFiles: document.getElementById('menu-recent-files'),
+  recentMenuList: document.getElementById('recent-menu-list'),
+  recentMenuTitle: document.getElementById('recent-menu-title'),
+  btnClearRecent: document.getElementById('btn-clear-recent-files'),
+  btnOpenAbout: document.getElementById('btn-open-about'),
+  modalAbout: document.getElementById('modal-about'),
+  btnCloseAbout: document.getElementById('btn-close-about'),
+  btnCloseAboutFooter: document.getElementById('btn-close-about-footer'),
+  dndOverlay: document.getElementById('dnd-overlay'),
   
   // Nuevos botones de exportación y desplegable
   btnExport: document.getElementById('btn-export'),
@@ -698,6 +707,239 @@ async function nuevoArchivo() {
   inicializarHistorial();
 }
 
+// ==========================================================================
+// GESTIÓN DE ARCHIVOS RECIENTES (PERSISTENCIA Y ACCESO RÁPIDO)
+// ==========================================================================
+function obtenerArchivosRecientes() {
+  try {
+    const raw = localStorage.getItem('md-recent-files');
+    return raw ? JSON.parse(raw) : [];
+  } catch (e) {
+    return [];
+  }
+}
+
+function registrarArchivoReciente(name, path) {
+  if (!path) return;
+  try {
+    let list = obtenerArchivosRecientes();
+    const normPath = path.replace(/\\/g, '/').toLowerCase();
+    list = list.filter(item => item.path && item.path.replace(/\\/g, '/').toLowerCase() !== normPath);
+    list.unshift({
+      name: name || 'Documento',
+      path: path,
+      timestamp: Date.now()
+    });
+    if (list.length > 10) list = list.slice(0, 10);
+    localStorage.setItem('md-recent-files', JSON.stringify(list));
+  } catch (e) {
+    console.warn('Error al registrar archivo reciente:', e);
+  }
+}
+
+function renderizarMenuRecientes() {
+  if (!DOM.recentMenuList) return;
+  const list = obtenerArchivosRecientes();
+  const lang = appState.language || 'es';
+  const t = translations[lang] || translations.es;
+
+  if (list.length === 0) {
+    DOM.recentMenuList.innerHTML = `<div class="recent-menu-empty">${t.recent_files_empty || 'No hay documentos recientes'}</div>`;
+    return;
+  }
+
+  let html = '';
+  list.forEach(item => {
+    const sep = item.path.includes('/') ? '/' : '\\';
+    const parts = item.path.split(sep);
+    parts.pop();
+    const folder = parts.length > 0 ? parts.join(sep) : item.path;
+
+    html += `<div class="recent-item" data-path="${item.path.replace(/"/g, '&quot;')}">
+      <div class="recent-item-icon">📄</div>
+      <div class="recent-item-info">
+        <span class="recent-item-name">${item.name}</span>
+        <span class="recent-item-path" title="${item.path.replace(/"/g, '&quot;')}">${folder}</span>
+      </div>
+    </div>`;
+  });
+
+  DOM.recentMenuList.innerHTML = html;
+
+  DOM.recentMenuList.querySelectorAll('.recent-item').forEach(el => {
+    el.addEventListener('click', async () => {
+      const targetPath = el.getAttribute('data-path');
+      cerrarMenuRecientes();
+      if (targetPath) {
+        await abrirArchivoDesdeRuta(targetPath);
+      }
+    });
+  });
+}
+
+function alternarMenuRecientes(forzar) {
+  if (!DOM.menuRecentFiles) return;
+  const isVisible = DOM.menuRecentFiles.style.display !== 'none';
+  const shouldOpen = typeof forzar === 'boolean' ? forzar : !isVisible;
+
+  if (shouldOpen) {
+    renderizarMenuRecientes();
+    if (DOM.btnOpen) {
+      const rect = DOM.btnOpen.getBoundingClientRect();
+      DOM.menuRecentFiles.style.top = `${rect.bottom + 6}px`;
+      DOM.menuRecentFiles.style.left = `${rect.left}px`;
+    }
+    DOM.menuRecentFiles.style.display = 'flex';
+  } else {
+    DOM.menuRecentFiles.style.display = 'none';
+  }
+}
+
+function cerrarMenuRecientes() {
+  if (DOM.menuRecentFiles) {
+    DOM.menuRecentFiles.style.display = 'none';
+  }
+}
+
+document.addEventListener('click', (e) => {
+  if (DOM.menuRecentFiles && DOM.menuRecentFiles.style.display !== 'none') {
+    if (!DOM.menuRecentFiles.contains(e.target) && DOM.btnOpen && !DOM.btnOpen.contains(e.target)) {
+      cerrarMenuRecientes();
+    }
+  }
+});
+
+if (DOM.btnClearRecent) {
+  DOM.btnClearRecent.addEventListener('click', () => {
+    localStorage.removeItem('md-recent-files');
+    renderizarMenuRecientes();
+  });
+}
+
+async function procesarYCargarDocumento(fileData) {
+  if (!fileData) return;
+  const lowerPath = (fileData.path || fileData.name || '').toLowerCase();
+  let importedAndConverted = false;
+  let finalContent = fileData.content;
+  
+  if (lowerPath.endsWith('.json')) {
+    try {
+      const jsonObj = JSON.parse(fileData.content);
+      finalContent = convertJSONToMarkdown(jsonObj);
+      importedAndConverted = 'JSON';
+    } catch (jsonErr) {
+      console.error('Error al analizar JSON en importación:', jsonErr);
+      alertNotification('El archivo .json tiene errores de estructura y no pudo importarse.', 'error');
+      return;
+    }
+  } else if (lowerPath.endsWith('.xml')) {
+    try {
+      const parser = new DOMParser();
+      const xmlDoc = parser.parseFromString(fileData.content, "text/xml");
+      const parserError = xmlDoc.getElementsByTagName("parsererror");
+      if (parserError.length > 0) throw new Error(parserError[0].textContent);
+      
+      const rootName = xmlDoc.documentElement.nodeName;
+      const jsonObj = {};
+      jsonObj[rootName] = convertXMLToJSON(xmlDoc.documentElement);
+      finalContent = convertJSONToMarkdown(jsonObj);
+      importedAndConverted = 'XML';
+    } catch (xmlErr) {
+      console.error('Error al analizar XML en importación:', xmlErr);
+      alertNotification('El archivo .xml tiene errores de estructura y no pudo importarse.', 'error');
+      return;
+    }
+  } else if (lowerPath.endsWith('.yaml') || lowerPath.endsWith('.yml')) {
+    try {
+      const jsonObj = convertYAMLToJSON(fileData.content);
+      finalContent = convertJSONToMarkdown(jsonObj);
+      importedAndConverted = 'YAML';
+    } catch (yamlErr) {
+      console.error('Error al analizar YAML en importación:', yamlErr);
+      alertNotification('El archivo YAML tiene errores de estructura y no pudo importarse.', 'error');
+      return;
+    }
+  }
+
+  DOM.editor.value = finalContent;
+  
+  let name = fileData.name;
+  const lastDot = name.lastIndexOf('.');
+  if (lastDot > 0) {
+    name = name.substring(0, lastDot);
+  }
+  appState.fileName = name;
+  
+  if (importedAndConverted) {
+    appState.filePath = null;
+    setSavedState(false);
+    alertNotification(`Archivo ${importedAndConverted} importado y convertido a Markdown. Guarda el archivo como .md`);
+  } else {
+    appState.filePath = fileData.path || null;
+    setSavedState(true);
+    if (fileData.path) {
+      registrarArchivoReciente(name, fileData.path);
+    }
+    alertNotification('Archivo abierto con éxito', 'success');
+  }
+  
+  localStorage.removeItem('md-autosave-draft');
+  localStorage.removeItem('md-autosave-path');
+  localStorage.removeItem('md-autosave-name');
+  
+  actualizarNombreArchivo();
+  renderMarkdown();
+  
+  if (historial) {
+    historial.limpiar();
+    historial.inicializarEstado(DOM.editor.value);
+  }
+}
+
+async function abrirArchivoDesdeRuta(filePath) {
+  if (!appState.isSaved) {
+    const lang = appState.language || 'es';
+    const t = translations[lang] || translations.es;
+    const accion = await solicitarConfirmacionSistema({
+      titulo: t.confirm_title_open || 'Abrir Documento',
+      mensaje: t.confirm_msg_unsaved_open || 'Tienes cambios pendientes sin guardar. ¿Qué deseas hacer antes de abrir otro documento?',
+      detalle: 'Si guardas, tus cambios quedarán asegurados en el disco antes de cargar el nuevo archivo.',
+      tipo: 'warning',
+      btnSaveText: t.confirm_btn_save || 'Guardar cambios',
+      btnDiscardText: t.confirm_btn_discard || 'Descartar cambios',
+      btnCancelText: t.confirm_btn_cancel || 'Cancelar'
+    });
+
+    if (accion === 'cancel') return;
+    if (accion === 'save') {
+      const guardado = await guardarArchivo();
+      if (!guardado) return;
+    }
+  }
+
+  if (!invoke) {
+    alertNotification('La conexión con el sistema nativo no está disponible fuera de Tauri.', 'error');
+    return;
+  }
+
+  try {
+    const fileData = await invoke('abrir_archivo_desde_ruta', { filePath });
+    if (fileData) {
+      await procesarYCargarDocumento(fileData);
+    }
+  } catch (err) {
+    console.error('Error al abrir archivo reciente:', err);
+    const lang = appState.language || 'es';
+    const t = translations[lang] || translations.es;
+    alertNotification(t.recent_file_not_found || 'El archivo no fue encontrado en la ruta especificada.', 'error');
+    
+    let list = obtenerArchivosRecientes();
+    list = list.filter(item => item.path !== filePath);
+    localStorage.setItem('md-recent-files', JSON.stringify(list));
+    renderizarMenuRecientes();
+  }
+}
+
 async function abrirArchivo() {
   if (!appState.isSaved) {
     const lang = appState.language || 'es';
@@ -727,74 +969,7 @@ async function abrirArchivo() {
   try {
     const fileData = await invoke('abrir_archivo');
     if (fileData) {
-      const lowerPath = fileData.path.toLowerCase();
-      let importedAndConverted = false;
-      let finalContent = fileData.content;
-      
-      if (lowerPath.endsWith('.json')) {
-        try {
-          const jsonObj = JSON.parse(fileData.content);
-          finalContent = convertJSONToMarkdown(jsonObj);
-          importedAndConverted = 'JSON';
-        } catch (jsonErr) {
-          console.error('Error al analizar JSON en importación:', jsonErr);
-          alertNotification('El archivo .json tiene errores de estructura y no pudo importarse.', 'error');
-          return;
-        }
-      } else if (lowerPath.endsWith('.xml')) {
-        try {
-          const parser = new DOMParser();
-          const xmlDoc = parser.parseFromString(fileData.content, "text/xml");
-          
-          const parserError = xmlDoc.getElementsByTagName("parsererror");
-          if (parserError.length > 0) {
-            throw new Error(parserError[0].textContent);
-          }
-          
-          const rootName = xmlDoc.documentElement.nodeName;
-          const jsonObj = {};
-          jsonObj[rootName] = convertXMLToJSON(xmlDoc.documentElement);
-          finalContent = convertJSONToMarkdown(jsonObj);
-          importedAndConverted = 'XML';
-        } catch (xmlErr) {
-          console.error('Error al analizar XML en importación:', xmlErr);
-          alertNotification('El archivo .xml tiene errores de estructura y no pudo importarse.', 'error');
-          return;
-        }
-      } else if (lowerPath.endsWith('.yaml') || lowerPath.endsWith('.yml')) {
-        try {
-          const jsonObj = convertYAMLToJSON(fileData.content);
-          finalContent = convertJSONToMarkdown(jsonObj);
-          importedAndConverted = 'YAML';
-        } catch (yamlErr) {
-          console.error('Error al analizar YAML en importación:', yamlErr);
-          alertNotification('El archivo YAML tiene errores de estructura y no pudo importarse.', 'error');
-          return;
-        }
-      }
-
-      DOM.editor.value = finalContent;
-      
-      // Limpiar extensión de nombre visible
-      let name = fileData.name;
-      const lastDot = name.lastIndexOf('.');
-      if (lastDot > 0) {
-        name = name.substring(0, lastDot);
-      }
-      appState.fileName = name;
-      
-      // Seguridad: Si se convirtió, limpiamos filePath para forzar un "Guardar como" y no sobreescribir el origen
-      if (importedAndConverted) {
-        appState.filePath = null;
-        alertNotification(`Datos de tipo ${importedAndConverted} importados y convertidos a Markdown. Se requiere guardar como nuevo archivo .md`, 'success');
-      } else {
-        appState.filePath = fileData.path;
-        alertNotification('Archivo abierto con éxito', 'success');
-      }
-      
-      renderMarkdown();
-      setSavedState(true);
-      inicializarHistorial();
+      await procesarYCargarDocumento(fileData);
     }
   } catch (error) {
     console.error('Error al abrir:', error);
@@ -2618,7 +2793,7 @@ function actualizarTextosInterfaz(lang) {
   // 1. Barra de Herramientas (tooltips)
   const setTooltip = (el, text) => { if (el) el.setAttribute('title', text); };
   setTooltip(DOM.btnNew, t.title_new);
-  setTooltip(DOM.btnOpen, t.title_open);
+  setTooltip(DOM.btnOpen, t.tooltip_open_with_recent || t.title_open);
   setTooltip(DOM.btnSave, t.title_save);
   setTooltip(DOM.btnVersionDoc, t.tooltip_version_doc);
   setTooltip(DOM.btnRelocateDoc, t.tooltip_relocate_doc);
@@ -2795,6 +2970,34 @@ function actualizarTextosInterfaz(lang) {
   setLabelText('[for="range-structured-size"]', t.config_size_tree);
   setLabelText('[for="select-theme"]', t.config_theme);
   setLabelText('[for="select-language"]', t.config_lang);
+  
+  // Textos de Recientes y Acerca de...
+  const recentTitleEl = document.getElementById('recent-menu-title');
+  if (recentTitleEl && t.recent_files_title) recentTitleEl.textContent = t.recent_files_title;
+  const btnClearRecEl = document.getElementById('btn-clear-recent-files');
+  if (btnClearRecEl && t.recent_files_clear) btnClearRecEl.textContent = t.recent_files_clear;
+  const textBtnAboutEl = document.getElementById('text-btn-about');
+  if (textBtnAboutEl && t.btn_about) textBtnAboutEl.textContent = t.btn_about;
+  const aboutModalTitleEl = document.getElementById('about-modal-title');
+  if (aboutModalTitleEl && t.about_title) aboutModalTitleEl.textContent = t.about_title;
+  const aboutLblVersionEl = document.getElementById('about-lbl-version');
+  if (aboutLblVersionEl && t.about_version) aboutLblVersionEl.textContent = t.about_version;
+  const aboutLblYearEl = document.getElementById('about-lbl-year');
+  if (aboutLblYearEl && t.about_year) aboutLblYearEl.textContent = t.about_year;
+  const aboutCopyrightEl = document.getElementById('about-copyright-text');
+  if (aboutCopyrightEl && t.about_copyright) aboutCopyrightEl.textContent = t.about_copyright;
+  const aboutDescEl = document.getElementById('about-desc-text');
+  if (aboutDescEl && t.about_description) aboutDescEl.textContent = t.about_description;
+  const aboutLicenseTitleEl = document.getElementById('about-license-title');
+  if (aboutLicenseTitleEl && t.about_license_title) aboutLicenseTitleEl.innerHTML = '<span>⚖️</span> ' + t.about_license_title;
+  const aboutLicenseTypeEl = document.getElementById('about-license-type');
+  if (aboutLicenseTypeEl && t.about_license_type) aboutLicenseTypeEl.textContent = t.about_license_type;
+  const aboutLicenseDescEl = document.getElementById('about-license-desc');
+  if (aboutLicenseDescEl && t.about_license_desc) aboutLicenseDescEl.textContent = t.about_license_desc;
+  const dndTitleEl = document.getElementById('dnd-overlay-title');
+  if (dndTitleEl && t.dnd_overlay_msg) dndTitleEl.textContent = t.dnd_overlay_msg;
+  const btnCloseAboutFooter = document.getElementById('btn-close-about-footer');
+  if (btnCloseAboutFooter && t.btn_close) btnCloseAboutFooter.textContent = t.btn_close;
 
   if (DOM.btnFontDec) DOM.btnFontDec.textContent = lang === 'es' ? 'Tamaño Fuente -1' : (lang === 'en' ? 'Font Size -1' : 'Magnitudo Fontis -1');
   if (DOM.btnFontInc) DOM.btnFontInc.textContent = lang === 'es' ? 'Tamaño Fuente +1' : (lang === 'en' ? 'Font Size +1' : 'Magnitudo Fontis +1');
@@ -2845,6 +3048,124 @@ function actualizarTextosInterfaz(lang) {
   // 13. Forzar repintado del visor (necesario para el modo estructurado y dinámicos)
   renderMarkdown();
 }
+
+// ==========================================================================
+// DRAG & DROP NATIVO Y MODAL ACERCA DE...
+// ==========================================================================
+function inicializarDragAndDrop() {
+  let dragCounter = 0;
+  const overlay = DOM.dndOverlay;
+
+  window.addEventListener('dragenter', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounter++;
+    if (overlay) overlay.style.display = 'flex';
+  });
+
+  window.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+  });
+
+  window.addEventListener('dragleave', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounter--;
+    if (dragCounter <= 0) {
+      dragCounter = 0;
+      if (overlay) overlay.style.display = 'none';
+    }
+  });
+
+  window.addEventListener('drop', async (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounter = 0;
+    if (overlay) overlay.style.display = 'none';
+
+    if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      const file = e.dataTransfer.files[0];
+      const lower = file.name.toLowerCase();
+      const allowed = ['.md', '.markdown', '.txt', '.json', '.xml', '.yaml', '.yml'];
+      const isAllowed = allowed.some(ext => lower.endsWith(ext));
+      
+      const lang = appState.language || 'es';
+      const t = translations[lang] || translations.es;
+      
+      if (!isAllowed) {
+        alertNotification(t.dnd_format_unsupported || 'Formato no compatible. Formatos permitidos: .md, .markdown, .txt, .json, .xml, .yaml', 'error');
+        return;
+      }
+
+      if (!appState.isSaved) {
+        const accion = await solicitarConfirmacionSistema({
+          titulo: t.confirm_title_open || 'Abrir Documento',
+          mensaje: t.confirm_msg_unsaved_open || 'Tienes cambios pendientes sin guardar. ¿Qué deseas hacer antes de abrir otro documento?',
+          detalle: 'Si guardas, tus cambios quedarán asegurados en el disco antes de cargar el nuevo archivo.',
+          tipo: 'warning',
+          btnSaveText: t.confirm_btn_save || 'Guardar cambios',
+          btnDiscardText: t.confirm_btn_discard || 'Descartar cambios',
+          btnCancelText: t.confirm_btn_cancel || 'Cancelar'
+        });
+
+        if (accion === 'cancel') return;
+        if (accion === 'save') {
+          const guardado = await guardarArchivo();
+          if (!guardado) return;
+        }
+      }
+
+      try {
+        let filePath = file.path || '';
+        if (filePath && invoke) {
+          try {
+            const res = await invoke('abrir_archivo_desde_ruta', { filePath });
+            if (res) {
+              await procesarYCargarDocumento(res);
+              return;
+            }
+          } catch (invokeErr) {
+            console.warn('Fallback a lectura File API:', invokeErr);
+          }
+        }
+        const content = await file.text();
+        await procesarYCargarDocumento({ name: file.name, path: filePath, content });
+      } catch (err) {
+        console.error('Error al procesar archivo soltado:', err);
+        alertNotification('Error al leer el archivo arrastrado: ' + (err.message || err), 'error');
+      }
+    }
+  });
+}
+
+function inicializarModalAbout() {
+  if (DOM.btnOpenAbout && DOM.modalAbout) {
+    DOM.btnOpenAbout.addEventListener('click', () => {
+      abrirModal(DOM.modalAbout);
+    });
+  }
+  if (DOM.btnCloseAbout && DOM.modalAbout) {
+    DOM.btnCloseAbout.addEventListener('click', () => {
+      cerrarModal(DOM.modalAbout);
+    });
+  }
+  if (DOM.btnCloseAboutFooter && DOM.modalAbout) {
+    DOM.btnCloseAboutFooter.addEventListener('click', () => {
+      cerrarModal(DOM.modalAbout);
+    });
+  }
+  if (DOM.modalAbout) {
+    DOM.modalAbout.addEventListener('click', (e) => {
+      if (e.target === DOM.modalAbout) {
+        cerrarModal(DOM.modalAbout);
+      }
+    });
+  }
+}
+
+inicializarDragAndDrop();
+inicializarModalAbout();
 
 function actualizarBarraDeEstadoTextos() {
   const lang = appState.language || 'es';
@@ -3349,7 +3670,16 @@ document.addEventListener('selectionchange', () => {
 
 // Manejadores de los botones de la Barra superior
 DOM.btnNew.addEventListener('click', nuevoArchivo);
-DOM.btnOpen.addEventListener('click', abrirArchivo);
+DOM.btnOpen.addEventListener('click', (e) => {
+  if (e.ctrlKey && e.shiftKey) {
+    e.preventDefault();
+    e.stopPropagation();
+    alternarMenuRecientes();
+  } else {
+    cerrarMenuRecientes();
+    abrirArchivo();
+  }
+});
 
 // Guardar normal, o Guardar Como si se pulsa con Ctrl+Shift
 DOM.btnSave.addEventListener('click', (e) => {

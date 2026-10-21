@@ -235,5 +235,22 @@
   "tip_comment": "Commentarium Occultum - Syntaxis: <!-- commentarium -->",
   "tip_footnote": "Nota ad calcem - Syntaxis: [^1]",
   "tip_def_list": "Index Definitionum - Syntaxis: Terminus : Definitio",
-  "tip_details": "Pars Plicatilis - Syntaxis: <details>"
+  "tip_details": "Pars Plicatilis - Syntaxis: <details>",
+  "recent_files_title": "Documenta recentia",
+  "recent_files_empty": "Nulla documenta recentia",
+  "recent_files_clear": "Purgare historiam",
+  "tooltip_open_with_recent": "Aperire Fasciculum (Ctrl+O) — Recentia (Ctrl+Shift+Click vel Ctrl+Shift+O)",
+  "recent_file_not_found": "Fasciculus in itinere indicato non est inventus.",
+  "dnd_format_unsupported": "Forma non suffulta. Formae permissae: .md, .markdown, .txt, .json, .xml, .yaml",
+  "dnd_overlay_msg": "Dimitte fasciculum ad aperiendum",
+  "btn_about": "De Summa Scriptura",
+  "about_title": "De Summa Scriptura",
+  "about_version": "Editio",
+  "about_year": "Annus",
+  "about_copyright": "Omnia iura reservantur Leandri Giorni.",
+  "about_description": "Editor et ordinator Markdown scriptoribus, ludorum designatoribus et auctoribus destinatus ad concentrationem et structuram puram.",
+  "about_license_title": "Condiciones Licentiae",
+  "about_license_type": "Programma Proprietarium Gratuitum cum usu commerciali et personali permisso.",
+  "about_license_desc": "Hoc programma gratuitum est ad usum personalem et commercialem. Omnia iura intellectualia et codicis fons Leandri Giorni reservantur. Redistributio mutata sine licentia prohibetur.",
+  "about_support_btn": "Collatio Voluntaria"
 }

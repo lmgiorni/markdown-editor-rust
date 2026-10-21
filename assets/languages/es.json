@@ -235,5 +235,22 @@
   "tip_comment": "Comentario oculto - Sintaxis: <!-- comentario -->",
   "tip_footnote": "Nota al pie - Sintaxis: [^1]",
   "tip_def_list": "Lista de definición - Sintaxis: Término : Definición",
-  "tip_details": "Bloque plegable - Sintaxis: <details>"
+  "tip_details": "Bloque plegable - Sintaxis: <details>",
+  "recent_files_title": "Documentos recientes",
+  "recent_files_empty": "No hay documentos recientes",
+  "recent_files_clear": "Limpiar historial",
+  "tooltip_open_with_recent": "Abrir Archivo (Ctrl+O) — Recientes (Ctrl+Shift+Clic o Ctrl+Shift+O)",
+  "recent_file_not_found": "El archivo no fue encontrado en la ruta especificada.",
+  "dnd_format_unsupported": "Formato no compatible. Formatos permitidos: .md, .markdown, .txt, .json, .xml, .yaml",
+  "dnd_overlay_msg": "Soltar archivo para abrir",
+  "btn_about": "Acerca de Summa Scriptura",
+  "about_title": "Acerca de Summa Scriptura",
+  "about_version": "Versión",
+  "about_year": "Año",
+  "about_copyright": "Todos los derechos reservados a Leandro Giorni.",
+  "about_description": "Editor y estructurador Markdown diseñado para autores, diseñadores de juegos y redactores que buscan concentración, jerarquía impecable y fluidez creativa.",
+  "about_license_title": "Términos de Licencia",
+  "about_license_type": "Freeware Propietario con autorización de uso comercial y personal.",
+  "about_license_desc": "Este software es gratuito y de uso libre para proyectos personales y comerciales. Quedan reservados todos los derechos de autoría, propiedad intelectual y código fuente a Leandro Giorni. No se permite la redistribución modificada ni la descompilación del software sin autorización expresa del autor.",
+  "about_support_btn": "Contribución voluntaria"
 }

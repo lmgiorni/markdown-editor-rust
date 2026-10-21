@@ -90,6 +90,16 @@ const DOM = {
   btnCancelVars: document.getElementById('btn-cancel-vars'),
   btnApplyVars: document.getElementById('btn-apply-vars'),
   
+  // Barra Lateral y Ventana de Atajos Markdown
+  shortcutsSidebar: document.getElementById('shortcuts-sidebar'),
+  btnUndockShortcuts: document.getElementById('btn-undock-shortcuts-sidebar'),
+  btnDockShortcutsMaster: document.getElementById('btn-dock-shortcuts-master'),
+  btnDockShortcutsSide: document.getElementById('btn-dock-shortcuts-side'),
+  btnCloseShortcutsSidebar: document.getElementById('btn-close-shortcuts-sidebar'),
+  shortcutsCategoriesWrapper: document.getElementById('shortcuts-categories-wrapper'),
+  shortcutsSidebarBody: document.getElementById('shortcuts-sidebar-body'),
+  shortcutsMasterBodySlot: document.getElementById('shortcuts-master-body-slot'),
+
   // Barra Lateral de Componentes (Biblioteca)
   btnComponentsToggle: document.getElementById('btn-components-toggle'),
   componentsSidebar: document.getElementById('components-sidebar'),
@@ -1070,6 +1080,21 @@ function cerrarModal(modal) {
   if (!modal) return;
   modal.classList.remove('active');
   
+  if (modal === DOM.modalMd) {
+    dockShortcutsToSidebar();
+  } else if (modal.id && modal.id.startsWith('modal-md-')) {
+    // Si cerramos una ventana flotante individual, re-expandimos su categoría en el panel maestro
+    const cat = modal.id.replace('modal-md-', '');
+    const card = document.querySelector(`.shortcuts-category-card[data-category="${cat}"]`);
+    if (card) {
+      card.classList.remove('collapsed');
+      const collapseBtn = card.querySelector('.btn-collapse-cat');
+      if (collapseBtn) {
+        collapseBtn.setAttribute('title', 'Minimizar categoría');
+      }
+    }
+  }
+  
   // Devolver el foco al editor para mantener el flujo de escritura fluido
   DOM.editor.focus();
 }
@@ -1203,6 +1228,51 @@ window.addEventListener('DOMContentLoaded', () => {
 // LÓGICA DE INYECCIÓN DE ATAJOS MARKDOWN (MODAL MD)
 // ==========================================================================
 
+const isMac = typeof navigator !== 'undefined' && (/Mac|iPhone|iPod|iPad/i.test(navigator.platform) || /Macintosh|Mac OS X/i.test(navigator.userAgent));
+
+const KEYBOARD_SHORTCUTS = {
+  'h1': { mac: '⌘1', win: 'Ctrl+1' },
+  'h2': { mac: '⌘2', win: 'Ctrl+2' },
+  'h3': { mac: '⌘3', win: 'Ctrl+3' },
+  'h4': { mac: '⌘4', win: 'Ctrl+4' },
+  'h5': { mac: '⌘5', win: 'Ctrl+5' },
+  'h6': { mac: '⌘6', win: 'Ctrl+6' },
+  'bold': { mac: '⌘B', win: 'Ctrl+B' },
+  'italic': { mac: '⌘I', win: 'Ctrl+I' },
+  'underline': { mac: '⌘U', win: 'Ctrl+U' },
+  'strikethrough': { mac: '⇧⌘S', win: 'Ctrl+Shift+S' },
+  'highlight': { mac: '⌘H', win: 'Ctrl+H' },
+  'superscript': { mac: '⌘^', win: 'Ctrl+.' },
+  'subscript': { mac: '⌘_', win: 'Ctrl+,' },
+  'ul': { mac: '⌃U', win: 'Ctrl+U' },
+  'ol': { mac: '⇧⌃U', win: 'Ctrl+Shift+O' },
+  'task': { mac: '⇧⌘T', win: 'Ctrl+Shift+T' },
+  'link': { mac: '⇧⌘L', win: 'Ctrl+Shift+L' },
+  'image': { mac: '⇧⌘I', win: 'Ctrl+Shift+I' },
+  'email': { mac: '⇧⌘M', win: 'Ctrl+Shift+M' },
+  'blockquote': { mac: '⇧⌘B', win: 'Ctrl+Shift+Q' },
+  'callout': { mac: '⇧⌘A', win: 'Ctrl+Shift+A' },
+  'hr': { mac: '⌥⇧S', win: 'Alt+Shift+S' },
+  'table': { mac: '⌘T', win: 'Ctrl+T' },
+  'comment': { mac: '⌘/', win: 'Ctrl+/' },
+  'code-block': { mac: '⇧⌘K', win: 'Ctrl+Shift+K' },
+  'inline-code': { mac: '⌘K', win: 'Ctrl+K' },
+  'inline-math': { mac: '⌃K', win: 'Alt+K' },
+  'block-math': { mac: '⇧⌃K', win: 'Alt+Shift+K' },
+  'footnote': { mac: '⇧⌘F', win: 'Ctrl+Shift+F' },
+  'definition-list': { mac: '⇧⌘D', win: 'Ctrl+Shift+D' },
+  'details': { mac: '⌥⌘D', win: 'Ctrl+Alt+D' }
+};
+
+function actualizarInsigniasAtajos() {
+  document.querySelectorAll('.shortcut-badge').forEach(badge => {
+    const syntax = badge.getAttribute('data-syntax');
+    if (syntax && KEYBOARD_SHORTCUTS[syntax]) {
+      badge.textContent = isMac ? KEYBOARD_SHORTCUTS[syntax].mac : KEYBOARD_SHORTCUTS[syntax].win;
+    }
+  });
+}
+
 function insertarSintaxisMarkdown(tipo) {
   // Registrar estado previo antes del formateo
   if (historial) {
@@ -1310,6 +1380,18 @@ function insertarSintaxisMarkdown(tipo) {
       prefix = '~~';
       suffix = '~~';
       break;
+    case 'highlight':
+      prefix = '==';
+      suffix = '==';
+      break;
+    case 'superscript':
+      prefix = '^';
+      suffix = '^';
+      break;
+    case 'subscript':
+      prefix = '~';
+      suffix = '~';
+      break;
     case 'link':
       prefix = '[';
       suffix = '](url)';
@@ -1393,6 +1475,26 @@ function insertarSintaxisMarkdown(tipo) {
         return;
       }
       break;
+    case 'callout':
+      prefix = '> [!NOTE]\n> ';
+      suffix = '';
+      if (selectedText.includes('\n')) {
+        const lineas = selectedText.split('\n').map(l => l.startsWith('> ') ? l : `> ${l}`).join('\n');
+        const finalBlock = leadingSpaces + '> [!NOTE]\n' + lineas + trailingSpaces;
+        textarea.setRangeText(finalBlock, start, end, 'select');
+        renderMarkdown();
+        setSavedState(false);
+        DOM.editor.focus();
+        if (historial) {
+          historial.registrarCambioDespuesDeFormato();
+        }
+        return;
+      }
+      break;
+    case 'comment':
+      prefix = '<!-- ';
+      suffix = ' -->';
+      break;
     case 'inline-code':
       prefix = '`';
       suffix = '`';
@@ -1415,10 +1517,6 @@ function insertarSintaxisMarkdown(tipo) {
     case 'h4': prefix = '#### '; break;
     case 'h5': prefix = '##### '; break;
     case 'h6': prefix = '###### '; break;
-    case 'paragraph':
-      prefix = '';
-      suffix = '';
-      break;
     case 'hr':
       prefix = '---';
       suffix = '';
@@ -1491,6 +1589,27 @@ function insertarSintaxisMarkdown(tipo) {
         suffix = '\n: Definición';
       }
       break;
+    case 'details':
+      if (rawSelection.length > 0) {
+        const block = leadingSpaces + '<details>\n<summary>Título</summary>\n\n' + selectedText + '\n\n</details>' + trailingSpaces;
+        textarea.setRangeText(block, start, end, 'select');
+        renderMarkdown();
+        setSavedState(false);
+        DOM.editor.focus();
+        if (historial) historial.registrarCambioDespuesDeFormato();
+        return;
+      } else {
+        const template = '<details>\n<summary>Título</summary>\n\nContenido...\n\n</details>';
+        textarea.setRangeText(template, start, start, 'select');
+        const focusStart = start + '<details>\n<summary>'.length;
+        const focusEnd = focusStart + 'Título'.length;
+        textarea.setSelectionRange(focusStart, focusEnd);
+        renderMarkdown();
+        setSavedState(false);
+        DOM.editor.focus();
+        if (historial) historial.registrarCambioDespuesDeFormato();
+        return;
+      }
   }
   
   if (rawSelection.length > 0) {
@@ -1538,6 +1657,156 @@ document.querySelectorAll('.md-shortcut-btn').forEach(btn => {
     }
   });
 });
+
+// Desacople de categoría individual a ventana flotante con auto-minimizado en el panel maestro
+document.querySelectorAll('.btn-tearoff-cat').forEach(btn => {
+  btn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const cat = btn.getAttribute('data-category');
+    const modalId = `modal-md-${cat}`;
+    const targetModal = document.getElementById(modalId);
+    if (targetModal) {
+      abrirModal(targetModal);
+      
+      // Minimizar automáticamente la categoría en la barra lateral o panel general
+      const card = btn.closest('.shortcuts-category-card');
+      if (card) {
+        card.classList.add('collapsed');
+        const collapseBtn = card.querySelector('.btn-collapse-cat');
+        if (collapseBtn) {
+          collapseBtn.setAttribute('title', 'Expandir categoría');
+        }
+      }
+    }
+  });
+});
+
+// Colapsar / expandir categoría individual mediante su botón
+document.querySelectorAll('.btn-collapse-cat').forEach(btn => {
+  btn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const card = btn.closest('.shortcuts-category-card');
+    if (card) {
+      card.classList.toggle('collapsed');
+      const isCollapsed = card.classList.contains('collapsed');
+      btn.setAttribute('title', isCollapsed ? 'Expandir categoría' : 'Minimizar categoría');
+    }
+  });
+});
+
+// Permitir colapsar / expandir al hacer clic en la cabecera de la categoría
+document.querySelectorAll('.shortcuts-category-header').forEach(header => {
+  header.addEventListener('click', (e) => {
+    if (e.target.closest('button')) return;
+    const card = header.closest('.shortcuts-category-card');
+    if (card) {
+      card.classList.toggle('collapsed');
+      const collapseBtn = card.querySelector('.btn-collapse-cat');
+      if (collapseBtn) {
+        const isCollapsed = card.classList.contains('collapsed');
+        collapseBtn.setAttribute('title', isCollapsed ? 'Expandir categoría' : 'Minimizar categoría');
+      }
+    }
+  });
+});
+
+// ==========================================================================
+// GESTIÓN DE ACOPLE / DESACOPLE DEL PANEL DE ATAJOS MARKDOWN
+// ==========================================================================
+
+function dockShortcutsToSidebar() {
+  const sidebar = DOM.shortcutsSidebar || document.getElementById('shortcuts-sidebar');
+  const wrapper = DOM.shortcutsCategoriesWrapper || document.getElementById('shortcuts-categories-wrapper');
+  const sidebarBody = DOM.shortcutsSidebarBody || document.getElementById('shortcuts-sidebar-body');
+  
+  if (wrapper && sidebarBody && !sidebarBody.contains(wrapper)) {
+    sidebarBody.appendChild(wrapper);
+  }
+  if (DOM.modalMd && DOM.modalMd.classList.contains('active')) {
+    DOM.modalMd.classList.remove('active');
+  }
+}
+
+function undockShortcutsToFloating() {
+  const sidebar = DOM.shortcutsSidebar || document.getElementById('shortcuts-sidebar');
+  const wrapper = DOM.shortcutsCategoriesWrapper || document.getElementById('shortcuts-categories-wrapper');
+  const masterSlot = DOM.shortcutsMasterBodySlot || document.getElementById('shortcuts-master-body-slot');
+  
+  if (sidebar) {
+    sidebar.classList.add('collapsed');
+  }
+  if (DOM.btnMd) {
+    DOM.btnMd.classList.remove('active');
+  }
+  
+  if (wrapper && masterSlot) {
+    masterSlot.appendChild(wrapper);
+  }
+  abrirModal(DOM.modalMd);
+  alertNotification('Panel de atajos desacoplado a ventana flotante', 'info');
+}
+
+function toggleShortcutsSidebar() {
+  const sidebar = DOM.shortcutsSidebar || document.getElementById('shortcuts-sidebar');
+  if (!sidebar) return;
+  
+  // Si la ventana flotante está abierta, cerrarla y traer el contenido a la barra lateral
+  if (DOM.modalMd && DOM.modalMd.classList.contains('active')) {
+    dockShortcutsToSidebar();
+    sidebar.classList.remove('collapsed');
+    DOM.btnMd.classList.add('active');
+    return;
+  }
+  
+  dockShortcutsToSidebar();
+  
+  sidebar.classList.toggle('collapsed');
+  const isCollapsed = sidebar.classList.contains('collapsed');
+  DOM.btnMd.classList.toggle('active', !isCollapsed);
+}
+
+// Listeners de desacople, reacople y cierre del panel de atajos
+if (DOM.btnUndockShortcuts) {
+  DOM.btnUndockShortcuts.addEventListener('click', undockShortcutsToFloating);
+}
+
+if (DOM.btnDockShortcutsMaster) {
+  DOM.btnDockShortcutsMaster.addEventListener('click', () => {
+    dockShortcutsToSidebar();
+    if (DOM.shortcutsSidebar) {
+      DOM.shortcutsSidebar.classList.remove('collapsed');
+      DOM.btnMd.classList.add('active');
+    }
+  });
+}
+
+if (DOM.btnCloseShortcutsSidebar) {
+  DOM.btnCloseShortcutsSidebar.addEventListener('click', () => {
+    if (DOM.shortcutsSidebar) {
+      DOM.shortcutsSidebar.classList.add('collapsed');
+      DOM.btnMd.classList.remove('active');
+    }
+  });
+}
+
+if (DOM.btnDockShortcutsSide) {
+  DOM.btnDockShortcutsSide.addEventListener('click', () => {
+    if (DOM.shortcutsSidebar) {
+      const isRight = DOM.shortcutsSidebar.classList.toggle('dock-right');
+      try {
+        localStorage.setItem('shortcuts_dock_side', isRight ? 'right' : 'left');
+      } catch (e) {}
+    }
+  });
+}
+
+// Restaurar posición guardada de acoplamiento lateral (Izquierda / Derecha)
+try {
+  const savedSide = localStorage.getItem('shortcuts_dock_side');
+  if (savedSide === 'right' && DOM.shortcutsSidebar) {
+    DOM.shortcutsSidebar.classList.add('dock-right');
+  }
+} catch (e) {}
 
 // ==========================================================================
 // CÁLCULO DE ESTADÍSTICAS EN TIEMPO REAL (MODAL STATS)
@@ -1803,18 +2072,18 @@ function actualizarTextosInterfaz(lang) {
   const ctxAna = document.getElementById('ctx-palette-analogous');
   if (ctxAna && t.color_picker_ctx_analogous) ctxAna.textContent = t.color_picker_ctx_analogous;
 
-  // 5. Botones de Categorías y Títulos Flotantes
-  const setCategoryBtn = (cat, text) => {
-    const btn = document.querySelector(`#modal-md [data-category="${cat}"]`);
-    if (btn) btn.textContent = text;
+  // 5. Títulos de Categorías y Paneles Flotantes
+  const setCategoryTitle = (cat, text) => {
+    const titleEl = document.querySelector(`[data-category-title="${cat}"]`);
+    if (titleEl) titleEl.textContent = text;
   };
-  setCategoryBtn('basic', t.md_cat_basic);
-  setCategoryBtn('headings', t.md_cat_headings);
-  setCategoryBtn('lists', t.md_cat_lists);
-  setCategoryBtn('media', t.md_cat_media);
-  setCategoryBtn('code', t.md_cat_code);
-  setCategoryBtn('structure', t.md_cat_structure);
-  setCategoryBtn('advanced', t.md_cat_advanced);
+  setCategoryTitle('basic', t.md_title_basic || t.md_cat_basic);
+  setCategoryTitle('headings', t.md_title_headings || t.md_cat_headings);
+  setCategoryTitle('lists', t.md_title_lists || t.md_cat_lists);
+  setCategoryTitle('media', t.md_title_media || t.md_cat_media);
+  setCategoryTitle('code', t.md_title_code || t.md_cat_code);
+  setCategoryTitle('structure', t.md_title_structure || t.md_cat_structure);
+  setCategoryTitle('advanced', t.md_title_advanced || t.md_cat_advanced);
 
   const setFloatingHeaderAndFooter = (id, title, help) => {
     const modal = document.getElementById(id);
@@ -1839,6 +2108,9 @@ function actualizarTextosInterfaz(lang) {
     'italic': { text: t.btn_italic, title: lang === 'es' ? 'Cursiva - Sintaxis: *texto*' : (lang === 'en' ? 'Italic - Syntax: *text*' : 'Obliquus - Syntaxis: *textus*') },
     'underline': { text: t.btn_underline, title: lang === 'es' ? 'Subrayado - Sintaxis: <u>texto</u>' : (lang === 'en' ? 'Underline - Syntax: <u>text</u>' : 'Sublineatus - Syntaxis: <u>textus</u>') },
     'strikethrough': { text: t.btn_strikethrough, title: lang === 'es' ? 'Tachado - Sintaxis: ~~texto~~' : (lang === 'en' ? 'Strikethrough - Syntax: ~~text~~' : 'Deletus - Syntaxis: ~~textus~~') },
+    'highlight': { text: t.btn_highlight || 'Resaltado', title: lang === 'es' ? 'Resaltado - Sintaxis: ==texto==' : (lang === 'en' ? 'Highlight - Syntax: ==text==' : 'Insigne - Syntaxis: ==textus==') },
+    'superscript': { text: t.btn_superscript || 'Superíndice', title: lang === 'es' ? 'Superíndice - Sintaxis: ^texto^' : (lang === 'en' ? 'Superscript - Syntax: ^text^' : 'Superscriptum - Syntaxis: ^textus^') },
+    'subscript': { text: t.btn_subscript || 'Subíndice', title: lang === 'es' ? 'Subíndice - Sintaxis: ~texto~' : (lang === 'en' ? 'Subscript - Syntax: ~text~' : 'Subscriptum - Syntaxis: ~textus~') },
     'h1': { text: t.btn_h1, title: lang === 'es' ? 'Título 1 - Sintaxis: # Título' : (lang === 'en' ? 'Heading 1 - Syntax: # Heading' : 'Titulus 1 - Syntaxis: # Titulus') },
     'h2': { text: t.btn_h2, title: lang === 'es' ? 'Título 2 - Sintaxis: ## Título' : (lang === 'en' ? 'Heading 2 - Syntax: ## Heading' : 'Titulus 2 - Syntaxis: ## Titulus') },
     'h3': { text: t.btn_h3, title: lang === 'es' ? 'Título 3 - Sintaxis: ### Título' : (lang === 'en' ? 'Heading 3 - Syntax: ### Heading' : 'Titulus 3 - Syntaxis: ### Titulus') },
@@ -1850,27 +2122,58 @@ function actualizarTextosInterfaz(lang) {
     'task': { text: t.btn_task, title: lang === 'es' ? 'Lista de tareas - Sintaxis: - [ ] Tarea' : (lang === 'en' ? 'Task List - Syntax: - [ ] Task' : 'Index Pensorum - Syntaxis: - [ ] Pensum') },
     'link': { text: t.btn_link, title: lang === 'es' ? 'Enlace web - Sintaxis: [texto](url)' : (lang === 'en' ? 'Web Link - Syntax: [text](url)' : 'Nexus Interretialis - Syntaxis: [textus](url)') },
     'image': { text: t.btn_image, title: lang === 'es' ? 'Imagen - Sintaxis: ![texto](url)' : (lang === 'en' ? 'Image - Syntax: ![text](url)' : 'Imago - Syntaxis: ![textus](url)') },
+    'email': { text: t.btn_email, title: lang === 'es' ? 'Enlace de correo - Sintaxis: <correo>' : (lang === 'en' ? 'Email Link - Syntax: <email>' : 'Nexus Litterae Electronicae - Syntaxis: <littera>') },
     'inline-code': { text: t.btn_inline_code, title: lang === 'es' ? 'Código en línea - Sintaxis: `código`' : (lang === 'en' ? 'Inline Code - Syntax: `code`' : 'Codex in linea - Syntaxis: `codex`') },
     'code-block': { text: t.btn_code_block, title: lang === 'es' ? 'Bloque de código - Sintaxis: ```javascript' : (lang === 'en' ? 'Code Block - Syntax: ```javascript' : 'Codex in textu - Syntaxis: ```javascript') },
     'inline-math': { text: t.btn_inline_math, title: lang === 'es' ? 'Fórmula en línea - Sintaxis: $f(x)$' : (lang === 'en' ? 'Inline Math - Syntax: $f(x)$' : 'Formula in linea - Syntaxis: $f(x)$') },
     'block-math': { text: t.btn_block_math, title: lang === 'es' ? 'Fórmula en bloque - Sintaxis: $$' : (lang === 'en' ? 'Block Math - Syntax: $$' : 'Formula in textu - Syntaxis: $$') },
     'blockquote': { text: t.btn_blockquote, title: lang === 'es' ? 'Cita - Sintaxis: > cita' : (lang === 'en' ? 'Blockquote - Syntax: > quote' : 'Citatio - Syntaxis: > citatio') },
-    'paragraph': { text: t.btn_paragraph, title: lang === 'es' ? 'Párrafo' : (lang === 'en' ? 'Paragraph' : 'Paragraphus') },
+    'callout': { text: t.btn_callout || 'Bloque de Alerta', title: lang === 'es' ? 'Bloque de Alerta - Sintaxis: > [!NOTE]' : (lang === 'en' ? 'Callout Alert - Syntax: > [!NOTE]' : 'Monitio - Syntaxis: > [!NOTE]') },
     'table': { text: t.btn_table, title: lang === 'es' ? 'Tabla - Sintaxis: tabular' : (lang === 'en' ? 'Table - Syntax: tabular' : 'Tabula - Syntaxis: tabular') },
     'hr': { text: t.btn_hr, title: lang === 'es' ? 'Línea divisoria - Sintaxis: ---' : (lang === 'en' ? 'Horizontal Rule - Syntax: ---' : 'Linea divisoria - Syntaxis: ---') },
+    'comment': { text: t.btn_comment || 'Comentario Oculto', title: lang === 'es' ? 'Comentario Oculto - Sintaxis: <!-- comentario -->' : (lang === 'en' ? 'Hidden Comment - Syntax: <!-- comment -->' : 'Commentarium Occultum - Syntaxis: <!-- commentarium -->') },
     'footnote': { text: t.btn_footnote, title: lang === 'es' ? 'Nota al pie - Sintaxis: [^1]' : (lang === 'en' ? 'Footnote - Syntax: [^1]' : 'Nota ad calcem - Syntaxis: [^1]') },
-    'email': { text: t.btn_email, title: lang === 'es' ? 'Enlace de correo - Sintaxis: <correo>' : (lang === 'en' ? 'Email Link - Syntax: <email>' : 'Nexus Litterae Electronicae - Syntaxis: <littera>') },
-    'definition-list': { text: t.btn_def_list, title: lang === 'es' ? 'Lista de definición - Sintaxis: Término\\n: Definición' : (lang === 'en' ? 'Definition List - Syntax: Term\\n: Definition' : 'Index Definitionum - Syntaxis: Terminus\\n: Definitio') }
+    'definition-list': { text: t.btn_def_list, title: lang === 'es' ? 'Lista de definición - Sintaxis: Término\\n: Definición' : (lang === 'en' ? 'Definition List - Syntax: Term\\n: Definition' : 'Index Definitionum - Syntaxis: Terminus\\n: Definitio') },
+    'details': { text: t.btn_details || 'Bloque Plegable', title: lang === 'es' ? 'Bloque Plegable - Sintaxis: <details>' : (lang === 'en' ? 'Collapsible Block - Syntax: <details>' : 'Pars Plicatilis - Syntaxis: <details>') }
   };
 
   document.querySelectorAll('.md-shortcut-btn').forEach(btn => {
     const syntax = btn.getAttribute('data-syntax');
     const trans = shortcutTranslations[syntax];
     if (trans) {
-      btn.textContent = trans.text;
+      const labelEl = btn.querySelector('.shortcut-label');
+      if (labelEl) {
+        labelEl.textContent = trans.text;
+      } else {
+        btn.textContent = trans.text;
+      }
       btn.setAttribute('title', trans.title);
     }
   });
+
+  const masterShortcutsTitle = document.querySelector('#modal-md .modal-header h3');
+  if (masterShortcutsTitle) masterShortcutsTitle.textContent = t.title_shortcuts_panel || 'Atajos y Formato Markdown';
+  const sidebarShortcutsTitle = document.querySelector('#shortcuts-sidebar .shortcuts-sidebar-title');
+  if (sidebarShortcutsTitle) sidebarShortcutsTitle.textContent = t.title_shortcuts_panel || 'Atajos y Formato Markdown';
+  
+  const btnDockMaster = document.getElementById('btn-dock-shortcuts-master');
+  if (btnDockMaster) btnDockMaster.setAttribute('title', t.tooltip_dock_sidebar || 'Reacoplar a la barra lateral');
+  const btnUndockSidebar = document.getElementById('btn-undock-shortcuts-sidebar');
+  if (btnUndockSidebar) btnUndockSidebar.setAttribute('title', t.tooltip_tearoff_panel || 'Desacoplar a ventana flotante o monitor externo');
+  const btnDockSide = document.getElementById('btn-dock-shortcuts-side');
+  if (btnDockSide) btnDockSide.setAttribute('title', t.tooltip_dock_side || 'Alternar acople Izquierda/Derecha');
+
+  document.querySelectorAll('.btn-tearoff-cat').forEach(b => {
+    b.setAttribute('title', t.tooltip_tearoff_cat || 'Desacoplar esta categoría a una ventana flotante individual');
+  });
+
+  document.querySelectorAll('.btn-collapse-cat').forEach(b => {
+    const card = b.closest('.shortcuts-category-card');
+    const isCollapsed = card && card.classList.contains('collapsed');
+    b.setAttribute('title', isCollapsed ? (t.tooltip_expand_cat || 'Expandir categoría') : (t.tooltip_collapse_cat || 'Minimizar categoría'));
+  });
+
+  actualizarInsigniasAtajos();
 
   // 7. Etiquetas de Configuración
   const setLabelText = (selector, text) => { const el = document.querySelector(selector); if (el) el.textContent = text; };
@@ -2453,7 +2756,7 @@ DOM.viewSplit.addEventListener('click', () => cambiarVista('split'));
 DOM.viewPreview.addEventListener('click', () => cambiarVista('preview'));
 
 // Diálogos modales
-DOM.btnMd.addEventListener('click', () => abrirModal(DOM.modalMd));
+DOM.btnMd.addEventListener('click', toggleShortcutsSidebar);
 DOM.btnStats.addEventListener('click', () => abrirModal(DOM.modalStats));
 DOM.btnConfig.addEventListener('click', () => abrirModal(DOM.modalConfig));
 
@@ -2737,10 +3040,168 @@ window.addEventListener('keydown', (e) => {
     guardarArchivo();
   }
   
-  // Ctrl + Shift + S: Guardar Como
-  if (isCtrl && e.shiftKey && e.key.toLowerCase() === 's') {
+  // Ctrl + Shift + S: Guardar Como (cuando no está enfocado el editor)
+  if (isCtrl && e.shiftKey && e.key.toLowerCase() === 's' && document.activeElement !== DOM.editor) {
     e.preventDefault();
     guardarComo();
+  }
+
+  // Atajos de Formato Markdown en el Editor
+  if (document.activeElement === DOM.editor) {
+    const key = e.key.toLowerCase();
+    const isShift = e.shiftKey;
+    const isAlt = e.altKey;
+
+    // Encabezados 1 a 6: Ctrl + 1..6 (o Cmd + 1..6)
+    if (isCtrl && !isAlt && !isShift && e.key >= '1' && e.key <= '6') {
+      e.preventDefault();
+      insertarSintaxisMarkdown('h' + e.key);
+      return;
+    }
+    // Negrita: Ctrl + B
+    if (isCtrl && !isAlt && !isShift && key === 'b') {
+      e.preventDefault();
+      insertarSintaxisMarkdown('bold');
+      return;
+    }
+    // Cursiva: Ctrl + I
+    if (isCtrl && !isAlt && !isShift && key === 'i') {
+      e.preventDefault();
+      insertarSintaxisMarkdown('italic');
+      return;
+    }
+    // Subrayado: Ctrl + U
+    if (isCtrl && !isAlt && !isShift && key === 'u') {
+      e.preventDefault();
+      insertarSintaxisMarkdown('underline');
+      return;
+    }
+    // Tachado: Ctrl + Shift + S en editor
+    if (isCtrl && !isAlt && isShift && key === 's') {
+      e.preventDefault();
+      insertarSintaxisMarkdown('strikethrough');
+      return;
+    }
+    // Resaltado: Ctrl + H
+    if (isCtrl && !isAlt && !isShift && key === 'h') {
+      e.preventDefault();
+      insertarSintaxisMarkdown('highlight');
+      return;
+    }
+    // Superíndice: Ctrl + .
+    if (isCtrl && !isAlt && !isShift && e.key === '.') {
+      e.preventDefault();
+      insertarSintaxisMarkdown('superscript');
+      return;
+    }
+    // Subíndice: Ctrl + ,
+    if (isCtrl && !isAlt && !isShift && e.key === ',') {
+      e.preventDefault();
+      insertarSintaxisMarkdown('subscript');
+      return;
+    }
+    // Código en línea: Ctrl + K (sin shift)
+    if (isCtrl && !isAlt && !isShift && key === 'k') {
+      e.preventDefault();
+      insertarSintaxisMarkdown('inline-code');
+      return;
+    }
+    // Bloque de código: Ctrl + Shift + K
+    if (isCtrl && !isAlt && isShift && key === 'k') {
+      e.preventDefault();
+      insertarSintaxisMarkdown('code-block');
+      return;
+    }
+    // Fórmula en línea: Alt + K
+    if (isAlt && !isCtrl && !isShift && key === 'k') {
+      e.preventDefault();
+      insertarSintaxisMarkdown('inline-math');
+      return;
+    }
+    // Bloque matemático: Alt + Shift + K
+    if (isAlt && !isCtrl && isShift && key === 'k') {
+      e.preventDefault();
+      insertarSintaxisMarkdown('block-math');
+      return;
+    }
+    // Comentario oculto: Ctrl + /
+    if (isCtrl && !isAlt && (e.key === '/' || e.key === '7')) {
+      e.preventDefault();
+      insertarSintaxisMarkdown('comment');
+      return;
+    }
+    // Bloque de alerta: Ctrl + Shift + A
+    if (isCtrl && !isAlt && isShift && key === 'a') {
+      e.preventDefault();
+      insertarSintaxisMarkdown('callout');
+      return;
+    }
+    // Tabla: Ctrl + T
+    if (isCtrl && !isAlt && !isShift && key === 't') {
+      e.preventDefault();
+      insertarSintaxisMarkdown('table');
+      return;
+    }
+    // Lista de tareas: Ctrl + Shift + T
+    if (isCtrl && !isAlt && isShift && key === 't') {
+      e.preventDefault();
+      insertarSintaxisMarkdown('task');
+      return;
+    }
+    // Lista ordenada: Ctrl + Shift + O
+    if (isCtrl && !isAlt && isShift && key === 'o') {
+      e.preventDefault();
+      insertarSintaxisMarkdown('ol');
+      return;
+    }
+    // Cita en bloque: Ctrl + Shift + Q
+    if (isCtrl && !isAlt && isShift && key === 'q') {
+      e.preventDefault();
+      insertarSintaxisMarkdown('blockquote');
+      return;
+    }
+    // Enlace web: Ctrl + Shift + L
+    if (isCtrl && !isAlt && isShift && key === 'l') {
+      e.preventDefault();
+      insertarSintaxisMarkdown('link');
+      return;
+    }
+    // Imagen: Ctrl + Shift + I
+    if (isCtrl && !isAlt && isShift && key === 'i') {
+      e.preventDefault();
+      insertarSintaxisMarkdown('image');
+      return;
+    }
+    // Correo: Ctrl + Shift + M
+    if (isCtrl && !isAlt && isShift && key === 'm') {
+      e.preventDefault();
+      insertarSintaxisMarkdown('email');
+      return;
+    }
+    // Nota al pie: Ctrl + Shift + F
+    if (isCtrl && !isAlt && isShift && key === 'f') {
+      e.preventDefault();
+      insertarSintaxisMarkdown('footnote');
+      return;
+    }
+    // Lista de definición: Ctrl + Shift + D
+    if (isCtrl && !isAlt && isShift && key === 'd') {
+      e.preventDefault();
+      insertarSintaxisMarkdown('definition-list');
+      return;
+    }
+    // Bloque plegable: Ctrl + Alt + D
+    if (isCtrl && isAlt && !isShift && key === 'd') {
+      e.preventDefault();
+      insertarSintaxisMarkdown('details');
+      return;
+    }
+    // Línea divisoria: Alt + Shift + S
+    if (isAlt && !isCtrl && isShift && key === 's') {
+      e.preventDefault();
+      insertarSintaxisMarkdown('hr');
+      return;
+    }
   }
   
   // Escape: Cerrar modales abiertos

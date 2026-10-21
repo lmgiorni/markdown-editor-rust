@@ -174,6 +174,291 @@
       </div>
     </aside>
 
+    <!-- Panel Lateral: Atajos y Formato Markdown (Dockeable / Desacoplable) -->
+    <aside id="shortcuts-sidebar" class="shortcuts-sidebar collapsed">
+      <header class="shortcuts-sidebar-header">
+        <div class="shortcuts-header-title-row">
+          <span class="shortcuts-sidebar-title" data-i18n="title_shortcuts_panel">Atajos y Formato Markdown</span>
+          <div class="shortcuts-header-actions">
+            <!-- Alternar Acople Izquierda / Derecha -->
+            <button type="button" id="btn-dock-shortcuts-side" class="sidebar-action-btn" title="Alternar acople Izquierda/Derecha" data-i18n-title="tooltip_dock_side">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="sidebar-action-icon"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M15 3v18"/><path d="m8 9 3 3-3 3"/></svg>
+            </button>
+            <!-- Desacoplar a ventana flotante -->
+            <button type="button" id="btn-undock-shortcuts-sidebar" class="sidebar-action-btn" title="Desacoplar a ventana flotante o monitor externo" data-i18n-title="tooltip_tearoff_panel">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="sidebar-action-icon"><path d="M15 3h6v6"></path><path d="M10 14 21 3"></path><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path></svg>
+            </button>
+            <!-- Cerrar Barra Lateral -->
+            <button type="button" id="btn-close-shortcuts-sidebar" class="sidebar-action-btn btn-close-cross" title="Cerrar panel">
+              &times;
+            </button>
+          </div>
+        </div>
+      </header>
+      <div id="shortcuts-sidebar-body" class="shortcuts-sidebar-body">
+        <div id="shortcuts-categories-wrapper" class="shortcuts-categories-wrapper">
+          
+          <!-- Categoría 1: Títulos -->
+          <section class="shortcuts-category-card" data-category="headings">
+            <div class="shortcuts-category-header">
+              <h4 data-category-title="headings" data-i18n="md_title_headings">Títulos</h4>
+              <div class="shortcuts-card-actions">
+                <button type="button" class="btn-collapse-cat" data-category="headings" title="Minimizar categoría" data-i18n-title="tooltip_collapse_cat">
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="collapse-icon">
+                    <polyline points="18 15 12 9 6 15"></polyline>
+                  </svg>
+                </button>
+                <button type="button" class="btn-tearoff-cat" data-category="headings" title="Desacoplar categoría a ventana flotante" data-i18n-title="tooltip_tearoff_cat">
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="tearoff-icon"><path d="M15 3h6v6"></path><path d="M10 14 21 3"></path><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path></svg>
+                </button>
+              </div>
+            </div>
+            <div class="shortcuts-items-list">
+              <button type="button" class="md-shortcut-btn" data-syntax="h1">
+                <span class="shortcut-label">Encabezado 1</span>
+                <kbd class="shortcut-badge" data-syntax="h1">Ctrl+1</kbd>
+              </button>
+              <button type="button" class="md-shortcut-btn" data-syntax="h2">
+                <span class="shortcut-label">Encabezado 2</span>
+                <kbd class="shortcut-badge" data-syntax="h2">Ctrl+2</kbd>
+              </button>
+              <button type="button" class="md-shortcut-btn" data-syntax="h3">
+                <span class="shortcut-label">Encabezado 3</span>
+                <kbd class="shortcut-badge" data-syntax="h3">Ctrl+3</kbd>
+              </button>
+              <button type="button" class="md-shortcut-btn" data-syntax="h4">
+                <span class="shortcut-label">Encabezado 4</span>
+                <kbd class="shortcut-badge" data-syntax="h4">Ctrl+4</kbd>
+              </button>
+              <button type="button" class="md-shortcut-btn" data-syntax="h5">
+                <span class="shortcut-label">Encabezado 5</span>
+                <kbd class="shortcut-badge" data-syntax="h5">Ctrl+5</kbd>
+              </button>
+              <button type="button" class="md-shortcut-btn" data-syntax="h6">
+                <span class="shortcut-label">Encabezado 6</span>
+                <kbd class="shortcut-badge" data-syntax="h6">Ctrl+6</kbd>
+              </button>
+            </div>
+          </section>
+
+          <!-- Categoría 2: Formato Básico -->
+          <section class="shortcuts-category-card" data-category="basic">
+            <div class="shortcuts-category-header">
+              <h4 data-category-title="basic" data-i18n="md_title_basic">Texto Básico</h4>
+              <div class="shortcuts-card-actions">
+                <button type="button" class="btn-collapse-cat" data-category="basic" title="Minimizar categoría" data-i18n-title="tooltip_collapse_cat">
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="collapse-icon">
+                    <polyline points="18 15 12 9 6 15"></polyline>
+                  </svg>
+                </button>
+                <button type="button" class="btn-tearoff-cat" data-category="basic" title="Desacoplar categoría a ventana flotante" data-i18n-title="tooltip_tearoff_cat">
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="tearoff-icon"><path d="M15 3h6v6"></path><path d="M10 14 21 3"></path><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path></svg>
+                </button>
+              </div>
+            </div>
+            <div class="shortcuts-items-list">
+              <button type="button" class="md-shortcut-btn" data-syntax="bold">
+                <span class="shortcut-label">Negrita</span>
+                <kbd class="shortcut-badge" data-syntax="bold">Ctrl+B</kbd>
+              </button>
+              <button type="button" class="md-shortcut-btn" data-syntax="italic">
+                <span class="shortcut-label">Cursiva</span>
+                <kbd class="shortcut-badge" data-syntax="italic">Ctrl+I</kbd>
+              </button>
+              <button type="button" class="md-shortcut-btn" data-syntax="underline">
+                <span class="shortcut-label">Subrayado</span>
+                <kbd class="shortcut-badge" data-syntax="underline">Ctrl+U</kbd>
+              </button>
+              <button type="button" class="md-shortcut-btn" data-syntax="strikethrough">
+                <span class="shortcut-label">Tachado</span>
+                <kbd class="shortcut-badge" data-syntax="strikethrough">Ctrl+Shift+S</kbd>
+              </button>
+              <button type="button" class="md-shortcut-btn" data-syntax="highlight">
+                <span class="shortcut-label">Resaltado</span>
+                <kbd class="shortcut-badge" data-syntax="highlight">Ctrl+H</kbd>
+              </button>
+              <button type="button" class="md-shortcut-btn" data-syntax="superscript">
+                <span class="shortcut-label">Superíndice</span>
+                <kbd class="shortcut-badge" data-syntax="superscript">Ctrl+.</kbd>
+              </button>
+              <button type="button" class="md-shortcut-btn" data-syntax="subscript">
+                <span class="shortcut-label">Subíndice</span>
+                <kbd class="shortcut-badge" data-syntax="subscript">Ctrl+,</kbd>
+              </button>
+            </div>
+          </section>
+
+          <!-- Categoría 3: Listas -->
+          <section class="shortcuts-category-card" data-category="lists">
+            <div class="shortcuts-category-header">
+              <h4 data-category-title="lists" data-i18n="md_title_lists">Listas</h4>
+              <div class="shortcuts-card-actions">
+                <button type="button" class="btn-collapse-cat" data-category="lists" title="Minimizar categoría" data-i18n-title="tooltip_collapse_cat">
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="collapse-icon">
+                    <polyline points="18 15 12 9 6 15"></polyline>
+                  </svg>
+                </button>
+                <button type="button" class="btn-tearoff-cat" data-category="lists" title="Desacoplar categoría a ventana flotante" data-i18n-title="tooltip_tearoff_cat">
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="tearoff-icon"><path d="M15 3h6v6"></path><path d="M10 14 21 3"></path><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path></svg>
+                </button>
+              </div>
+            </div>
+            <div class="shortcuts-items-list">
+              <button type="button" class="md-shortcut-btn" data-syntax="ul">
+                <span class="shortcut-label">Lista Desordenada</span>
+                <kbd class="shortcut-badge" data-syntax="ul">Ctrl+U</kbd>
+              </button>
+              <button type="button" class="md-shortcut-btn" data-syntax="ol">
+                <span class="shortcut-label">Lista Ordenada</span>
+                <kbd class="shortcut-badge" data-syntax="ol">Ctrl+Shift+O</kbd>
+              </button>
+              <button type="button" class="md-shortcut-btn" data-syntax="task">
+                <span class="shortcut-label">Lista de Tareas</span>
+                <kbd class="shortcut-badge" data-syntax="task">Ctrl+Shift+T</kbd>
+              </button>
+            </div>
+          </section>
+
+          <!-- Categoría 4: Enlaces y Medios -->
+          <section class="shortcuts-category-card" data-category="media">
+            <div class="shortcuts-category-header">
+              <h4 data-category-title="media" data-i18n="md_title_media">Enlaces y Medios</h4>
+              <div class="shortcuts-card-actions">
+                <button type="button" class="btn-collapse-cat" data-category="media" title="Minimizar categoría" data-i18n-title="tooltip_collapse_cat">
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="collapse-icon">
+                    <polyline points="18 15 12 9 6 15"></polyline>
+                  </svg>
+                </button>
+                <button type="button" class="btn-tearoff-cat" data-category="media" title="Desacoplar categoría a ventana flotante" data-i18n-title="tooltip_tearoff_cat">
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="tearoff-icon"><path d="M15 3h6v6"></path><path d="M10 14 21 3"></path><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path></svg>
+                </button>
+              </div>
+            </div>
+            <div class="shortcuts-items-list">
+              <button type="button" class="md-shortcut-btn" data-syntax="link">
+                <span class="shortcut-label">Enlace Web</span>
+                <kbd class="shortcut-badge" data-syntax="link">Ctrl+Shift+L</kbd>
+              </button>
+              <button type="button" class="md-shortcut-btn" data-syntax="image">
+                <span class="shortcut-label">Imagen</span>
+                <kbd class="shortcut-badge" data-syntax="image">Ctrl+Shift+I</kbd>
+              </button>
+              <button type="button" class="md-shortcut-btn" data-syntax="email">
+                <span class="shortcut-label">Enlace de Correo</span>
+                <kbd class="shortcut-badge" data-syntax="email">Ctrl+Shift+M</kbd>
+              </button>
+            </div>
+          </section>
+
+          <!-- Categoría 5: Bloques y Estructura -->
+          <section class="shortcuts-category-card" data-category="structure">
+            <div class="shortcuts-category-header">
+              <h4 data-category-title="structure" data-i18n="md_title_structure">Bloques y Estructura</h4>
+              <div class="shortcuts-card-actions">
+                <button type="button" class="btn-collapse-cat" data-category="structure" title="Minimizar categoría" data-i18n-title="tooltip_collapse_cat">
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="collapse-icon">
+                    <polyline points="18 15 12 9 6 15"></polyline>
+                  </svg>
+                </button>
+                <button type="button" class="btn-tearoff-cat" data-category="structure" title="Desacoplar categoría a ventana flotante" data-i18n-title="tooltip_tearoff_cat">
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="tearoff-icon"><path d="M15 3h6v6"></path><path d="M10 14 21 3"></path><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path></svg>
+                </button>
+              </div>
+            </div>
+            <div class="shortcuts-items-list">
+              <button type="button" class="md-shortcut-btn" data-syntax="blockquote">
+                <span class="shortcut-label">Cita en Bloque</span>
+                <kbd class="shortcut-badge" data-syntax="blockquote">Ctrl+Shift+Q</kbd>
+              </button>
+              <button type="button" class="md-shortcut-btn" data-syntax="callout">
+                <span class="shortcut-label">Bloque de Alerta</span>
+                <kbd class="shortcut-badge" data-syntax="callout">Ctrl+Shift+A</kbd>
+              </button>
+              <button type="button" class="md-shortcut-btn" data-syntax="hr">
+                <span class="shortcut-label">Línea divisoria</span>
+                <kbd class="shortcut-badge" data-syntax="hr">Alt+Shift+S</kbd>
+              </button>
+              <button type="button" class="md-shortcut-btn" data-syntax="table">
+                <span class="shortcut-label">Tabla</span>
+                <kbd class="shortcut-badge" data-syntax="table">Ctrl+T</kbd>
+              </button>
+              <button type="button" class="md-shortcut-btn" data-syntax="comment">
+                <span class="shortcut-label">Comentario Oculto</span>
+                <kbd class="shortcut-badge" data-syntax="comment">Ctrl+/</kbd>
+              </button>
+            </div>
+          </section>
+
+          <!-- Categoría 6: Código y Matemáticas -->
+          <section class="shortcuts-category-card" data-category="code">
+            <div class="shortcuts-category-header">
+              <h4 data-category-title="code" data-i18n="md_title_code">Código y Matemáticas</h4>
+              <div class="shortcuts-card-actions">
+                <button type="button" class="btn-collapse-cat" data-category="code" title="Minimizar categoría" data-i18n-title="tooltip_collapse_cat">
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="collapse-icon">
+                    <polyline points="18 15 12 9 6 15"></polyline>
+                  </svg>
+                </button>
+                <button type="button" class="btn-tearoff-cat" data-category="code" title="Desacoplar categoría a ventana flotante" data-i18n-title="tooltip_tearoff_cat">
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="tearoff-icon"><path d="M15 3h6v6"></path><path d="M10 14 21 3"></path><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path></svg>
+                </button>
+              </div>
+            </div>
+            <div class="shortcuts-items-list">
+              <button type="button" class="md-shortcut-btn" data-syntax="code-block">
+                <span class="shortcut-label">Bloque de Código</span>
+                <kbd class="shortcut-badge" data-syntax="code-block">Ctrl+Shift+K</kbd>
+              </button>
+              <button type="button" class="md-shortcut-btn" data-syntax="inline-code">
+                <span class="shortcut-label">Código en línea</span>
+                <kbd class="shortcut-badge" data-syntax="inline-code">Ctrl+K</kbd>
+              </button>
+              <button type="button" class="md-shortcut-btn" data-syntax="inline-math">
+                <span class="shortcut-label">Fórmula en línea</span>
+                <kbd class="shortcut-badge" data-syntax="inline-math">Alt+K</kbd>
+              </button>
+              <button type="button" class="md-shortcut-btn" data-syntax="block-math">
+                <span class="shortcut-label">Fórmula en bloque</span>
+                <kbd class="shortcut-badge" data-syntax="block-math">Alt+Shift+K</kbd>
+              </button>
+            </div>
+          </section>
+
+          <!-- Categoría 7: Elementos Avanzados -->
+          <section class="shortcuts-category-card" data-category="advanced">
+            <div class="shortcuts-category-header">
+              <h4 data-category-title="advanced" data-i18n="md_title_advanced">Elementos Avanzados</h4>
+              <div class="shortcuts-card-actions">
+                <button type="button" class="btn-collapse-cat" data-category="advanced" title="Minimizar categoría" data-i18n-title="tooltip_collapse_cat">
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="collapse-icon">
+                    <polyline points="18 15 12 9 6 15"></polyline>
+                  </svg>
+                </button>
+                <button type="button" class="btn-tearoff-cat" data-category="advanced" title="Desacoplar categoría a ventana flotante" data-i18n-title="tooltip_tearoff_cat">
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="tearoff-icon"><path d="M15 3h6v6"></path><path d="M10 14 21 3"></path><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path></svg>
+                </button>
+              </div>
+            </div>
+            <div class="shortcuts-items-list">
+              <button type="button" class="md-shortcut-btn" data-syntax="footnote">
+                <span class="shortcut-label">Nota al pie</span>
+                <kbd class="shortcut-badge" data-syntax="footnote">Ctrl+Shift+F</kbd>
+              </button>
+              <button type="button" class="md-shortcut-btn" data-syntax="definition-list">
+                <span class="shortcut-label">Lista de Definición</span>
+                <kbd class="shortcut-badge" data-syntax="definition-list">Ctrl+Shift+D</kbd>
+              </button>
+              <button type="button" class="md-shortcut-btn" data-syntax="details">
+                <span class="shortcut-label">Bloque Plegable</span>
+                <kbd class="shortcut-badge" data-syntax="details">Ctrl+Alt+D</kbd>
+              </button>
+            </div>
+          </section>
+
+        </div>
+      </div>
+    </aside>
+
     <!-- Panel Izquierdo: Editor -->
     <section id="editor-container" class="panel">
       <textarea id="editor" placeholder="Escribe tu Markdown aquí..." spellcheck="false"></textarea>
@@ -225,12 +510,15 @@
        VENTANAS EMERGENTES (MODALES ELEGANTES)
        ========================================================================== -->
 
-  <!-- 1. Modal Atajos Markdown (MD) -->
-  <div id="modal-md" class="modal-overlay">
-    <div class="modal-box modal-box-narrow">
+  <!-- 1. Modal Atajos y Formato Markdown (Ventana Flotante Desacoplada) -->
+  <div id="modal-md" class="modal-overlay floating-window">
+    <div class="modal-box modal-box-shortcuts-master">
       <header class="modal-header">
-        <h3>Categorías de Atajos</h3>
+        <h3 data-i18n="title_shortcuts_panel">Atajos y Formato Markdown</h3>
         <div class="modal-header-actions">
+          <button type="button" id="btn-dock-shortcuts-master" class="modal-tearoff-btn" title="Reacoplar a la barra lateral" data-i18n-title="tooltip_dock_sidebar">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="tearoff-icon"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M9 3v18"/></svg>
+          </button>
           <button class="modal-collapse-btn" title="Minimizar panel">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="collapse-icon">
               <polyline points="18 15 12 9 6 15"></polyline>
@@ -239,16 +527,8 @@
           <button class="modal-close-btn">&times;</button>
         </div>
       </header>
-      <div class="modal-body">
-        <div class="category-grid">
-          <button class="category-btn" data-category="basic">Texto Básico</button>
-          <button class="category-btn" data-category="headings">Títulos (Encabezados)</button>
-          <button class="category-btn" data-category="lists">Listas</button>
-          <button class="category-btn" data-category="media">Enlaces y Medios</button>
-          <button class="category-btn" data-category="code">Código y Matemáticas</button>
-          <button class="category-btn" data-category="structure">Bloques y Estructura</button>
-          <button class="category-btn" data-category="advanced">Elementos Avanzados</button>
-        </div>
+      <div class="modal-body shortcuts-master-body" id="shortcuts-master-body-slot">
+        <!-- El contenedor shortcuts-categories-wrapper se aloja aquí cuando se desacopla a flotante -->
       </div>
     </div>
   </div>
@@ -257,7 +537,7 @@
   <div id="modal-md-basic" class="modal-overlay floating-window">
     <div class="modal-box modal-box-narrow">
       <header class="modal-header">
-        <h3>Texto Básico</h3>
+        <h3 data-i18n="md_title_basic">Texto Básico</h3>
         <div class="modal-header-actions">
           <button class="modal-collapse-btn" title="Minimizar panel">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="collapse-icon">
@@ -269,10 +549,13 @@
       </header>
       <div class="modal-body">
         <div class="md-grid">
-          <button class="md-shortcut-btn" data-syntax="bold" title="Negrita - Sintaxis: **texto** (Negrita)">Negrita</button>
-          <button class="md-shortcut-btn" data-syntax="italic" title="Cursiva - Sintaxis: *texto* (Cursiva)">Cursiva</button>
-          <button class="md-shortcut-btn" data-syntax="underline" title="Subrayado - Sintaxis: <u>texto</u> (Subrayado)">Subrayado</button>
-          <button class="md-shortcut-btn" data-syntax="strikethrough" title="Tachado - Sintaxis: ~~texto~~ (Tachado)">Tachado</button>
+          <button type="button" class="md-shortcut-btn" data-syntax="bold"><span class="shortcut-label">Negrita</span><kbd class="shortcut-badge" data-syntax="bold">Ctrl+B</kbd></button>
+          <button type="button" class="md-shortcut-btn" data-syntax="italic"><span class="shortcut-label">Cursiva</span><kbd class="shortcut-badge" data-syntax="italic">Ctrl+I</kbd></button>
+          <button type="button" class="md-shortcut-btn" data-syntax="underline"><span class="shortcut-label">Subrayado</span><kbd class="shortcut-badge" data-syntax="underline">Ctrl+U</kbd></button>
+          <button type="button" class="md-shortcut-btn" data-syntax="strikethrough"><span class="shortcut-label">Tachado</span><kbd class="shortcut-badge" data-syntax="strikethrough">Ctrl+Shift+S</kbd></button>
+          <button type="button" class="md-shortcut-btn" data-syntax="highlight"><span class="shortcut-label">Resaltado</span><kbd class="shortcut-badge" data-syntax="highlight">Ctrl+H</kbd></button>
+          <button type="button" class="md-shortcut-btn" data-syntax="superscript"><span class="shortcut-label">Superíndice</span><kbd class="shortcut-badge" data-syntax="superscript">Ctrl+.</kbd></button>
+          <button type="button" class="md-shortcut-btn" data-syntax="subscript"><span class="shortcut-label">Subíndice</span><kbd class="shortcut-badge" data-syntax="subscript">Ctrl+,</kbd></button>
         </div>
       </div>
       <div class="modal-footer shortcut-help-footer">
@@ -285,7 +568,7 @@
   <div id="modal-md-headings" class="modal-overlay floating-window">
     <div class="modal-box modal-box-narrow">
       <header class="modal-header">
-        <h3>Títulos</h3>
+        <h3 data-i18n="md_title_headings">Títulos</h3>
         <div class="modal-header-actions">
           <button class="modal-collapse-btn" title="Minimizar panel">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="collapse-icon">
@@ -297,12 +580,12 @@
       </header>
       <div class="modal-body">
         <div class="md-grid">
-          <button class="md-shortcut-btn" data-syntax="h1" title="Encabezado 1 - Sintaxis: # Título">Encabezado 1</button>
-          <button class="md-shortcut-btn" data-syntax="h2" title="Encabezado 2 - Sintaxis: ## Título">Encabezado 2</button>
-          <button class="md-shortcut-btn" data-syntax="h3" title="Encabezado 3 - Sintaxis: ### Título">Encabezado 3</button>
-          <button class="md-shortcut-btn" data-syntax="h4" title="Encabezado 4 - Sintaxis: #### Título">Encabezado 4</button>
-          <button class="md-shortcut-btn" data-syntax="h5" title="Encabezado 5 - Sintaxis: ##### Título">Encabezado 5</button>
-          <button class="md-shortcut-btn" data-syntax="h6" title="Encabezado 6 - Sintaxis: ###### Título">Encabezado 6</button>
+          <button type="button" class="md-shortcut-btn" data-syntax="h1"><span class="shortcut-label">Encabezado 1</span><kbd class="shortcut-badge" data-syntax="h1">Ctrl+1</kbd></button>
+          <button type="button" class="md-shortcut-btn" data-syntax="h2"><span class="shortcut-label">Encabezado 2</span><kbd class="shortcut-badge" data-syntax="h2">Ctrl+2</kbd></button>
+          <button type="button" class="md-shortcut-btn" data-syntax="h3"><span class="shortcut-label">Encabezado 3</span><kbd class="shortcut-badge" data-syntax="h3">Ctrl+3</kbd></button>
+          <button type="button" class="md-shortcut-btn" data-syntax="h4"><span class="shortcut-label">Encabezado 4</span><kbd class="shortcut-badge" data-syntax="h4">Ctrl+4</kbd></button>
+          <button type="button" class="md-shortcut-btn" data-syntax="h5"><span class="shortcut-label">Encabezado 5</span><kbd class="shortcut-badge" data-syntax="h5">Ctrl+5</kbd></button>
+          <button type="button" class="md-shortcut-btn" data-syntax="h6"><span class="shortcut-label">Encabezado 6</span><kbd class="shortcut-badge" data-syntax="h6">Ctrl+6</kbd></button>
         </div>
       </div>
       <div class="modal-footer shortcut-help-footer">
@@ -315,7 +598,7 @@
   <div id="modal-md-lists" class="modal-overlay floating-window">
     <div class="modal-box modal-box-narrow">
       <header class="modal-header">
-        <h3>Listas</h3>
+        <h3 data-i18n="md_title_lists">Listas</h3>
         <div class="modal-header-actions">
           <button class="modal-collapse-btn" title="Minimizar panel">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="collapse-icon">
@@ -327,9 +610,9 @@
       </header>
       <div class="modal-body">
         <div class="md-grid">
-          <button class="md-shortcut-btn" data-syntax="ul" title="Lista Desordenada - Sintaxis: - Elemento">Lista Desordenada</button>
-          <button class="md-shortcut-btn" data-syntax="ol" title="Lista Ordenada - Sintaxis: 1. Elemento">Lista Ordenada</button>
-          <button class="md-shortcut-btn" data-syntax="task" title="Lista de Tareas - Sintaxis: - [ ] Tarea">Lista de Tareas</button>
+          <button type="button" class="md-shortcut-btn" data-syntax="ul"><span class="shortcut-label">Lista Desordenada</span><kbd class="shortcut-badge" data-syntax="ul">Ctrl+U</kbd></button>
+          <button type="button" class="md-shortcut-btn" data-syntax="ol"><span class="shortcut-label">Lista Ordenada</span><kbd class="shortcut-badge" data-syntax="ol">Ctrl+Shift+O</kbd></button>
+          <button type="button" class="md-shortcut-btn" data-syntax="task"><span class="shortcut-label">Lista de Tareas</span><kbd class="shortcut-badge" data-syntax="task">Ctrl+Shift+T</kbd></button>
         </div>
       </div>
       <div class="modal-footer shortcut-help-footer">
@@ -342,7 +625,7 @@
   <div id="modal-md-media" class="modal-overlay floating-window">
     <div class="modal-box modal-box-narrow">
       <header class="modal-header">
-        <h3>Enlaces y Medios</h3>
+        <h3 data-i18n="md_title_media">Enlaces y Medios</h3>
         <div class="modal-header-actions">
           <button class="modal-collapse-btn" title="Minimizar panel">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="collapse-icon">
@@ -354,8 +637,9 @@
       </header>
       <div class="modal-body">
         <div class="md-grid">
-          <button class="md-shortcut-btn" data-syntax="link" title="Enlace web - Sintaxis: [texto](url)">Enlace Web</button>
-          <button class="md-shortcut-btn" data-syntax="image" title="Imagen - Sintaxis: ![texto](url_imagen)">Imagen</button>
+          <button type="button" class="md-shortcut-btn" data-syntax="link"><span class="shortcut-label">Enlace Web</span><kbd class="shortcut-badge" data-syntax="link">Ctrl+Shift+L</kbd></button>
+          <button type="button" class="md-shortcut-btn" data-syntax="image"><span class="shortcut-label">Imagen</span><kbd class="shortcut-badge" data-syntax="image">Ctrl+Shift+I</kbd></button>
+          <button type="button" class="md-shortcut-btn" data-syntax="email"><span class="shortcut-label">Enlace de Correo</span><kbd class="shortcut-badge" data-syntax="email">Ctrl+Shift+M</kbd></button>
         </div>
       </div>
       <div class="modal-footer shortcut-help-footer">
@@ -368,7 +652,7 @@
   <div id="modal-md-code" class="modal-overlay floating-window">
     <div class="modal-box modal-box-narrow">
       <header class="modal-header">
-        <h3>Código y Matemáticas</h3>
+        <h3 data-i18n="md_title_code">Código y Matemáticas</h3>
         <div class="modal-header-actions">
           <button class="modal-collapse-btn" title="Minimizar panel">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="collapse-icon">
@@ -380,10 +664,10 @@
       </header>
       <div class="modal-body">
         <div class="md-grid">
-          <button class="md-shortcut-btn" data-syntax="inline-code" title="Código en línea - Sintaxis: `código` (Monoespaciado)">Código en línea</button>
-          <button class="md-shortcut-btn" data-syntax="code-block" title="Bloque de código - Sintaxis: ```javascript\n...\n```">Bloque de código</button>
-          <button class="md-shortcut-btn" data-syntax="inline-math" title="Fórmula en línea - Sintaxis: $f(x) = x^2$ (LaTeX)">Fórmula en línea</button>
-          <button class="md-shortcut-btn" data-syntax="block-math" title="Fórmula en bloque - Sintaxis: $$\n...\n$$ (LaTeX)">Fórmula en bloque</button>
+          <button type="button" class="md-shortcut-btn" data-syntax="code-block"><span class="shortcut-label">Bloque de Código</span><kbd class="shortcut-badge" data-syntax="code-block">Ctrl+Shift+K</kbd></button>
+          <button type="button" class="md-shortcut-btn" data-syntax="inline-code"><span class="shortcut-label">Código en línea</span><kbd class="shortcut-badge" data-syntax="inline-code">Ctrl+K</kbd></button>
+          <button type="button" class="md-shortcut-btn" data-syntax="inline-math"><span class="shortcut-label">Fórmula en línea</span><kbd class="shortcut-badge" data-syntax="inline-math">Alt+K</kbd></button>
+          <button type="button" class="md-shortcut-btn" data-syntax="block-math"><span class="shortcut-label">Fórmula en bloque</span><kbd class="shortcut-badge" data-syntax="block-math">Alt+Shift+K</kbd></button>
         </div>
       </div>
       <div class="modal-footer shortcut-help-footer">
@@ -396,7 +680,7 @@
   <div id="modal-md-structure" class="modal-overlay floating-window">
     <div class="modal-box modal-box-narrow">
       <header class="modal-header">
-        <h3>Bloques y Estructura</h3>
+        <h3 data-i18n="md_title_structure">Bloques y Estructura</h3>
         <div class="modal-header-actions">
           <button class="modal-collapse-btn" title="Minimizar panel">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="collapse-icon">
@@ -408,10 +692,11 @@
       </header>
       <div class="modal-body">
         <div class="md-grid">
-          <button class="md-shortcut-btn" data-syntax="blockquote" title="Cita en bloque - Sintaxis: > texto de la cita">Cita (Blockquote)</button>
-          <button class="md-shortcut-btn" data-syntax="paragraph" title="Párrafo nuevo - Sintaxis: Separado por líneas vacías">Párrafo</button>
-          <button class="md-shortcut-btn" data-syntax="table" title="Tabla - Sintaxis: Estructura tabular de columnas">Tabla</button>
-          <button class="md-shortcut-btn" data-syntax="hr" title="Línea Horizontal - Sintaxis: --- (Separador)">Línea divisoria</button>
+          <button type="button" class="md-shortcut-btn" data-syntax="blockquote"><span class="shortcut-label">Cita en Bloque</span><kbd class="shortcut-badge" data-syntax="blockquote">Ctrl+Shift+Q</kbd></button>
+          <button type="button" class="md-shortcut-btn" data-syntax="callout"><span class="shortcut-label">Bloque de Alerta</span><kbd class="shortcut-badge" data-syntax="callout">Ctrl+Shift+A</kbd></button>
+          <button type="button" class="md-shortcut-btn" data-syntax="hr"><span class="shortcut-label">Línea divisoria</span><kbd class="shortcut-badge" data-syntax="hr">Alt+Shift+S</kbd></button>
+          <button type="button" class="md-shortcut-btn" data-syntax="table"><span class="shortcut-label">Tabla</span><kbd class="shortcut-badge" data-syntax="table">Ctrl+T</kbd></button>
+          <button type="button" class="md-shortcut-btn" data-syntax="comment"><span class="shortcut-label">Comentario Oculto</span><kbd class="shortcut-badge" data-syntax="comment">Ctrl+/</kbd></button>
         </div>
       </div>
       <div class="modal-footer shortcut-help-footer">
@@ -424,7 +709,7 @@
   <div id="modal-md-advanced" class="modal-overlay floating-window">
     <div class="modal-box modal-box-narrow">
       <header class="modal-header">
-        <h3>Elementos Avanzados</h3>
+        <h3 data-i18n="md_title_advanced">Elementos Avanzados</h3>
         <div class="modal-header-actions">
           <button class="modal-collapse-btn" title="Minimizar panel">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="collapse-icon">
@@ -436,9 +721,9 @@
       </header>
       <div class="modal-body">
         <div class="md-grid">
-          <button class="md-shortcut-btn" data-syntax="footnote" title="Nota al pie - Sintaxis: [^1] (Calcula la nota e inserta definición al final)">Nota al pie</button>
-          <button class="md-shortcut-btn" data-syntax="email" title="Enlace de correo - Sintaxis: <correo@ejemplo.com>">Enlace de correo</button>
-          <button class="md-shortcut-btn" data-syntax="definition-list" title="Lista de definición - Sintaxis: Término\n: Definición">Lista de definición</button>
+          <button type="button" class="md-shortcut-btn" data-syntax="footnote"><span class="shortcut-label">Nota al pie</span><kbd class="shortcut-badge" data-syntax="footnote">Ctrl+Shift+F</kbd></button>
+          <button type="button" class="md-shortcut-btn" data-syntax="definition-list"><span class="shortcut-label">Lista de Definición</span><kbd class="shortcut-badge" data-syntax="definition-list">Ctrl+Shift+D</kbd></button>
+          <button type="button" class="md-shortcut-btn" data-syntax="details"><span class="shortcut-label">Bloque Plegable</span><kbd class="shortcut-badge" data-syntax="details">Ctrl+Alt+D</kbd></button>
         </div>
       </div>
       <div class="modal-footer shortcut-help-footer">

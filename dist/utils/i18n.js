@@ -194,6 +194,13 @@ export const translations = {
     confirm_btn_cancel: "Cancelar",
     confirm_btn_recover: "Recuperar borrador",
     confirm_btn_load_orig: "Cargar original",
+    title_shortcuts_panel: "Atajos y Formato Markdown",
+    tooltip_tearoff_panel: "Desacoplar a ventana flotante o monitor externo",
+    tooltip_dock_sidebar: "Reacoplar a la barra lateral",
+    tooltip_dock_side: "Alternar acople Izquierda/Derecha",
+    tooltip_tearoff_cat: "Desacoplar esta categoría a una ventana flotante individual",
+    tooltip_collapse_cat: "Minimizar categoría",
+    tooltip_expand_cat: "Expandir categoría",
   },
   en: {
     // Toolbar - Main Buttons
@@ -376,6 +383,13 @@ export const translations = {
     color_picker_ctx_analogous: "Analogous Color",
     color_picker_btn_apply: "Accept",
     color_picker_btn_cancel: "Cancel",
+    title_shortcuts_panel: "Markdown Shortcuts & Formatting",
+    tooltip_tearoff_panel: "Tear off to floating window or external monitor",
+    tooltip_dock_sidebar: "Dock back to sidebar",
+    tooltip_dock_side: "Toggle dock Left/Right",
+    tooltip_tearoff_cat: "Tear off this category to an individual floating window",
+    tooltip_collapse_cat: "Collapse category",
+    tooltip_expand_cat: "Expand category",
   },
   la: {
     // Toolbar - Main Buttons
@@ -558,6 +572,13 @@ export const translations = {
     color_picker_ctx_analogous: "Color Analogus",
     color_picker_btn_apply: "Accipere",
     color_picker_btn_cancel: "Cancellare",
+    title_shortcuts_panel: "Compendia et Forma Markdown",
+    tooltip_tearoff_panel: "Ad fenestram fluctuantem vel externam disiungere",
+    tooltip_dock_sidebar: "Readiungere ad vectem lateralem",
+    tooltip_dock_side: "Alternare iunctionem Laeva/Dextra",
+    tooltip_tearoff_cat: "Hanc categoriam in fenestram singularem disiungere",
+    tooltip_collapse_cat: "Categoriam complicare",
+    tooltip_expand_cat: "Categoriam explicare",
   }
 };
 

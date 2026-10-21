@@ -60,7 +60,6 @@
   "btn_inline_math": "Inline math",
   "btn_block_math": "Block math",
   "btn_blockquote": "Blockquote",
-  "btn_paragraph": "Paragraph",
   "btn_table": "Table",
   "btn_hr": "Horizontal rule",
   "btn_footnote": "Footnote",
@@ -178,5 +177,18 @@
   "tooltip_change_root": "Select another root folder",
   "tooltip_reset_root": "Reset to system default Documents folder",
   "root_folder_changed": "Root folder updated: ",
-  "root_folder_reset": "Root folder reset to: "
+  "root_folder_reset": "Root folder reset to: ",
+  "title_shortcuts_panel": "Markdown Shortcuts & Formatting",
+  "tooltip_tearoff_panel": "Tear off to floating window or external monitor",
+  "tooltip_dock_sidebar": "Dock back to sidebar",
+  "tooltip_dock_side": "Toggle dock Left/Right",
+  "tooltip_tearoff_cat": "Tear off this category to an individual floating window",
+  "tooltip_collapse_cat": "Collapse category",
+  "tooltip_expand_cat": "Expand category",
+  "btn_highlight": "Highlight",
+  "btn_superscript": "Superscript",
+  "btn_subscript": "Subscript",
+  "btn_callout": "Callout Alert",
+  "btn_comment": "Hidden Comment",
+  "btn_details": "Collapsible Block"
 }

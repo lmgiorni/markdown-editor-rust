@@ -60,7 +60,6 @@
   "btn_inline_math": "Formula in linea",
   "btn_block_math": "Formula in textu",
   "btn_blockquote": "Citatio (Blockquote)",
-  "btn_paragraph": "Paragraphus",
   "btn_table": "Tabula",
   "btn_hr": "Linea divisoria",
   "btn_footnote": "Nota ad calcem",
@@ -178,5 +177,18 @@
   "tooltip_change_root": "Aliud directorium radicis eligere",
   "tooltip_reset_root": "Ad solitum directorium systematis restituere",
   "root_folder_changed": "Radix directorii renovata: ",
-  "root_folder_reset": "Radix directorii restituta ad: "
+  "root_folder_reset": "Radix directorii restituta ad: ",
+  "title_shortcuts_panel": "Compendia et Forma Markdown",
+  "tooltip_tearoff_panel": "Ad fenestram fluctuantem vel externam disiungere",
+  "tooltip_dock_sidebar": "Readiungere ad vectem lateralem",
+  "tooltip_dock_side": "Alternare iunctionem Laeva/Dextra",
+  "tooltip_tearoff_cat": "Hanc categoriam in fenestram singularem disiungere",
+  "tooltip_collapse_cat": "Categoriam complicare",
+  "tooltip_expand_cat": "Categoriam explicare",
+  "btn_highlight": "Insigne",
+  "btn_superscript": "Superscriptum",
+  "btn_subscript": "Subscriptum",
+  "btn_callout": "Monitio",
+  "btn_comment": "Commentarium Occultum",
+  "btn_details": "Pars Plicatilis"
 }

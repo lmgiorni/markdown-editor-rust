@@ -60,7 +60,6 @@
   "btn_inline_math": "Fórmula en línea",
   "btn_block_math": "Fórmula en bloque",
   "btn_blockquote": "Cita (Blockquote)",
-  "btn_paragraph": "Párrafo",
   "btn_table": "Tabla",
   "btn_hr": "Línea divisoria",
   "btn_footnote": "Nota al pie",
@@ -178,5 +177,18 @@
   "tooltip_change_root": "Seleccionar otra carpeta raíz",
   "tooltip_reset_root": "Restablecer a la carpeta de Documentos predeterminada del sistema",
   "root_folder_changed": "Carpeta raíz actualizada: ",
-  "root_folder_reset": "Carpeta raíz restablecida a: "
+  "root_folder_reset": "Carpeta raíz restablecida a: ",
+  "title_shortcuts_panel": "Atajos y Formato Markdown",
+  "tooltip_tearoff_panel": "Desacoplar a ventana flotante o monitor externo",
+  "tooltip_dock_sidebar": "Reacoplar a la barra lateral",
+  "tooltip_dock_side": "Alternar acople Izquierda/Derecha",
+  "tooltip_tearoff_cat": "Desacoplar esta categoría a una ventana flotante individual",
+  "tooltip_collapse_cat": "Minimizar categoría",
+  "tooltip_expand_cat": "Expandir categoría",
+  "btn_highlight": "Resaltado",
+  "btn_superscript": "Superíndice",
+  "btn_subscript": "Subíndice",
+  "btn_callout": "Bloque de Alerta",
+  "btn_comment": "Comentario Oculto",
+  "btn_details": "Bloque Plegable"
 }

@@ -701,31 +701,337 @@ body {
   gap: 6px !important;
 }
 
+/* ==========================================================================
+   PANEL LATERAL Y VENTANA FLOTANTE DE ATAJOS Y FORMATO MARKDOWN
+   ========================================================================== */
+
+/* 1. Barra Lateral Dockeable (#shortcuts-sidebar) */
+.shortcuts-sidebar {
+  width: 310px;
+  min-width: 310px;
+  height: 100%;
+  background: var(--bg-sidebar, #111116);
+  border-right: 1px solid var(--border-subtle);
+  display: flex;
+  flex-direction: column;
+  transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1), min-width 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.2s ease;
+  overflow: hidden;
+  z-index: 10;
+  opacity: 1;
+  order: -1; /* Posición izquierda por defecto */
+}
+
+/* Acople a la Derecha */
+.shortcuts-sidebar.dock-right {
+  order: 10; /* Se desplaza a la derecha del contenedor principal */
+  border-right: none;
+  border-left: 1px solid var(--border-subtle);
+}
+
+/* Estado Colapsado */
+.shortcuts-sidebar.collapsed {
+  width: 0 !important;
+  min-width: 0 !important;
+  border-right: none !important;
+  border-left: none !important;
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* Cabecera de la Barra Lateral */
+.shortcuts-sidebar-header {
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--border-subtle);
+  background: var(--bg-toolbar, rgba(12, 14, 22, 0.5));
+  flex-shrink: 0;
+}
+
+.shortcuts-header-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+}
+
+.shortcuts-sidebar-title {
+  font-family: 'Inter', sans-serif;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--text-main, #ffffff);
+  letter-spacing: 0.2px;
+}
+
+.shortcuts-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.sidebar-action-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-muted, #94a3b8);
+  cursor: pointer;
+  padding: 5px;
+  border-radius: 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color var(--transition-fast), color var(--transition-fast);
+}
+
+.sidebar-action-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-main, #ffffff);
+}
+
+.sidebar-action-icon {
+  width: 15px;
+  height: 15px;
+  stroke: currentColor;
+}
+
+.sidebar-action-btn.btn-close-cross {
+  font-size: 18px;
+  line-height: 1;
+  padding: 2px 6px;
+}
+
+/* Cuerpo con Scrollbar Suave */
+.shortcuts-sidebar-body {
+  flex: 1;
+  overflow-y: auto !important;
+  overflow-x: hidden;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+}
+
+.shortcuts-sidebar-body::-webkit-scrollbar,
+.shortcuts-master-body::-webkit-scrollbar {
+  width: 5px;
+}
+
+.shortcuts-sidebar-body::-webkit-scrollbar-track,
+.shortcuts-master-body::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.shortcuts-sidebar-body::-webkit-scrollbar-thumb,
+.shortcuts-master-body::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 4px;
+}
+
+.shortcuts-sidebar-body::-webkit-scrollbar-thumb:hover,
+.shortcuts-master-body::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.16);
+}
+
+/* 2. Ventana Flotante Desacoplada (#modal-md) */
+.modal-box-shortcuts-master {
+  max-width: 360px !important;
+  width: 360px !important;
+  max-height: 85vh;
+  left: 60px;
+  top: 55px;
+}
+
+.shortcuts-master-body {
+  padding: 12px;
+  max-height: calc(85vh - 56px);
+  overflow-y: auto !important;
+  overflow-x: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* 3. Contenedor de Categorías y Tarjetas (Garantiza Cero Recorte) */
+.shortcuts-categories-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+  flex-shrink: 0;
+}
+
+.shortcuts-category-card {
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  overflow: visible !important;
+  flex-shrink: 0 !important;
+  height: auto !important;
+  min-height: fit-content;
+  transition: border-color var(--transition-fast);
+}
+
+.shortcuts-category-card:hover {
+  border-color: rgba(139, 92, 246, 0.3);
+}
+
+.shortcuts-category-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  background: var(--bg-toolbar, rgba(12, 14, 22, 0.5));
+  border-bottom: 1px solid var(--border-subtle);
+  border-top-left-radius: 7px;
+  border-top-right-radius: 7px;
+  cursor: pointer;
+  user-select: none;
+  transition: background-color var(--transition-fast);
+}
+
+.shortcuts-category-header:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.shortcuts-category-header h4 {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+}
+
+.shortcuts-card-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.btn-collapse-cat,
+.btn-tearoff-cat,
+.modal-tearoff-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color var(--transition-fast), color var(--transition-fast);
+}
+
+.btn-collapse-cat:hover,
+.btn-tearoff-cat:hover,
+.modal-tearoff-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-main);
+}
+
+.btn-collapse-cat .collapse-icon {
+  width: 13px;
+  height: 13px;
+  stroke: currentColor;
+  stroke-width: 2.2;
+  transition: transform var(--transition-normal);
+}
+
+.tearoff-icon {
+  width: 14px;
+  height: 14px;
+  stroke: currentColor;
+}
+
+/* Soporte para Categoría Colapsada / Minimizada */
+.shortcuts-category-card.collapsed {
+  height: auto !important;
+  min-height: auto !important;
+}
+
+.shortcuts-category-card.collapsed .shortcuts-category-header {
+  border-bottom: none !important;
+  border-bottom-left-radius: 7px;
+  border-bottom-right-radius: 7px;
+}
+
+.shortcuts-category-card.collapsed .shortcuts-items-list {
+  display: none !important;
+}
+
+.shortcuts-category-card.collapsed .btn-collapse-cat .collapse-icon {
+  transform: rotate(180deg);
+}
+
+.shortcuts-items-list {
+  display: flex;
+  flex-direction: column;
+  padding: 6px;
+  gap: 3px;
+  height: auto !important;
+  overflow: visible !important;
+  flex-shrink: 0 !important;
+}
+
+.md-shortcut-btn {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  width: 100% !important;
+  padding: 6px 8px !important;
+  background: transparent !important;
+  border: 1px solid transparent !important;
+  border-radius: 6px !important;
+  cursor: pointer;
+  text-align: left;
+  transition: background-color var(--transition-fast), border-color var(--transition-fast);
+  box-sizing: border-box;
+  flex-shrink: 0 !important;
+}
+
+.md-shortcut-btn:hover {
+  background: rgba(255, 255, 255, 0.05) !important;
+  border-color: var(--border-subtle) !important;
+}
+
+.shortcut-label {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-main);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.shortcut-badge {
+  font-family: var(--font-mono, monospace);
+  font-size: 10.5px;
+  font-weight: 500;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: var(--bg-badge-str, rgba(255, 255, 255, 0.05));
+  border: 1px solid var(--border-subtle);
+  color: var(--text-muted);
+  letter-spacing: 0.02em;
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+.md-shortcut-btn:hover .shortcut-badge {
+  color: var(--accent-hover, #c084fc);
+  border-color: var(--border-focus);
+}
+
 .modal-box-narrow .md-shortcut-btn {
   display: flex !important;
   align-items: center !important;
-  justify-content: flex-start !important;
-  text-align: left !important;
-  padding: 8px 14px !important;
+  justify-content: space-between !important;
   width: 100% !important;
-  font-size: 13px !important;
-  border-radius: 8px !important;
+  padding: 6px 10px !important;
+  font-size: 12.5px !important;
+  border-radius: 6px !important;
   background: rgba(255, 255, 255, 0.02) !important;
   border: 1px solid var(--border-subtle) !important;
-}
-
-/* Indicador sutil de punto para el listado vertical premium */
-.modal-box-narrow .md-shortcut-btn::before {
-  content: "•";
-  color: var(--accent-hover);
-  margin-right: 10px;
-  font-size: 14px;
-  transition: transform var(--transition-fast);
-}
-
-.modal-box-narrow .md-shortcut-btn:hover::before {
-  transform: scale(1.3);
-  color: #c084fc;
 }
 
 /* Cabecera del Modal (Zona de Arrastre) */
@@ -1721,7 +2027,8 @@ body {
   .dropdown-menu,
   .dropdown-container,
   #premium-toast,
-  #components-sidebar {
+  #components-sidebar,
+  #shortcuts-sidebar {
     display: none !important;
   }
   

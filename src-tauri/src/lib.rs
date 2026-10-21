@@ -1,6 +1,6 @@
 use std::fs;
 use rfd::FileDialog;
-use tauri::Manager;
+use tauri::{Manager, Emitter};
 
 mod epub_exporter;
 
@@ -547,6 +547,22 @@ fn sincronizar_idioma_base(path: &std::path::Path, base_content: &str) {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
   tauri::Builder::default()
+    .on_window_event(|window, event| {
+        match event {
+            tauri::WindowEvent::DragDrop(tauri::DragDropEvent::Drop { paths, .. }) => {
+                if let Some(first_path) = paths.first() {
+                    let _ = window.emit("archivo-arrastrado", first_path.to_string_lossy().to_string());
+                }
+            }
+            tauri::WindowEvent::DragDrop(tauri::DragDropEvent::Enter { .. }) => {
+                let _ = window.emit("archivo-arrastre-inicio", ());
+            }
+            tauri::WindowEvent::DragDrop(tauri::DragDropEvent::Leave) => {
+                let _ = window.emit("archivo-arrastre-fin", ());
+            }
+            _ => {}
+        }
+    })
     .setup(|app| {
       // Inicializar y asegurar carpetas de assets locales en app_data_dir
       let base_dir = app.path().app_data_dir()

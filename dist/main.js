@@ -890,10 +890,7 @@ async function procesarYCargarDocumento(fileData) {
   actualizarNombreArchivo();
   renderMarkdown();
   
-  if (historial) {
-    historial.limpiar();
-    historial.inicializarEstado(DOM.editor.value);
-  }
+  inicializarHistorial();
 }
 
 async function abrirArchivoDesdeRuta(filePath) {
@@ -3052,20 +3049,93 @@ function actualizarTextosInterfaz(lang) {
 // ==========================================================================
 // DRAG & DROP NATIVO Y MODAL ACERCA DE...
 // ==========================================================================
+async function validarYAbrirArchivoSoltado(pathOrName, fileObj = null) {
+  const fileName = (pathOrName || '').split(/[\\/]/).pop() || '';
+  const lower = fileName.toLowerCase();
+  const allowed = ['.md', '.markdown', '.txt', '.json', '.xml', '.yaml', '.yml'];
+  const isAllowed = allowed.some(ext => lower.endsWith(ext));
+  
+  const lang = appState.language || 'es';
+  const t = translations[lang] || translations.es;
+  
+  if (!isAllowed) {
+    alertNotification(t.dnd_format_unsupported || 'Formato no compatible. Formatos permitidos: .md, .markdown, .txt, .json, .xml, .yaml', 'error');
+    return;
+  }
+
+  if (!appState.isSaved) {
+    const accion = await solicitarConfirmacionSistema({
+      titulo: t.confirm_title_open || 'Abrir Documento',
+      mensaje: t.confirm_msg_unsaved_open || 'Tienes cambios pendientes sin guardar. ¿Qué deseas hacer antes de abrir otro documento?',
+      detalle: 'Si guardas, tus cambios quedarán asegurados en el disco antes de cargar el nuevo archivo.',
+      tipo: 'warning',
+      btnSaveText: t.confirm_btn_save || 'Guardar cambios',
+      btnDiscardText: t.confirm_btn_discard || 'Descartar cambios',
+      btnCancelText: t.confirm_btn_cancel || 'Cancelar'
+    });
+
+    if (accion === 'cancel') return;
+    if (accion === 'save') {
+      const guardado = await guardarArchivo();
+      if (!guardado) return;
+    }
+  }
+
+  // Si tenemos ruta en disco y puente nativo Tauri
+  if (pathOrName && (pathOrName.includes('/') || pathOrName.includes('\\')) && invoke) {
+    await abrirArchivoDesdeRuta(pathOrName);
+    return;
+  }
+
+  // Fallback para archivo en memoria (objeto File del navegador)
+  if (fileObj) {
+    try {
+      const content = await fileObj.text();
+      await procesarYCargarDocumento({ name: fileObj.name, path: fileObj.path || '', content });
+    } catch (err) {
+      console.error('Error al leer archivo soltado:', err);
+      alertNotification('Error al leer el archivo arrastrado: ' + (err.message || err), 'error');
+    }
+  }
+}
+
 function inicializarDragAndDrop() {
-  let dragCounter = 0;
   const overlay = DOM.dndOverlay;
+  let dragCounter = 0;
 
-  window.addEventListener('dragenter', (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    dragCounter++;
-    if (overlay) overlay.style.display = 'flex';
-  });
+  // 1. Integración Nativa con Eventos de Ventana de Tauri v2
+  if (window.__TAURI__ && window.__TAURI__.event && window.__TAURI__.event.listen) {
+    window.__TAURI__.event.listen('archivo-arrastre-inicio', () => {
+      if (overlay) overlay.style.display = 'flex';
+    }).catch(() => {});
 
-  window.addEventListener('dragover', (e) => {
-    e.preventDefault();
-    e.stopPropagation();
+    window.__TAURI__.event.listen('archivo-arrastre-fin', () => {
+      if (overlay) overlay.style.display = 'none';
+    }).catch(() => {});
+
+    window.__TAURI__.event.listen('archivo-arrastrado', async (event) => {
+      if (overlay) overlay.style.display = 'none';
+      const filePath = typeof event.payload === 'string' ? event.payload : (event.payload && event.payload.path);
+      if (filePath) {
+        await validarYAbrirArchivoSoltado(filePath);
+      }
+    }).catch(() => {});
+  }
+
+  // 2. Soporte para API Drag & Drop HTML5 estándar (en WebView2 o navegador)
+  ['dragenter', 'dragover'].forEach(evt => {
+    window.addEventListener(evt, (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      dragCounter++;
+      if (overlay) overlay.style.display = 'flex';
+    });
+    if (DOM.editor) {
+      DOM.editor.addEventListener(evt, (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+      });
+    }
   });
 
   window.addEventListener('dragleave', (e) => {
@@ -3078,7 +3148,7 @@ function inicializarDragAndDrop() {
     }
   });
 
-  window.addEventListener('drop', async (e) => {
+  const handleDrop = async (e) => {
     e.preventDefault();
     e.stopPropagation();
     dragCounter = 0;
@@ -3086,57 +3156,19 @@ function inicializarDragAndDrop() {
 
     if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
       const file = e.dataTransfer.files[0];
-      const lower = file.name.toLowerCase();
-      const allowed = ['.md', '.markdown', '.txt', '.json', '.xml', '.yaml', '.yml'];
-      const isAllowed = allowed.some(ext => lower.endsWith(ext));
-      
-      const lang = appState.language || 'es';
-      const t = translations[lang] || translations.es;
-      
-      if (!isAllowed) {
-        alertNotification(t.dnd_format_unsupported || 'Formato no compatible. Formatos permitidos: .md, .markdown, .txt, .json, .xml, .yaml', 'error');
-        return;
-      }
-
-      if (!appState.isSaved) {
-        const accion = await solicitarConfirmacionSistema({
-          titulo: t.confirm_title_open || 'Abrir Documento',
-          mensaje: t.confirm_msg_unsaved_open || 'Tienes cambios pendientes sin guardar. ¿Qué deseas hacer antes de abrir otro documento?',
-          detalle: 'Si guardas, tus cambios quedarán asegurados en el disco antes de cargar el nuevo archivo.',
-          tipo: 'warning',
-          btnSaveText: t.confirm_btn_save || 'Guardar cambios',
-          btnDiscardText: t.confirm_btn_discard || 'Descartar cambios',
-          btnCancelText: t.confirm_btn_cancel || 'Cancelar'
-        });
-
-        if (accion === 'cancel') return;
-        if (accion === 'save') {
-          const guardado = await guardarArchivo();
-          if (!guardado) return;
-        }
-      }
-
-      try {
-        let filePath = file.path || '';
-        if (filePath && invoke) {
-          try {
-            const res = await invoke('abrir_archivo_desde_ruta', { filePath });
-            if (res) {
-              await procesarYCargarDocumento(res);
-              return;
-            }
-          } catch (invokeErr) {
-            console.warn('Fallback a lectura File API:', invokeErr);
-          }
-        }
-        const content = await file.text();
-        await procesarYCargarDocumento({ name: file.name, path: filePath, content });
-      } catch (err) {
-        console.error('Error al procesar archivo soltado:', err);
-        alertNotification('Error al leer el archivo arrastrado: ' + (err.message || err), 'error');
+      const filePath = file.path || '';
+      if (filePath) {
+        await validarYAbrirArchivoSoltado(filePath);
+      } else {
+        await validarYAbrirArchivoSoltado(file.name, file);
       }
     }
-  });
+  };
+
+  window.addEventListener('drop', handleDrop);
+  if (DOM.editor) {
+    DOM.editor.addEventListener('drop', handleDrop);
+  }
 }
 
 function inicializarModalAbout() {

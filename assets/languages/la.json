@@ -252,5 +252,12 @@
   "about_license_title": "Condiciones Licentiae",
   "about_license_type": "Programma Proprietarium Gratuitum cum usu commerciali et personali permisso.",
   "about_license_desc": "Hoc programma gratuitum est ad usum personalem et commercialem. Omnia iura intellectualia et codicis fons Leandri Giorni reservantur. Redistributio mutata sine licentia prohibetur.",
-  "about_support_btn": "Collatio Voluntaria"
+  "about_support_btn": "Collatio Voluntaria",
+  "config_max_recent_files": "Limes Tabularum Recentium",
+  "recent_files_count_5_default": "5 tabulae (Defaltum)",
+  "recent_files_count_6": "6 tabulae",
+  "recent_files_count_7": "7 tabulae",
+  "recent_files_count_8": "8 tabulae",
+  "recent_files_count_9": "9 tabulae",
+  "recent_files_count_10": "10 tabulae"
 }

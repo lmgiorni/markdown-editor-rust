@@ -252,5 +252,12 @@
   "about_license_title": "Términos de Licencia",
   "about_license_type": "Freeware Propietario con autorización de uso comercial y personal.",
   "about_license_desc": "Este software es gratuito y de uso libre para proyectos personales y comerciales. Quedan reservados todos los derechos de autoría, propiedad intelectual y código fuente a Leandro Giorni. No se permite la redistribución modificada ni la descompilación del software sin autorización expresa del autor.",
-  "about_support_btn": "Contribución voluntaria"
+  "about_support_btn": "Contribución voluntaria",
+  "config_max_recent_files": "Límite de Archivos Recientes",
+  "recent_files_count_5_default": "5 archivos (Predeterminado)",
+  "recent_files_count_6": "6 archivos",
+  "recent_files_count_7": "7 archivos",
+  "recent_files_count_8": "8 archivos",
+  "recent_files_count_9": "9 archivos",
+  "recent_files_count_10": "10 archivos"
 }

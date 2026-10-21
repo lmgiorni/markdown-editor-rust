@@ -33,6 +33,7 @@ let appState = {
   activeTheme: localStorage.getItem('md-theme') || 'Cyberpunk-Dark',
   language: localStorage.getItem('md-language') || 'es',
   versioningDigits: parseInt(localStorage.getItem('md-versioning-digits') || '3', 10),
+  maxRecentFiles: parseInt(localStorage.getItem('md-max-recent-files') || '5', 10),
   systemDefaultRootFolder: '',
   customRootFolder: localStorage.getItem('md-root-folder') || '',
   lastUsedFolder: localStorage.getItem('md-last-used-folder') || ''
@@ -48,6 +49,7 @@ const DOM = {
   btnVersionDoc: document.getElementById('btn-version-doc'),
   btnRelocateDoc: document.getElementById('btn-relocate-doc'),
   selectVersioningDigits: document.getElementById('select-versioning-digits'),
+  selectMaxRecentFiles: document.getElementById('select-max-recent-files'),
   inputRootFolder: document.getElementById('input-root-folder'),
   btnChangeRootFolder: document.getElementById('btn-change-root-folder'),
   btnResetRootFolder: document.getElementById('btn-reset-root-folder'),
@@ -207,6 +209,7 @@ function aplicarConfiguracionVisual() {
   if (DOM.selectStructuredFont) DOM.selectStructuredFont.value = appState.structuredFont;
   if (DOM.selectLanguage) DOM.selectLanguage.value = appState.language;
   if (DOM.selectVersioningDigits) DOM.selectVersioningDigits.value = String(appState.versioningDigits || 3);
+  if (DOM.selectMaxRecentFiles) DOM.selectMaxRecentFiles.value = String(appState.maxRecentFiles || 5);
   if (DOM.rangeEditorSize) DOM.rangeEditorSize.value = appState.editorFontSize;
   if (DOM.rangeReaderSize) DOM.rangeReaderSize.value = appState.readerFontSize;
   if (DOM.rangeStructuredSize) DOM.rangeStructuredSize.value = appState.structuredFontSize;
@@ -739,7 +742,9 @@ function registrarArchivoReciente(name, path) {
 
 function renderizarMenuRecientes() {
   if (!DOM.recentMenuList) return;
-  const list = obtenerArchivosRecientes();
+  let list = obtenerArchivosRecientes();
+  const maxLimit = appState.maxRecentFiles || 5;
+  list = list.slice(0, maxLimit);
   const lang = appState.language || 'es';
   const t = translations[lang] || translations.es;
 
@@ -2967,6 +2972,18 @@ function actualizarTextosInterfaz(lang) {
   setLabelText('[for="range-structured-size"]', t.config_size_tree);
   setLabelText('[for="select-theme"]', t.config_theme);
   setLabelText('[for="select-language"]', t.config_lang);
+  setLabelText('[for="select-max-recent-files"]', t.config_max_recent_files);
+  if (DOM.selectMaxRecentFiles) {
+    const opts = DOM.selectMaxRecentFiles.options;
+    if (opts && opts.length >= 6) {
+      opts[0].textContent = t.recent_files_count_5_default || '5 archivos (Predeterminado)';
+      opts[1].textContent = t.recent_files_count_6 || '6 archivos';
+      opts[2].textContent = t.recent_files_count_7 || '7 archivos';
+      opts[3].textContent = t.recent_files_count_8 || '8 archivos';
+      opts[4].textContent = t.recent_files_count_9 || '9 archivos';
+      opts[5].textContent = t.recent_files_count_10 || '10 archivos';
+    }
+  }
   
   // Textos de Recientes y Acerca de...
   const recentTitleEl = document.getElementById('recent-menu-title');
@@ -3751,6 +3768,16 @@ if (DOM.selectVersioningDigits) {
     const val = parseInt(e.target.value, 10) || 3;
     appState.versioningDigits = val;
     localStorage.setItem('md-versioning-digits', String(val));
+  });
+}
+
+if (DOM.selectMaxRecentFiles) {
+  DOM.selectMaxRecentFiles.value = String(appState.maxRecentFiles || 5);
+  DOM.selectMaxRecentFiles.addEventListener('change', (e) => {
+    const val = parseInt(e.target.value, 10) || 5;
+    appState.maxRecentFiles = val;
+    localStorage.setItem('md-max-recent-files', String(val));
+    renderizarMenuRecientes();
   });
 }
 

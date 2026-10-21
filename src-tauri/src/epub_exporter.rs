@@ -46,7 +46,9 @@ pub fn exportar_epub_interno(
     code_color: String,
     blockquote_bg: String,
     font_family: String,
-    is_eink: bool
+    is_eink: bool,
+    cover_image_bytes: Option<Vec<u8>>,
+    cover_image_path: Option<String>,
 ) -> Result<Option<String>, String> {
     let mut file_path = match FileDialog::new()
         .add_filter("Libro Electrónico EPUB (*.epub)", &["epub"])
@@ -66,7 +68,41 @@ pub fn exportar_epub_interno(
     let file = fs::File::create(&file_path)
         .map_err(|e| format!("No se pudo crear el archivo EPUB en disco: {}", e))?;
         
-    let mut zip = zip::ZipWriter::new(file);
+    generar_epub_zip(
+        file,
+        &title,
+        &body_html,
+        &bg_color,
+        &text_color,
+        &text_strong_color,
+        &accent_color,
+        &code_color,
+        &blockquote_bg,
+        &font_family,
+        is_eink,
+        cover_image_bytes,
+        cover_image_path
+    )?;
+
+    Ok(Some(path_str))
+}
+
+pub fn generar_epub_zip<W: std::io::Write + std::io::Seek>(
+    writer: W,
+    title: &str, 
+    body_html: &str, 
+    bg_color: &str, 
+    text_color: &str, 
+    text_strong_color: &str,
+    accent_color: &str,
+    code_color: &str,
+    blockquote_bg: &str,
+    font_family: &str,
+    is_eink: bool,
+    cover_image_bytes: Option<Vec<u8>>,
+    cover_image_path: Option<String>,
+) -> Result<(), String> {
+    let mut zip = zip::ZipWriter::new(writer);
     
     // 1. mimetype (sin compresión, primera posición obligatoria por especificación de EPUB)
     let options_stored = FileOptions::default()
@@ -95,9 +131,114 @@ pub fn exportar_epub_interno(
         .map_err(|e| format!("Error en container.xml: {}", e))?;
         
     // ==========================================================================
+    // CAPA INTELIGENTE DE PROCESAMIENTO DE PORTADA (COVER IMAGE & COVER XHTML)
+    // ==========================================================================
+    let mut cover_info: Option<(Vec<u8>, String, String)> = None;
+
+    if let Some(bytes) = cover_image_bytes {
+        if !bytes.is_empty() {
+            cover_info = Some((bytes, "cover.jpg".to_string(), "image/jpeg".to_string()));
+        }
+    }
+
+    if cover_info.is_none() {
+        if let Some(ref p_str) = cover_image_path {
+            if !p_str.trim().is_empty() {
+                let p = std::path::Path::new(p_str);
+                let ext = p.extension().and_then(|e| e.to_str()).unwrap_or("jpg").to_lowercase();
+                let mime = match ext.as_str() {
+                    "png" => "image/png",
+                    _ => "image/jpeg",
+                };
+                let fname = if ext == "png" { "cover.png" } else { "cover.jpg" };
+                if let Ok(bytes) = fs::read(p) {
+                    cover_info = Some((bytes, fname.to_string(), mime.to_string()));
+                }
+            }
+        }
+    }
+
+    let mut manifest_cover_items = String::new();
+    let mut meta_cover_tag = String::new();
+    let mut spine_cover_item = String::new();
+    let mut guide_cover_block = String::new();
+    let mut toc_cover_item = String::new();
+    let mut nav_point_chapter_index = 1;
+
+    if let Some((ref bytes, ref fname, ref mime)) = cover_info {
+        let zip_cover_path = format!("OEBPS/images/{}", fname);
+        if zip.start_file(&zip_cover_path, options_deflated).is_ok() {
+            let _ = zip.write_all(bytes);
+
+            meta_cover_tag = "    <meta name=\"cover\" content=\"cover-image\"/>\n".to_string();
+            manifest_cover_items = format!(
+                "    <item id=\"cover-image\" href=\"images/{}\" media-type=\"{}\" properties=\"cover-image\"/>\n    <item id=\"cover-page\" href=\"text/cover.xhtml\" media-type=\"application/xhtml+xml\"/>\n",
+                fname, mime
+            );
+            spine_cover_item = "    <itemref idref=\"cover-page\"/>\n".to_string();
+            guide_cover_block = "  <guide>\n    <reference type=\"cover\" title=\"Portada\" href=\"text/cover.xhtml\"/>\n  </guide>\n".to_string();
+            toc_cover_item = r#"    <navPoint id="navPoint-1" playOrder="1">
+      <navLabel>
+        <text>Portada</text>
+      </navLabel>
+      <content src="text/cover.xhtml"/>
+    </navPoint>
+"#.to_string();
+            nav_point_chapter_index = 2;
+
+            // Generar página XHTML estricta de portada con preservación de proporciones SVG
+            let cover_xhtml = format!(
+                r#"<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops" lang="es" xml:lang="es">
+<head>
+  <title>Portada</title>
+  <link href="../styles/style.css" rel="stylesheet" type="text/css"/>
+  <style type="text/css">
+    @page {{ margin: 0; padding: 0; }}
+    html, body {{
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      text-align: center;
+      background-color: transparent;
+    }}
+    .cover-container {{
+      width: 100%;
+      height: 100%;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }}
+    svg {{
+      width: 100%;
+      height: 100%;
+      display: block;
+    }}
+  </style>
+</head>
+<body epub:type="cover">
+  <div class="cover-container">
+    <svg xmlns="http://www.w3.org/2000/svg" version="1.1" xmlns:xlink="http://www.w3.org/1999/xlink"
+         width="100%" height="100%" viewBox="0 0 1600 2560" preserveAspectRatio="xMidYMid meet">
+      <image width="1600" height="2560" xlink:href="../images/{}"/>
+    </svg>
+  </div>
+</body>
+</html>"#,
+                fname
+            );
+
+            let _ = zip.start_file("OEBPS/text/cover.xhtml", options_deflated);
+            let _ = zip.write_all(cover_xhtml.as_bytes());
+        }
+    }
+        
+    // ==========================================================================
     // CAPA INTELIGENTE DE ESCANEO, VALIDACIÓN Y EMPAQUETAMIENTO DE IMÁGENES
     // ==========================================================================
-    let clean_html = body_html.clone();
+    let clean_html = body_html;
     let mut imagenes_a_empaquetar = Vec::new();
     let mut cursor = 0;
     
@@ -206,26 +347,32 @@ pub fn exportar_epub_interno(
     <dc:title>{}</dc:title>
     <dc:language>es</dc:language>
     <dc:creator>Summa Scriptura</dc:creator>
-  </metadata>
+{}  </metadata>
   <manifest>
     <item id="toc" href="toc.ncx" media-type="application/x-dtbncx+xml"/>
     <item id="style" href="styles/style.css" media-type="text/css"/>
-    <item id="chapter1" href="text/chapter1.xhtml" media-type="application/xhtml+xml"/>
+{}{}    <item id="chapter1" href="text/chapter1.xhtml" media-type="application/xhtml+xml"/>
 {}  </manifest>
   <spine toc="toc">
-    <itemref idref="chapter1"/>
+{}{}    <itemref idref="chapter1"/>
   </spine>
-</package>"#, 
+{}</package>"#, 
         title.len(),
         title,
-        manifest_items_string
+        meta_cover_tag,
+        manifest_cover_items,
+        manifest_items_string,
+        "",
+        spine_cover_item,
+        "",
+        guide_cover_block
     );
     zip.start_file("OEBPS/content.opf", options_deflated)
         .map_err(|e| format!("Error en content.opf: {}", e))?;
     zip.write_all(content_opf.as_bytes())
         .map_err(|e| format!("Error en content.opf: {}", e))?;
         
-    // 4. toc.ncx - ¡CORREGIDO quitando la palabra "xml" errónea en la primera línea!
+    // 4. toc.ncx
     let toc_ncx = format!(r#"<?xml version="1.0" encoding="UTF-8"?>
 <ncx xmlns="http://www.daisy.org/z3986/2005/ncx/" version="2005-1">
   <head>
@@ -238,7 +385,7 @@ pub fn exportar_epub_interno(
     <text>{}</text>
   </docTitle>
   <navMap>
-    <navPoint id="navPoint-1" playOrder="1">
+{}    <navPoint id="navPoint-{}" playOrder="{}">
       <navLabel>
         <text>Manuscrito Principal</text>
       </navLabel>
@@ -247,7 +394,10 @@ pub fn exportar_epub_interno(
   </navMap>
 </ncx>"#,
         title.len(),
-        title
+        title,
+        toc_cover_item,
+        nav_point_chapter_index,
+        nav_point_chapter_index
     );
     zip.start_file("OEBPS/toc.ncx", options_deflated)
         .map_err(|e| format!("Error en toc.ncx: {}", e))?;
@@ -255,7 +405,7 @@ pub fn exportar_epub_interno(
         .map_err(|e| format!("Error en toc.ncx: {}", e))?;
         
     // 5. chapter1.xhtml (Reconstruyendo las rutas locales a relativas dentro del EPUB)
-    let mut xhtml_content = body_html.clone();
+    let mut xhtml_content = body_html.to_string();
     for (original, nuevo) in reemplazos_xhtml {
         xhtml_content = xhtml_content.replace(&original, &nuevo);
     }
@@ -469,5 +619,120 @@ img {{
     zip.finish()
         .map_err(|e| format!("No se pudo empaquetar el archivo ZIP final: {}", e))?;
         
-    Ok(Some(path_str))
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::io::Cursor;
+    use zip::ZipArchive;
+
+    #[test]
+    fn test_generar_epub_sin_portada() {
+        let mut buffer = Cursor::new(Vec::new());
+        let res = generar_epub_zip(
+            &mut buffer,
+            "Libro de Prueba",
+            "<p>Contenido del libro</p>",
+            "#ffffff",
+            "#000000",
+            "#000000",
+            "#6366f1",
+            "#be185d",
+            "#f1f5f9",
+            "Inter",
+            false,
+            None,
+            None
+        );
+        assert!(res.is_ok(), "La generación de EPUB sin portada falló");
+
+        let mut archive = ZipArchive::new(buffer).expect("No se pudo leer el archivo ZIP generado");
+        
+        // Verificar que no existen archivos de portada
+        assert!(archive.by_name("OEBPS/images/cover.jpg").is_err());
+        assert!(archive.by_name("OEBPS/text/cover.xhtml").is_err());
+
+        // Verificar content.opf sin portada
+        {
+            let mut opf_file = archive.by_name("OEBPS/content.opf").expect("content.opf no encontrado");
+            let mut opf_content = String::new();
+            std::io::Read::read_to_string(&mut opf_file, &mut opf_content).unwrap();
+            assert!(!opf_content.contains("cover-image"));
+            assert!(!opf_content.contains("cover-page"));
+        }
+
+        // Verificar toc.ncx inicia en playOrder="1" con capítulo
+        {
+            let mut ncx_file = archive.by_name("OEBPS/toc.ncx").expect("toc.ncx no encontrado");
+            let mut ncx_content = String::new();
+            std::io::Read::read_to_string(&mut ncx_file, &mut ncx_content).unwrap();
+            assert!(ncx_content.contains(r#"playOrder="1""#));
+            assert!(!ncx_content.contains("Portada"));
+        }
+    }
+
+    #[test]
+    fn test_generar_epub_con_portada_bytes() {
+        let mut buffer = Cursor::new(Vec::new());
+        let dummy_cover = vec![0xFF, 0xD8, 0xFF, 0xE0, 0x00, 0x10]; // Cabecera simulada JPEG
+        let res = generar_epub_zip(
+            &mut buffer,
+            "Libro con Portada",
+            "<p>Contenido del libro</p>",
+            "#ffffff",
+            "#000000",
+            "#000000",
+            "#6366f1",
+            "#be185d",
+            "#f1f5f9",
+            "Inter",
+            true, // Eink
+            Some(dummy_cover.clone()),
+            None
+        );
+        assert!(res.is_ok(), "La generación de EPUB con portada falló");
+
+        let mut archive = ZipArchive::new(buffer).expect("No se pudo leer el archivo ZIP generado");
+
+        // Verificar imagen de portada física en el ZIP
+        {
+            let mut cover_img_file = archive.by_name("OEBPS/images/cover.jpg").expect("cover.jpg no encontrada");
+            let mut cover_bytes = Vec::new();
+            std::io::Read::read_to_end(&mut cover_img_file, &mut cover_bytes).unwrap();
+            assert_eq!(cover_bytes, dummy_cover);
+        }
+
+        // Verificar página de portada XHTML
+        {
+            let mut cover_page = archive.by_name("OEBPS/text/cover.xhtml").expect("cover.xhtml no encontrada");
+            let mut cover_xhtml = String::new();
+            std::io::Read::read_to_string(&mut cover_page, &mut cover_xhtml).unwrap();
+            assert!(cover_xhtml.contains(r#"viewBox="0 0 1600 2560""#));
+            assert!(cover_xhtml.contains(r#"xlink:href="../images/cover.jpg""#));
+        }
+
+        // Verificar content.opf
+        {
+            let mut opf_file = archive.by_name("OEBPS/content.opf").expect("content.opf no encontrado");
+            let mut opf_content = String::new();
+            std::io::Read::read_to_string(&mut opf_file, &mut opf_content).unwrap();
+            assert!(opf_content.contains(r#"<meta name="cover" content="cover-image"/>"#));
+            assert!(opf_content.contains(r#"id="cover-image""#));
+            assert!(opf_content.contains(r#"id="cover-page""#));
+            assert!(opf_content.contains(r#"<itemref idref="cover-page"/>"#));
+            assert!(opf_content.contains(r#"<reference type="cover" title="Portada" href="text/cover.xhtml"/>"#));
+        }
+
+        // Verificar toc.ncx tiene Portada como playOrder="1" y capítulo como playOrder="2"
+        {
+            let mut ncx_file = archive.by_name("OEBPS/toc.ncx").expect("toc.ncx no encontrado");
+            let mut ncx_content = String::new();
+            std::io::Read::read_to_string(&mut ncx_file, &mut ncx_content).unwrap();
+            assert!(ncx_content.contains(r#"<navPoint id="navPoint-1" playOrder="1">"#));
+            assert!(ncx_content.contains("<text>Portada</text>"));
+            assert!(ncx_content.contains(r#"<navPoint id="navPoint-2" playOrder="2">"#));
+        }
+    }
 }

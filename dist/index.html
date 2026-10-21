@@ -979,14 +979,60 @@
 
   <!-- 4.5. Modal de Exportación a EPUB -->
   <div id="modal-epub-export" class="modal-overlay">
-    <div class="modal-box modal-box-narrow">
+    <div class="modal-box modal-box-epub">
       <header class="modal-header">
         <h3>Opciones de Exportación a EPUB</h3>
         <button class="modal-close-btn">&times;</button>
       </header>
       <div class="modal-body">
-        <p class="modal-desc" style="margin-bottom: 20px; line-height: 1.5; color: var(--text-muted, #64748b);">
-          Elige el modo de estilo que prefieras para la maquetación de tu libro electrónico (EPUB):
+        <!-- Sección de Portada del Libro -->
+        <div id="epub-cover-section">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+            <span style="font-size: 11.5px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted, #94a3b8);">
+              Imagen de Portada
+            </span>
+          </div>
+
+          <!-- Estado Vacío: Sin portada -->
+          <div id="epub-cover-empty" class="epub-cover-dropzone">
+            <span style="font-size: 22px; opacity: 0.75;">📖</span>
+            <span style="font-size: 12px; color: var(--text-muted, #94a3b8); line-height: 1.4;">
+              Sin portada seleccionada para el libro.
+            </span>
+            <button id="btn-epub-select-cover" class="config-action-btn" type="button" style="padding: 5px 14px; font-size: 11.5px; margin-top: 4px;">
+              Elegir imagen de portada...
+            </button>
+          </div>
+
+          <!-- Estado Seleccionado: Tarjeta Proporcional con Datos y Previsualización -->
+          <div id="epub-cover-preview-card" class="epub-cover-preview-card" style="display: none;">
+            <div class="epub-cover-thumb-wrapper">
+              <img id="epub-cover-thumb" class="epub-cover-thumb-img" src="" alt="Portada" />
+            </div>
+            <div class="epub-cover-info">
+              <div id="epub-cover-filename" style="font-weight: 600; font-size: 12.5px; color: var(--text-main, #f1f5f9); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="">
+                cover.jpg
+              </div>
+              <div id="epub-cover-badge-res" class="epub-badge epub-badge-info">
+                1600 × 2560 px
+              </div>
+              <div id="epub-cover-badge-status" class="epub-badge epub-badge-ok">
+                ✓ Resolución recomendada
+              </div>
+              <div style="display: flex; gap: 8px; margin-top: 4px;">
+                <button id="btn-epub-change-cover" class="config-action-btn" type="button" style="padding: 4px 10px; font-size: 11px;">
+                  Cambiar
+                </button>
+                <button id="btn-epub-remove-cover" class="config-action-btn" type="button" style="padding: 4px 10px; font-size: 11px; color: #ef4444; border-color: rgba(239, 68, 68, 0.3);">
+                  Quitar
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <p class="modal-desc" style="margin-bottom: 12px; line-height: 1.4; color: var(--text-muted, #94a3b8); font-size: 12px;">
+          Elige el modo de estilo para el interior de tu libro electrónico (EPUB):
         </p>
         
         <div style="display: flex; flex-direction: column; gap: 15px;">

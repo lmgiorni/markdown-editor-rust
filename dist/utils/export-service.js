@@ -100,71 +100,77 @@ export async function exportarDocumentoAPDF(fileName, markdownText, readerFont, 
         const r = parseInt(match[0]);
         isDark = r < 130;
       }
-    } else {
-      isDark = extractedBg.includes('dark') || extractedBg.includes('black');
     }
-    
-    // Extraer variables cromáticas del tema
-    let accentColor = computedStyle.getPropertyValue('--accent').trim() || '#6366f1';
-    let codeColor = computedStyle.getPropertyValue('--text-code-inline').trim() || '#be185d';
-    let blockquoteBg = computedStyle.getPropertyValue('--bg-blockquote').trim() || 'rgba(99, 102, 241, 0.03)';
-    let tableHeaderBg = computedStyle.getPropertyValue('--bg-table-header').trim() || 'rgba(0, 0, 0, 0.02)';
-    let tableZebraBg = computedStyle.getPropertyValue('--bg-table-zebra').trim() || 'rgba(0, 0, 0, 0.01)';
-    let borderSubtle = computedStyle.getPropertyValue('--border-subtle').trim() || 'rgba(0, 0, 0, 0.08)';
-    
-    // Si el tema es oscuro, adaptamos fondos a tonos muy claros para no gastar tinta y mantener el contraste
-    if (isDark) {
-      tableHeaderBg = 'rgba(0, 0, 0, 0.04)';
-      tableZebraBg = 'rgba(0, 0, 0, 0.01)';
-      blockquoteBg = 'rgba(99, 102, 241, 0.03)';
-      borderSubtle = 'rgba(0, 0, 0, 0.08)';
-      if (codeColor === '#f472b6' || codeColor.toLowerCase() === '#f472b6') {
-        codeColor = '#be185d';
+
+    const printThemeStyles = isDark ? `
+      /* MODO ALTO CONTRASTE PARA IMPRESIÓN DE TEMAS OSCUROS */
+      body {
+        background-color: #ffffff !important;
+        color: #1a1a1a !important;
       }
-    }
-    
+      .markdown-body {
+        color: #1a1a1a !important;
+      }
+      .markdown-body h1, .markdown-body h2, .markdown-body h3, .markdown-body h4 {
+        color: #000000 !important;
+        border-bottom-color: #e2e8f0 !important;
+      }
+      .markdown-body pre, .markdown-body code {
+        background-color: #f8fafc !important;
+        color: #0f172a !important;
+        border: 1px solid #e2e8f0 !important;
+      }
+      .markdown-body blockquote {
+        background-color: #f1f5f9 !important;
+        color: #334155 !important;
+        border-left-color: #94a3b8 !important;
+      }
+      .markdown-body table th {
+        background-color: #f8fafc !important;
+        color: #0f172a !important;
+      }
+      .markdown-body table td, .markdown-body table th {
+        border-color: #e2e8f0 !important;
+      }
+    ` : `
+      /* TEMA CLARO NATIVO */
+      body {
+        background-color: var(--bg-reader, #ffffff) !important;
+        color: var(--text-reader, #1e293b) !important;
+      }
+    `;
+
     const bodyHtml = typeof marked !== 'undefined' ? marked.parse(markdownText) : markdownText;
-    
+
     const htmlCompleto = `<!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <title>Impresión - ${fileName}</title>
+  <title>${fileName}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400;1,700&family=Fira+Code:wght@400;500&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&family=Merriweather:ital,wght@0,300;0,400;0,700;1,300&family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
   <style>
     ${cssContent}
-    
-    /* Adaptaciones de Tema para Impresión PDF */
-    :root {
-      --bg-app: #ffffff !important;
-      --bg-panel: #ffffff !important;
-      --bg-reader: #ffffff !important;
-      --text-reader: #1e293b !important;
-      --text-strong: #0f172a !important;
-      --text-main: #1e293b !important;
-      --text-muted: #64748b !important;
-      --accent: ${accentColor} !important;
-      --accent-color: ${accentColor} !important;
-      --text-code-inline: ${codeColor} !important;
-      --bg-code: #f8fafc !important;
-      --bg-blockquote: ${blockquoteBg} !important;
-      --bg-table-header: ${tableHeaderBg} !important;
-      --bg-table-zebra: ${tableZebraBg} !important;
-      --border-subtle: ${borderSubtle} !important;
-    }
-    
+    ${printThemeStyles}
+
     body {
-      background-color: #ffffff !important;
-      color: #1e293b !important;
       padding: 40px !important;
       font-family: '${readerFont}', 'Inter', sans-serif !important;
+      display: block !important;
+      overflow: visible !important;
+      height: auto !important;
     }
     .markdown-body {
-      max-width: 800px;
+      max-width: 100% !important;
       margin: 0 auto;
       background: transparent !important;
       border: none !important;
       box-shadow: none !important;
+    }
+    @page {
+      size: auto;
+      margin: 20mm 15mm 20mm 15mm;
     }
     @media print {
       body { padding: 0 !important; }
@@ -214,8 +220,54 @@ function purificarHTMLaXHTML(html) {
     });
 }
 
-// 3. EXPORTAR A LIBRO ELECTRÓNICO EPUB PREMIUM CON ADAPTACIÓN EINK O TEMA
-export async function exportarDocumentoAEPUB(fileName, markdownText, readerFont, invokeTauri, notify) {
+// Auxiliar para convertir rutas de archivos locales en URLs seguras para WebView2
+function resolverUrlImagenLocal(ruta) {
+  if (!ruta) return '';
+  if (window.__TAURI__ && window.__TAURI__.core && window.__TAURI__.core.convertFileSrc) {
+    const normalized = ruta.replace(/\\/g, '/');
+    return window.__TAURI__.core.convertFileSrc(normalized);
+  }
+  return 'file:///' + ruta.replace(/\\/g, '/');
+}
+
+// Auxiliar para optimizar y reducir imágenes excesivamente pesadas (>2560px) en memoria vía Canvas
+async function optimizarImagenPortadaCanvas(imgElement) {
+  const maxW = 1600;
+  const maxH = 2560;
+  let targetW = imgElement.naturalWidth;
+  let targetH = imgElement.naturalHeight;
+  
+  // Escalar proporcionalmente manteniendo la relación de aspecto original
+  const ratio = Math.min(maxW / targetW, maxH / targetH);
+  if (ratio < 1) {
+    targetW = Math.round(targetW * ratio);
+    targetH = Math.round(targetH * ratio);
+  }
+  
+  const canvas = document.createElement('canvas');
+  canvas.width = targetW;
+  canvas.height = targetH;
+  const ctx = canvas.getContext('2d');
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = 'high';
+  ctx.drawImage(imgElement, 0, 0, targetW, targetH);
+  
+  return new Promise((resolve) => {
+    canvas.toBlob((blob) => {
+      if (!blob) return resolve(null);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const arrayBuffer = reader.result;
+        const bytes = Array.from(new Uint8Array(arrayBuffer));
+        resolve(bytes);
+      };
+      reader.readAsArrayBuffer(blob);
+    }, 'image/jpeg', 0.90);
+  });
+}
+
+// 3. EXPORTAR A LIBRO ELECTRÓNICO EPUB PREMIUM CON PORTADA Y ADAPTACIÓN EINK O TEMA
+export async function exportarDocumentoAEPUB(fileName, markdownText, readerFont, invokeTauri, notify, currentDocPath) {
   if (!invokeTauri) {
     notify('La exportación a EPUB no está disponible en la web', 'error');
     return;
@@ -234,27 +286,181 @@ export async function exportarDocumentoAEPUB(fileName, markdownText, readerFont,
       bodyHtmlRaw = markdownText.replace(/\n/g, '<br/>');
     }
     
-    // Sanitización XHTML estricta para lectores estrictos
+    // Sanitización XHTML estricta para lectores de EPUB
     const bodyHtml = purificarHTMLaXHTML(bodyHtmlRaw);
     
-    // Preguntar al usuario por el estilo del EPUB mediante el modal premium
+    // Elementos del Modal
     const modalEpub = document.getElementById('modal-epub-export');
     const btnEink = document.getElementById('btn-epub-opt-eink');
     const btnTheme = document.getElementById('btn-epub-opt-theme');
     const btnCancel = document.getElementById('btn-epub-cancel');
     const closeBtn = modalEpub ? modalEpub.querySelector('.modal-close-btn') : null;
     
+    // Elementos de la sección de Portada
+    const coverEmpty = document.getElementById('epub-cover-empty');
+    const coverPreviewCard = document.getElementById('epub-cover-preview-card');
+    const coverThumb = document.getElementById('epub-cover-thumb');
+    const coverFilename = document.getElementById('epub-cover-filename');
+    const coverBadgeRes = document.getElementById('epub-cover-badge-res');
+    const coverBadgeStatus = document.getElementById('epub-cover-badge-status');
+    const btnSelectCover = document.getElementById('btn-epub-select-cover');
+    const btnChangeCover = document.getElementById('btn-epub-change-cover');
+    const btnRemoveCover = document.getElementById('btn-epub-remove-cover');
+    
     if (!modalEpub || !btnEink || !btnTheme) {
       notify('El diálogo de exportación a EPUB no está disponible', 'error');
       return;
     }
+
+    // Estado local de la portada seleccionada
+    let selectedCoverPath = null;
+    let selectedCoverImg = null;
+    let isHighRes = false;
+    let currentBlobUrl = null;
+
+    // Función interna para cargar, dimensionar y previsualizar una portada
+    const cargarYMostrarPortada = async (path) => {
+      if (!path) {
+        selectedCoverPath = null;
+        selectedCoverImg = null;
+        isHighRes = false;
+        if (currentBlobUrl) {
+          URL.revokeObjectURL(currentBlobUrl);
+          currentBlobUrl = null;
+        }
+        if (coverPreviewCard) coverPreviewCard.style.display = 'none';
+        if (coverEmpty) coverEmpty.style.display = 'flex';
+        return;
+      }
+
+      try {
+        // Leemos los bytes del archivo de forma nativa vía Tauri para generar un Blob del mismo origen.
+        // Esto evita terminantemente el error de 'Tainted canvases' (CORS) al exportar con toBlob() en WebP o imágenes grandes.
+        let srcUrl = '';
+        try {
+          const bytes = await invokeTauri('leer_archivo_binario', { path });
+          const ext = path.split('.').pop().toLowerCase();
+          const mime = ext === 'png' ? 'image/png' : ext === 'webp' ? 'image/webp' : ext === 'gif' ? 'image/gif' : ext === 'svg' ? 'image/svg+xml' : 'image/jpeg';
+          const blob = new Blob([new Uint8Array(bytes)], { type: mime });
+          
+          if (currentBlobUrl) {
+            URL.revokeObjectURL(currentBlobUrl);
+          }
+          currentBlobUrl = URL.createObjectURL(blob);
+          srcUrl = currentBlobUrl;
+        } catch (readErr) {
+          console.warn('Fallo al leer bytes directamente, recurriendo a convertFileSrc:', readErr);
+          srcUrl = resolverUrlImagenLocal(path);
+        }
+
+        const img = new Image();
+        img.src = srcUrl;
+        await new Promise((res, rej) => {
+          img.onload = res;
+          img.onerror = () => rej(new Error('No se pudo cargar la imagen para previsualización'));
+        });
+
+        selectedCoverPath = path;
+        selectedCoverImg = img;
+
+        const w = img.naturalWidth;
+        const h = img.naturalHeight;
+        const sep = path.includes('/') ? '/' : '\\';
+        const namePart = path.split(sep).pop();
+
+        if (coverThumb) coverThumb.src = srcUrl;
+        if (coverFilename) {
+          coverFilename.textContent = namePart;
+          coverFilename.title = path;
+        }
+        if (coverBadgeRes) {
+          coverBadgeRes.textContent = `${w} × ${h} px`;
+        }
+
+        if (coverBadgeStatus) {
+          if (w < 1000 || h < 1400) {
+            isHighRes = false;
+            coverBadgeStatus.className = 'epub-badge epub-badge-warn';
+            coverBadgeStatus.textContent = `⚠️ Baja resolución (${w}×${h} px). Podría pixelarse.`;
+          } else if (w > 2560 || h > 2560) {
+            isHighRes = true;
+            coverBadgeStatus.className = 'epub-badge epub-badge-info';
+            coverBadgeStatus.textContent = `ℹ️ Alta resolución (${w}×${h} px). Se optimizará a 1600×2560 px.`;
+          } else {
+            isHighRes = false;
+            coverBadgeStatus.className = 'epub-badge epub-badge-ok';
+            coverBadgeStatus.textContent = `✓ Resolución recomendada (${w}×${h} px)`;
+          }
+        }
+
+        if (coverEmpty) coverEmpty.style.display = 'none';
+        if (coverPreviewCard) coverPreviewCard.style.display = 'flex';
+      } catch (err) {
+        console.warn('No se pudo previsualizar la portada:', err);
+        selectedCoverPath = null;
+        selectedCoverImg = null;
+        isHighRes = false;
+        if (currentBlobUrl) {
+          URL.revokeObjectURL(currentBlobUrl);
+          currentBlobUrl = null;
+        }
+        if (coverPreviewCard) coverPreviewCard.style.display = 'none';
+        if (coverEmpty) coverEmpty.style.display = 'flex';
+      }
+    };
+
+    // Auto-detección inicial de portada candidata en el directorio del documento
+    if (currentDocPath) {
+      try {
+        const candidata = await invokeTauri('buscar_portada_candidata', { filePath: currentDocPath });
+        if (candidata) {
+          await cargarYMostrarPortada(candidata);
+        } else {
+          await cargarYMostrarPortada(null);
+        }
+      } catch (err) {
+        await cargarYMostrarPortada(null);
+      }
+    } else {
+      await cargarYMostrarPortada(null);
+    }
+
+    // Manejador para elegir / cambiar portada manualmente
+    const onElegirPortada = async () => {
+      try {
+        const elegida = await invokeTauri('seleccionar_imagen_portada');
+        if (elegida) {
+          await cargarYMostrarPortada(elegida);
+        }
+      } catch (err) {
+        console.error('Error al seleccionar imagen de portada:', err);
+      }
+    };
+
+    // Manejador para quitar la portada
+    const onQuitarPortada = () => {
+      cargarYMostrarPortada(null);
+    };
+
+    if (btnSelectCover) btnSelectCover.addEventListener('click', onElegirPortada);
+    if (btnChangeCover) btnChangeCover.addEventListener('click', onElegirPortada);
+    if (btnRemoveCover) btnRemoveCover.addEventListener('click', onQuitarPortada);
     
+    // Esperar la selección de estilo por parte del usuario
     const optEink = await new Promise((resolve) => {
       const cleanup = (value) => {
         btnEink.removeEventListener('click', selectEink);
         btnTheme.removeEventListener('click', selectTheme);
         if (btnCancel) btnCancel.removeEventListener('click', selectCancel);
         if (closeBtn) closeBtn.removeEventListener('click', selectCancel);
+        if (btnSelectCover) btnSelectCover.removeEventListener('click', onElegirPortada);
+        if (btnChangeCover) btnChangeCover.removeEventListener('click', onElegirPortada);
+        if (btnRemoveCover) btnRemoveCover.removeEventListener('click', onQuitarPortada);
+        
+        if (currentBlobUrl) {
+          URL.revokeObjectURL(currentBlobUrl);
+          currentBlobUrl = null;
+        }
         
         modalEpub.classList.remove('active');
         
@@ -314,6 +520,24 @@ export async function exportarDocumentoAEPUB(fileName, markdownText, readerFont,
       codeColor = '#000000';
       blockquoteBg = '#ffffff';
     }
+
+    // Preparar imagen de portada si está presente
+    let coverBytes = null;
+    let coverPath = null;
+
+    if (selectedCoverPath && selectedCoverImg) {
+      const isWebp = selectedCoverPath.toLowerCase().endsWith('.webp');
+      if (isHighRes || isWebp) {
+        // Redimensionar automáticamente vía Canvas a dimensiones óptimas (1600x2560) o convertir de WebP a JPEG
+        notify('Optimizando imagen de portada para el EPUB...', 'info');
+        coverBytes = await optimizarImagenPortadaCanvas(selectedCoverImg);
+        coverPath = null;
+      } else {
+        // Formato estándar (JPG/PNG) dentro de resolución adecuada: Rust lo lee directamente de disco
+        coverPath = selectedCoverPath;
+        coverBytes = null;
+      }
+    }
     
     const defaultSaveName = fileName.replace(/\s+/g, '_') + '.epub';
     const savedPath = await invokeTauri('exportar_epub', {
@@ -327,7 +551,9 @@ export async function exportarDocumentoAEPUB(fileName, markdownText, readerFont,
       codeColor: codeColor,
       blockquoteBg: blockquoteBg,
       fontFamily: fontFamily,
-      isEink: optEink
+      isEink: optEink,
+      coverImageBytes: coverBytes,
+      coverImagePath: coverPath
     });
     
     if (savedPath) {

@@ -4405,7 +4405,8 @@ async function exportarAEPUB() {
     DOM.editor.value,
     appState.readerFont,
     invoke,
-    alertNotification
+    alertNotification,
+    appState.filePath
   );
 }
 

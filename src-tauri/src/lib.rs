@@ -310,6 +310,84 @@ fn exportar_archivo(default_name: String, content: String, extension: String, fi
 }
 
 #[tauri::command]
+fn buscar_portada_candidata(file_path: String) -> Result<Option<String>, String> {
+    if file_path.trim().is_empty() {
+        return Ok(None);
+    }
+    let path = std::path::PathBuf::from(&file_path);
+    let parent_dir = match path.parent() {
+        Some(p) if p.exists() && p.is_dir() => p,
+        _ => return Ok(None),
+    };
+
+    let doc_stem = path.file_stem()
+        .and_then(|s| s.to_str())
+        .unwrap_or("")
+        .to_lowercase();
+
+    // Prioridades de búsqueda:
+    // 1. cover.jpg / cover.jpeg / cover.png
+    // 2. portada.jpg / portada.jpeg / portada.png
+    // 3. front.jpg / front.jpeg / front.png
+    // 4. {stem}_cover.jpg / {stem}_cover.jpeg / {stem}_cover.png
+    // 5. {stem}_portada.jpg / {stem}_portada.jpeg / {stem}_portada.png
+    let mut candidate_names: Vec<String> = vec![
+        "cover.jpg".into(), "cover.jpeg".into(), "cover.png".into(),
+        "portada.jpg".into(), "portada.jpeg".into(), "portada.png".into(),
+        "front.jpg".into(), "front.jpeg".into(), "front.png".into(),
+    ];
+
+    if !doc_stem.is_empty() {
+        candidate_names.push(format!("{}_cover.jpg", doc_stem));
+        candidate_names.push(format!("{}_cover.jpeg", doc_stem));
+        candidate_names.push(format!("{}_cover.png", doc_stem));
+        candidate_names.push(format!("{}_portada.jpg", doc_stem));
+        candidate_names.push(format!("{}_portada.jpeg", doc_stem));
+        candidate_names.push(format!("{}_portada.png", doc_stem));
+    }
+
+    let entries = match fs::read_dir(parent_dir) {
+        Ok(e) => e,
+        Err(_) => return Ok(None),
+    };
+
+    let mut found_files: std::collections::HashMap<String, std::path::PathBuf> = std::collections::HashMap::new();
+    for entry in entries.flatten() {
+        let p = entry.path();
+        if p.is_file() {
+            if let Some(fname) = p.file_name().and_then(|s| s.to_str()) {
+                found_files.insert(fname.to_lowercase(), p);
+            }
+        }
+    }
+
+    for candidate in candidate_names {
+        if let Some(found_path) = found_files.get(&candidate) {
+            return Ok(Some(found_path.to_string_lossy().to_string()));
+        }
+    }
+
+    Ok(None)
+}
+
+#[tauri::command]
+fn seleccionar_imagen_portada() -> Result<Option<String>, String> {
+    let file_path = FileDialog::new()
+        .add_filter("Imágenes de Portada (*.jpg, *.jpeg, *.png, *.webp)", &["jpg", "jpeg", "png", "webp"])
+        .pick_file();
+
+    match file_path {
+        Some(p) => Ok(Some(p.to_string_lossy().to_string())),
+        None => Ok(None),
+    }
+}
+
+#[tauri::command]
+fn leer_archivo_binario(path: String) -> Result<Vec<u8>, String> {
+    fs::read(&path).map_err(|e| format!("Error al leer archivo binario '{}': {}", path, e))
+}
+
+#[tauri::command]
 fn exportar_epub(
     default_name: String, 
     title: String, 
@@ -321,7 +399,9 @@ fn exportar_epub(
     code_color: String,
     blockquote_bg: String,
     font_family: String,
-    is_eink: bool
+    is_eink: bool,
+    cover_image_bytes: Option<Vec<u8>>,
+    cover_image_path: Option<String>,
 ) -> Result<Option<String>, String> {
     epub_exporter::exportar_epub_interno(
         default_name, 
@@ -334,7 +414,9 @@ fn exportar_epub(
         code_color,
         blockquote_bg,
         font_family,
-        is_eink
+        is_eink,
+        cover_image_bytes,
+        cover_image_path
     )
 }
 
@@ -726,6 +808,9 @@ pub fn run() {
         exportar_html,
         exportar_archivo,
         exportar_epub,
+        buscar_portada_candidata,
+        seleccionar_imagen_portada,
+        leer_archivo_binario,
         listar_activos,
         leer_activo,
         listar_temas,
@@ -736,4 +821,40 @@ pub fn run() {
     ])
     .run(tauri::generate_context!())
     .expect("error while running tauri application");
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_buscar_portada_candidata() {
+        let temp_dir = std::env::temp_dir().join("test_summa_cover");
+        let _ = fs::create_dir_all(&temp_dir);
+
+        let doc_path = temp_dir.join("Capitulo_1.md");
+        fs::write(&doc_path, "# Test").unwrap();
+
+        // 1. Sin ninguna portada
+        assert_eq!(buscar_portada_candidata(doc_path.to_string_lossy().to_string()).unwrap(), None);
+
+        // 2. Con portada con nombre específico capitulo_1_cover.jpg
+        let specific_cover = temp_dir.join("capitulo_1_cover.jpg");
+        fs::write(&specific_cover, "dummy").unwrap();
+        assert_eq!(
+            buscar_portada_candidata(doc_path.to_string_lossy().to_string()).unwrap(),
+            Some(specific_cover.to_string_lossy().to_string())
+        );
+
+        // 3. Con cover.jpg (mayor prioridad que capitulo_1_cover.jpg)
+        let standard_cover = temp_dir.join("cover.jpg");
+        fs::write(&standard_cover, "dummy").unwrap();
+        assert_eq!(
+            buscar_portada_candidata(doc_path.to_string_lossy().to_string()).unwrap(),
+            Some(standard_cover.to_string_lossy().to_string())
+        );
+
+        // Limpiar
+        let _ = fs::remove_dir_all(&temp_dir);
+    }
 }

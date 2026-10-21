@@ -701,6 +701,105 @@ body {
   gap: 6px !important;
 }
 
+/* Modal de Exportación a EPUB con Portada */
+.modal-box-epub {
+  max-width: 440px !important;
+  width: 440px !important;
+  left: calc(50% - 220px) !important;
+}
+
+.modal-box-epub .modal-body {
+  padding: 16px 20px;
+  max-height: 85vh;
+  overflow-y: auto;
+}
+
+#epub-cover-section {
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.08));
+  border-radius: 8px;
+  padding: 12px;
+  margin-bottom: 16px;
+}
+
+.epub-cover-dropzone {
+  border: 1.5px dashed var(--border-subtle, rgba(255, 255, 255, 0.15));
+  border-radius: 6px;
+  padding: 14px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  background: rgba(0, 0, 0, 0.02);
+}
+
+.epub-cover-preview-card {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+}
+
+.epub-cover-thumb-wrapper {
+  width: 70px;
+  height: 112px;
+  aspect-ratio: 1 / 1.6;
+  border-radius: 5px;
+  overflow: hidden;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
+  border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.15));
+  flex-shrink: 0;
+  background: rgba(0, 0, 0, 0.15);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.epub-cover-thumb-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.epub-cover-info {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  flex: 1;
+  min-width: 0;
+}
+
+.epub-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  line-height: 1.3;
+  padding: 3px 7px;
+  border-radius: 4px;
+  width: fit-content;
+  max-width: 100%;
+}
+
+.epub-badge-ok {
+  background: rgba(16, 185, 129, 0.12);
+  color: #10b981;
+  border: 1px solid rgba(16, 185, 129, 0.25);
+}
+
+.epub-badge-warn {
+  background: rgba(245, 158, 11, 0.12);
+  color: #f59e0b;
+  border: 1px solid rgba(245, 158, 11, 0.25);
+}
+
+.epub-badge-info {
+  background: rgba(99, 102, 241, 0.12);
+  color: #818cf8;
+  border: 1px solid rgba(99, 102, 241, 0.25);
+}
+
 /* ==========================================================================
    PANEL LATERAL Y VENTANA FLOTANTE DE ATAJOS Y FORMATO MARKDOWN
    ========================================================================== */

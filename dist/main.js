@@ -3172,6 +3172,9 @@ function inicializarDragAndDrop() {
 }
 
 function inicializarModalAbout() {
+  if (DOM.modalAbout) {
+    habilitarArrastreModal(DOM.modalAbout);
+  }
   if (DOM.btnOpenAbout && DOM.modalAbout) {
     DOM.btnOpenAbout.addEventListener('click', () => {
       abrirModal(DOM.modalAbout);
@@ -3914,7 +3917,7 @@ function constrenirModalAPantalla(modalBox) {
 
 // Escuchar el cambio de tamaño de la ventana principal de forma fluida
 window.addEventListener('resize', () => {
-  [DOM.modalMd, DOM.modalStats, DOM.modalConfig, DOM.modalEpubExport].forEach(overlay => {
+  [DOM.modalMd, DOM.modalStats, DOM.modalConfig, DOM.modalEpubExport, DOM.modalAbout].forEach(overlay => {
     if (overlay && overlay.classList.contains('active')) {
       const modalBox = overlay.querySelector('.modal-box');
       if (modalBox) {

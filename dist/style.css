@@ -1195,20 +1195,69 @@ body {
 /* ==========================================================================
    DISEÑO INTERNO DEL MODAL CONFIG (CONTROLES)
    ========================================================================== */
+/* Dimensionado responsivo de la ventana flotante de Configuración (#modal-config) */
+#modal-config .modal-box {
+  top: 32px;
+  max-width: 480px;
+  width: 90%;
+  left: calc(50% - 240px);
+  max-height: 92vh;
+}
+
+#modal-config .modal-header {
+  padding: 12px 18px;
+}
+
+#modal-config .modal-body {
+  padding: 14px 20px 18px;
+  max-height: calc(92vh - 54px);
+  overflow-y: auto;
+}
+
+#modal-config .modal-body::-webkit-scrollbar {
+  width: 6px;
+}
+
+#modal-config .modal-body::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+#modal-config .modal-body::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 4px;
+}
+
+#modal-config .modal-body::-webkit-scrollbar-thumb:hover {
+  background: var(--accent);
+}
+
+#modal-about .modal-box {
+  top: 60px;
+  max-width: 500px;
+  width: 90%;
+  left: calc(50% - 250px);
+  max-height: 88vh;
+}
+
+#modal-about .modal-body {
+  max-height: calc(88vh - 110px);
+  overflow-y: auto;
+}
+
 .config-container {
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 11px;
 }
 
 .config-row {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 4px;
 }
 
 .config-row label {
-  font-size: 12.5px;
+  font-size: 11.5px;
   font-weight: 600;
   color: #94a3b8;
   text-transform: uppercase;
@@ -1219,12 +1268,27 @@ body {
   background-color: var(--bg-code, #161b26);
   border: 1px solid var(--border-subtle);
   color: var(--text-main);
-  padding: 10px 14px;
+  padding: 7px 11px;
   border-radius: 8px;
   outline: none;
-  font-size: 13.5px;
+  font-size: 13px;
   cursor: pointer;
   transition: var(--transition-fast);
+}
+
+.config-row-about {
+  margin-top: 10px !important;
+  padding-top: 10px !important;
+}
+
+.btn-about-trigger {
+  transition: var(--transition-fast);
+}
+
+.btn-about-trigger:hover {
+  background: rgba(139, 92, 246, 0.15) !important;
+  border-color: rgba(139, 92, 246, 0.4) !important;
+  color: var(--accent-hover) !important;
 }
 
 .config-select:focus {

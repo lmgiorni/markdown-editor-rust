@@ -496,6 +496,33 @@ fn abrir_carpeta_idiomas(app_handle: tauri::AppHandle) -> Result<(), String> {
     Ok(())
 }
 
+fn sincronizar_idioma_base(path: &std::path::Path, base_content: &str) {
+    if !path.exists() {
+        let _ = fs::write(path, base_content);
+        return;
+    }
+    
+    // Si ya existe, nos aseguramos de que no le falten claves agregadas en nuevas versiones
+    if let (Ok(existing_str), Ok(base_val)) = (fs::read_to_string(path), serde_json::from_str::<serde_json::Value>(base_content)) {
+        if let Ok(mut existing_val) = serde_json::from_str::<serde_json::Value>(&existing_str) {
+            if let (Some(existing_obj), Some(base_obj)) = (existing_val.as_object_mut(), base_val.as_object()) {
+                let mut modificado = false;
+                for (k, v) in base_obj {
+                    if !existing_obj.contains_key(k) {
+                        existing_obj.insert(k.clone(), v.clone());
+                        modificado = true;
+                    }
+                }
+                if modificado {
+                    if let Ok(nuevo_json) = serde_json::to_string_pretty(&existing_val) {
+                        let _ = fs::write(path, nuevo_json);
+                    }
+                }
+            }
+        }
+    }
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
   tauri::Builder::default()
@@ -514,22 +541,10 @@ pub fn run() {
       let languages_dir = assets_dir.join("languages");
       fs::create_dir_all(&languages_dir).unwrap_or_default();
 
-      // Inyectar idiomas base si no existen en la carpeta de usuario
-      let es_path = languages_dir.join("es.json");
-      if !es_path.exists() {
-          let es_content = include_str!("../../assets/languages/es.json");
-          fs::write(es_path, es_content).unwrap_or_default();
-      }
-      let en_path = languages_dir.join("en.json");
-      if !en_path.exists() {
-          let en_content = include_str!("../../assets/languages/en.json");
-          fs::write(en_path, en_content).unwrap_or_default();
-      }
-      let la_path = languages_dir.join("la.json");
-      if !la_path.exists() {
-          let la_content = include_str!("../../assets/languages/la.json");
-          fs::write(la_path, la_content).unwrap_or_default();
-      }
+      // Inyectar o sincronizar idiomas base en la carpeta de usuario
+      sincronizar_idioma_base(&languages_dir.join("es.json"), include_str!("../../assets/languages/es.json"));
+      sincronizar_idioma_base(&languages_dir.join("en.json"), include_str!("../../assets/languages/en.json"));
+      sincronizar_idioma_base(&languages_dir.join("la.json"), include_str!("../../assets/languages/la.json"));
 
       // Inyectar activos base en modules si está vacío
       if let Ok(mut entries) = fs::read_dir(&modules_dir) {

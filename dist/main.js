@@ -2656,39 +2656,43 @@ function actualizarTextosInterfaz(lang) {
   setFloatingHeaderAndFooter('modal-md-structure', t.md_title_structure, t.help_structure);
   setFloatingHeaderAndFooter('modal-md-advanced', t.md_title_advanced, t.help_advanced);
 
-  // 6. Botones de Atajos (leídos íntegramente desde los archivos de configuración de idioma)
+  // 6. Botones de Atajos (leídos íntegramente desde los archivos de configuración de idioma con fallback automático)
+  const esDict = translations.es || {};
+  const currentDict = translations[lang] || translations[appState.language] || t || esDict;
+  const getTrans = (key) => (currentDict && currentDict[key]) || (t && t[key]) || (translations[lang] && translations[lang][key]) || esDict[key] || '';
+
   const shortcutTranslations = {
-    'bold': { text: t.btn_bold, title: t.tip_bold },
-    'italic': { text: t.btn_italic, title: t.tip_italic },
-    'underline': { text: t.btn_underline, title: t.tip_underline },
-    'strikethrough': { text: t.btn_strikethrough, title: t.tip_strikethrough },
-    'highlight': { text: t.btn_highlight, title: t.tip_highlight },
-    'superscript': { text: t.btn_superscript, title: t.tip_superscript },
-    'subscript': { text: t.btn_subscript, title: t.tip_subscript },
-    'h1': { text: t.btn_h1, title: t.tip_h1 },
-    'h2': { text: t.btn_h2, title: t.tip_h2 },
-    'h3': { text: t.btn_h3, title: t.tip_h3 },
-    'h4': { text: t.btn_h4, title: t.tip_h4 },
-    'h5': { text: t.btn_h5, title: t.tip_h5 },
-    'h6': { text: t.btn_h6, title: t.tip_h6 },
-    'ul': { text: t.btn_ul, title: t.tip_ul },
-    'ol': { text: t.btn_ol, title: t.tip_ol },
-    'task': { text: t.btn_task, title: t.tip_task },
-    'link': { text: t.btn_link, title: t.tip_link },
-    'image': { text: t.btn_image, title: t.tip_image },
-    'email': { text: t.btn_email, title: t.tip_email },
-    'inline-code': { text: t.btn_inline_code, title: t.tip_inline_code },
-    'code-block': { text: t.btn_code_block, title: t.tip_code_block },
-    'inline-math': { text: t.btn_inline_math, title: t.tip_inline_math },
-    'block-math': { text: t.btn_block_math, title: t.tip_block_math },
-    'blockquote': { text: t.btn_blockquote, title: t.tip_blockquote },
-    'callout': { text: t.btn_callout, title: t.tip_callout },
-    'table': { text: t.btn_table, title: t.tip_table },
-    'hr': { text: t.btn_hr, title: t.tip_hr },
-    'comment': { text: t.btn_comment, title: t.tip_comment },
-    'footnote': { text: t.btn_footnote, title: t.tip_footnote },
-    'definition-list': { text: t.btn_def_list, title: t.tip_def_list },
-    'details': { text: t.btn_details, title: t.tip_details }
+    'bold': { text: getTrans('btn_bold'), title: getTrans('tip_bold') },
+    'italic': { text: getTrans('btn_italic'), title: getTrans('tip_italic') },
+    'underline': { text: getTrans('btn_underline'), title: getTrans('tip_underline') },
+    'strikethrough': { text: getTrans('btn_strikethrough'), title: getTrans('tip_strikethrough') },
+    'highlight': { text: getTrans('btn_highlight'), title: getTrans('tip_highlight') },
+    'superscript': { text: getTrans('btn_superscript'), title: getTrans('tip_superscript') },
+    'subscript': { text: getTrans('btn_subscript'), title: getTrans('tip_subscript') },
+    'h1': { text: getTrans('btn_h1'), title: getTrans('tip_h1') },
+    'h2': { text: getTrans('btn_h2'), title: getTrans('tip_h2') },
+    'h3': { text: getTrans('btn_h3'), title: getTrans('tip_h3') },
+    'h4': { text: getTrans('btn_h4'), title: getTrans('tip_h4') },
+    'h5': { text: getTrans('btn_h5'), title: getTrans('tip_h5') },
+    'h6': { text: getTrans('btn_h6'), title: getTrans('tip_h6') },
+    'ul': { text: getTrans('btn_ul'), title: getTrans('tip_ul') },
+    'ol': { text: getTrans('btn_ol'), title: getTrans('tip_ol') },
+    'task': { text: getTrans('btn_task'), title: getTrans('tip_task') },
+    'link': { text: getTrans('btn_link'), title: getTrans('tip_link') },
+    'image': { text: getTrans('btn_image'), title: getTrans('tip_image') },
+    'email': { text: getTrans('btn_email'), title: getTrans('tip_email') },
+    'inline-code': { text: getTrans('btn_inline_code'), title: getTrans('tip_inline_code') },
+    'code-block': { text: getTrans('btn_code_block'), title: getTrans('tip_code_block') },
+    'inline-math': { text: getTrans('btn_inline_math'), title: getTrans('tip_inline_math') },
+    'block-math': { text: getTrans('btn_block_math'), title: getTrans('tip_block_math') },
+    'blockquote': { text: getTrans('btn_blockquote'), title: getTrans('tip_blockquote') },
+    'callout': { text: getTrans('btn_callout'), title: getTrans('tip_callout') },
+    'table': { text: getTrans('btn_table'), title: getTrans('tip_table') },
+    'hr': { text: getTrans('btn_hr'), title: getTrans('tip_hr') },
+    'comment': { text: getTrans('btn_comment'), title: getTrans('tip_comment') },
+    'footnote': { text: getTrans('btn_footnote'), title: getTrans('tip_footnote') },
+    'definition-list': { text: getTrans('btn_def_list'), title: getTrans('tip_def_list') },
+    'details': { text: getTrans('btn_details'), title: getTrans('tip_details') }
   };
 
   document.querySelectorAll('.md-shortcut-btn').forEach(btn => {
@@ -2696,9 +2700,9 @@ function actualizarTextosInterfaz(lang) {
     const trans = shortcutTranslations[syntax];
     if (trans) {
       const labelEl = btn.querySelector('.shortcut-label');
-      if (labelEl) {
+      if (labelEl && trans.text) {
         labelEl.textContent = trans.text;
-      } else {
+      } else if (trans.text) {
         btn.textContent = trans.text;
       }
       if (trans.title) {

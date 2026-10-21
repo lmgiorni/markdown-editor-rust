@@ -752,7 +752,7 @@ export async function cargarIdiomaDesdeDisco(code, filePath, invoke) {
     const raw = await invoke('leer_idioma', { filePath });
     if (raw) {
       const parsed = JSON.parse(raw);
-      translations[code] = { ...(translations.es || {}), ...parsed };
+      translations[code] = { ...(translations.es || {}), ...(translations[code] || {}), ...parsed };
       return translations[code];
     }
   } catch (err) {

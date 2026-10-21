@@ -219,6 +219,10 @@ function aplicarConfiguracionVisual() {
 // RENDERIZADO Y CONVERSIÓN DE MARKDOWN A HTML (MARKED.JS)
 // ==========================================================================
 
+function escapeHtml(str) {
+  return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
 function renderMarkdown() {
   const markdownText = DOM.editor ? (DOM.editor.value || '') : '';
   
@@ -255,41 +259,82 @@ function renderMarkdown() {
     
     // Quitar las líneas de definiciones para evitar que se rendericen inline como párrafos
     cleanedMarkdown = cleanedMarkdown.replace(/^\[\^([^\]]+)\]:\s*(.*)$/gm, '');
-    
-    // Pre-procesar ==resaltado==, ^superíndice^ y ~subíndice~ antes de marked (protegiendo bloques de código)
-    // Esto evita que marked (GFM) convierta ~subíndice~ simple en <del>tachado</del>
+
+    // 2. Proteger bloques de código (``` y `) antes de procesar cualquier sintaxis extendida
     const mdCodeProtector = [];
     cleanedMarkdown = cleanedMarkdown.replace(/(`{3,}[\s\S]*?`{3,}|`[^`\n]+`)/g, (m) => {
       mdCodeProtector.push(m);
       return `\x00MDCODE_${mdCodeProtector.length - 1}\x00`;
     });
+
+    // 3. Extraer y procesar Fórmulas en Bloque (Block Math: $$ ... $$)
+    const mathBlocks = [];
+    cleanedMarkdown = cleanedMarkdown.replace(/\$\$([\s\S]*?)\$\$/g, (m, formula) => {
+      const raw = formula.trim();
+      let rendered = '';
+      if (typeof katex !== 'undefined') {
+        try {
+          rendered = katex.renderToString(raw, { displayMode: true, throwOnError: false });
+        } catch (e) {
+          rendered = `<span class="katex-display"><span class="math-fallback">${escapeHtml(raw)}</span></span>`;
+        }
+      } else {
+        rendered = `<span class="katex-display"><span class="math-fallback">${escapeHtml(raw)}</span></span>`;
+      }
+      const blockHtml = `<div class="markdown-math-block math-block">${rendered}</div>`;
+      mathBlocks.push(blockHtml);
+      return `\n\n\x00MATH_BLOCK_${mathBlocks.length - 1}\x00\n\n`;
+    });
+
+    // 4. Extraer y procesar Fórmulas en Línea (Inline Math: $ ... $)
+    const mathInlines = [];
+    cleanedMarkdown = cleanedMarkdown.replace(/(?<!\$)\$(?!\$)((?:\\\$|[^\$\n])+?)(?<!\$)\$(?!\$)/g, (m, formula) => {
+      const raw = formula.trim();
+      if (!raw) return m;
+      let rendered = '';
+      if (typeof katex !== 'undefined') {
+        try {
+          rendered = katex.renderToString(raw, { displayMode: false, throwOnError: false });
+        } catch (e) {
+          rendered = `<span class="markdown-math-inline math-inline">${escapeHtml(raw)}</span>`;
+        }
+      } else {
+        rendered = `<span class="markdown-math-inline math-inline">${escapeHtml(raw)}</span>`;
+      }
+      mathInlines.push(rendered);
+      return `\x00MATH_INLINE_${mathInlines.length - 1}\x00`;
+    });
+
+    // 5. Pre-procesar ==resaltado==, ^superíndice^ y ~subíndice~
     cleanedMarkdown = cleanedMarkdown.replace(/==([^=\n]+)==/g, '<mark>$1</mark>');
     cleanedMarkdown = cleanedMarkdown.replace(/\^([^\^\n]+?)\^/g, '<sup>$1</sup>');
     cleanedMarkdown = cleanedMarkdown.replace(/(?<!~)~([^~\n]+?)~(?!~)/g, '<sub>$1</sub>');
+
+    // Restaurar bloques de código para que marked los traduzca a <pre><code>
     cleanedMarkdown = cleanedMarkdown.replace(/\x00MDCODE_(\d+)\x00/g, (m, idx) => mdCodeProtector[Number(idx)]);
 
     // Inyectar el HTML traducido en el Visor
     let html = marked.parse(cleanedMarkdown);
     
-    // 2. Proteger bloques <pre> y <code> para no alterar código con sintaxis extendida
+    // 6. Proteger bloques <pre> y <code> generados por marked
     const codeBlocks = [];
     html = html.replace(/<(pre|code)\b[^>]*>[\s\S]*?<\/\1>/gi, (m) => {
       codeBlocks.push(m);
       return `\x00CODE_${codeBlocks.length - 1}\x00`;
     });
 
-    // 3. Procesar referencias de notas al pie [^label]
+    // 7. Procesar referencias de notas al pie [^label]
     html = html.replace(/\[\^([^\]:\n]+)\]/g, (m, label) => {
       return `<sup class="footnote-ref"><a href="#fn-${label}" id="fnref-${label}">[${label}]</a></sup>`;
     });
 
-    // 5. Procesar Bloques de Alerta / Callouts (> [!NOTE], etc.)
+    // 8. Procesar Bloques de Alerta / Callouts (> [!NOTE], etc.)
     html = html.replace(/<blockquote>\s*<p>\[!(NOTE|TIP|IMPORTANT|WARNING|CAUTION)\](?:<br\s*\/?>|\s*)([\s\S]*?)<\/blockquote>/gi, (m, type, rest) => {
       const upper = type.toUpperCase();
       return `<blockquote class="markdown-callout callout-${upper.toLowerCase()}"><div class="callout-header">${upper}</div><p>${rest}</blockquote>`;
     });
 
-    // 6. Procesar Listas de Definición (dt/dd) tanto con salto simple (<br>) como doble (<p>)
+    // 9. Procesar Listas de Definición (dt/dd) tanto con salto simple (<br>) como doble (<p>)
     html = html.replace(/<p>([\s\S]*?)<\/p>/g, (fullMatch, inner) => {
       if (!/(?:^|<br\s*\/?>)\s*:\s+/.test(inner)) return fullMatch;
       const lines = inner.split(/<br\s*\/?>/);
@@ -310,10 +355,15 @@ function renderMarkdown() {
     html = html.replace(/<p>([^<]+)<\/p>\s*<p>:\s*(.*?)<\/p>/g, '<dl><dt>$1</dt><dd>$2</dd></dl>');
     html = html.replace(/<\/dl>\s*<dl>/g, '');
 
+    // 10. Restaurar bloques de Math (Bloque e Inline)
+    html = html.replace(/<p>\s*\x00MATH_BLOCK_(\d+)\x00\s*<\/p>/g, (m, idx) => mathBlocks[Number(idx)]);
+    html = html.replace(/\x00MATH_BLOCK_(\d+)\x00/g, (m, idx) => mathBlocks[Number(idx)]);
+    html = html.replace(/\x00MATH_INLINE_(\d+)\x00/g, (m, idx) => mathInlines[Number(idx)]);
+
     // Restaurar bloques <pre> y <code>
     html = html.replace(/\x00CODE_(\d+)\x00/g, (_, idx) => codeBlocks[Number(idx)]);
     
-    // 7. Inyectar la sección de notas al pie al final del HTML si existen
+    // 11. Inyectar la sección de notas al pie al final del HTML si existen
     const footnoteLabels = Object.keys(footnoteDefs);
     if (footnoteLabels.length > 0) {
       let footnotesSection = '<hr class="footnotes-sep"><section class="footnotes"><ol>';

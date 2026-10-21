@@ -3382,3 +3382,34 @@ dd {
 .btn-confirm-save:hover {
   background: var(--accent-hover, #4f46e5);
 }
+
+
+/* ==========================================================================
+   FÓRMULAS MATEMÁTICAS EN MODO LECTURA (KATEX Y FALLBACK)
+   ========================================================================== */
+.markdown-body .markdown-math-block {
+  margin: 18px 0;
+  padding: 14px 18px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  text-align: center;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.08));
+  border-radius: 8px;
+}
+
+.markdown-body .markdown-math-inline {
+  font-family: 'KaTeX_Math', 'Cambria Math', 'STIX Two Math', 'Times New Roman', serif;
+  font-style: italic;
+  padding: 1px 4px;
+}
+
+.markdown-body .katex {
+  font-size: 1.08em;
+  text-rendering: auto;
+}
+
+.markdown-body .katex-display {
+  margin: 0;
+  text-align: center;
+}

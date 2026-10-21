@@ -234,7 +234,6 @@ function renderMarkdown() {
   
   // Validar si la biblioteca de conversión se cargó de forma correcta y offline
   if (typeof marked !== 'undefined') {
-    // Configurar de manera que se traduzcan saltos y HTML limpio
     marked.setOptions({
       breaks: true,
       gfm: true,
@@ -257,24 +256,64 @@ function renderMarkdown() {
     // Quitar las líneas de definiciones para evitar que se rendericen inline como párrafos
     cleanedMarkdown = cleanedMarkdown.replace(/^\[\^([^\]]+)\]:\s*(.*)$/gm, '');
     
+    // Pre-procesar ==resaltado==, ^superíndice^ y ~subíndice~ antes de marked (protegiendo bloques de código)
+    // Esto evita que marked (GFM) convierta ~subíndice~ simple en <del>tachado</del>
+    const mdCodeProtector = [];
+    cleanedMarkdown = cleanedMarkdown.replace(/(`{3,}[\s\S]*?`{3,}|`[^`\n]+`)/g, (m) => {
+      mdCodeProtector.push(m);
+      return `\x00MDCODE_${mdCodeProtector.length - 1}\x00`;
+    });
+    cleanedMarkdown = cleanedMarkdown.replace(/==([^=\n]+)==/g, '<mark>$1</mark>');
+    cleanedMarkdown = cleanedMarkdown.replace(/\^([^\^\n]+?)\^/g, '<sup>$1</sup>');
+    cleanedMarkdown = cleanedMarkdown.replace(/(?<!~)~([^~\n]+?)~(?!~)/g, '<sub>$1</sub>');
+    cleanedMarkdown = cleanedMarkdown.replace(/\x00MDCODE_(\d+)\x00/g, (m, idx) => mdCodeProtector[Number(idx)]);
+
     // Inyectar el HTML traducido en el Visor
     let html = marked.parse(cleanedMarkdown);
     
-    // 2. Procesar referencias de notas al pie [^label]
-    html = html.replace(/\[\^([^\]:\n]+)\]/g, (match, label) => {
-      if (footnoteDefs[label] !== undefined) {
-        return `<sup class="footnote-ref"><a href="#fn-${label}" id="fnref-${label}">${label}</a></sup>`;
-      }
-      return match;
+    // 2. Proteger bloques <pre> y <code> para no alterar código con sintaxis extendida
+    const codeBlocks = [];
+    html = html.replace(/<(pre|code)\b[^>]*>[\s\S]*?<\/\1>/gi, (m) => {
+      codeBlocks.push(m);
+      return `\x00CODE_${codeBlocks.length - 1}\x00`;
     });
-    
-    // 3. Procesar listas de definición (dt/dd)
-    // Buscamos un párrafo de término seguido inmediatamente por un párrafo que empieza por dos puntos
+
+    // 3. Procesar referencias de notas al pie [^label]
+    html = html.replace(/\[\^([^\]:\n]+)\]/g, (m, label) => {
+      return `<sup class="footnote-ref"><a href="#fn-${label}" id="fnref-${label}">[${label}]</a></sup>`;
+    });
+
+    // 5. Procesar Bloques de Alerta / Callouts (> [!NOTE], etc.)
+    html = html.replace(/<blockquote>\s*<p>\[!(NOTE|TIP|IMPORTANT|WARNING|CAUTION)\](?:<br\s*\/?>|\s*)([\s\S]*?)<\/blockquote>/gi, (m, type, rest) => {
+      const upper = type.toUpperCase();
+      return `<blockquote class="markdown-callout callout-${upper.toLowerCase()}"><div class="callout-header">${upper}</div><p>${rest}</blockquote>`;
+    });
+
+    // 6. Procesar Listas de Definición (dt/dd) tanto con salto simple (<br>) como doble (<p>)
+    html = html.replace(/<p>([\s\S]*?)<\/p>/g, (fullMatch, inner) => {
+      if (!/(?:^|<br\s*\/?>)\s*:\s+/.test(inner)) return fullMatch;
+      const lines = inner.split(/<br\s*\/?>/);
+      const hasDef = lines.some(l => /^\s*:\s+/.test(l));
+      if (!hasDef) return fullMatch;
+      let dlItems = '';
+      lines.forEach(line => {
+        const trimmed = line.trim();
+        if (!trimmed) return;
+        if (/^:\s+/.test(trimmed)) {
+          dlItems += `<dd>${trimmed.replace(/^:\s+/, '')}</dd>`;
+        } else {
+          dlItems += `<dt>${trimmed}</dt>`;
+        }
+      });
+      return `<dl>${dlItems}</dl>`;
+    });
     html = html.replace(/<p>([^<]+)<\/p>\s*<p>:\s*(.*?)<\/p>/g, '<dl><dt>$1</dt><dd>$2</dd></dl>');
-    // Fusionar bloques dl adyacentes para agruparlos correctamente
     html = html.replace(/<\/dl>\s*<dl>/g, '');
+
+    // Restaurar bloques <pre> y <code>
+    html = html.replace(/\x00CODE_(\d+)\x00/g, (_, idx) => codeBlocks[Number(idx)]);
     
-    // 4. Inyectar la sección de notas al pie al final del HTML si existen
+    // 7. Inyectar la sección de notas al pie al final del HTML si existen
     const footnoteLabels = Object.keys(footnoteDefs);
     if (footnoteLabels.length > 0) {
       let footnotesSection = '<hr class="footnotes-sep"><section class="footnotes"><ol>';
@@ -293,18 +332,17 @@ function renderMarkdown() {
     imgs.forEach(img => {
       const src = img.getAttribute('src');
       if (src) {
-        const isAbsoluteWin = /^[a-zA-Z]:/.test(src); // Cualquier unidad física como C:, D: en Windows
+        const isAbsoluteWin = /^[a-zA-Z]:/.test(src);
         const isRelative = src.startsWith('./') || src.startsWith('../');
         
         if (isAbsoluteWin || isRelative) {
           let pathCompleto = src;
           
           if (isRelative) {
-            // Solo procesamos rutas relativas si hay un archivo abierto con ruta física
             if (appState.filePath) {
               const sep = appState.filePath.includes('/') ? '/' : '\\';
               const parts = appState.filePath.split(sep);
-              parts.pop(); // Quitar nombre del archivo
+              parts.pop();
               const baseDir = parts.join(sep);
               
               if (src.startsWith('./')) {
@@ -316,19 +354,15 @@ function renderMarkdown() {
                 pathCompleto = parentDir + sep + src.substring(3);
               }
             } else {
-              // Si no está guardado, no se puede resolver la ruta relativa
               return;
             }
           }
           
-          // Normalizar barras para URL homogénea
           const normalized = pathCompleto.replace(/\\/g, '/');
           
-          // Convertir la ruta física a la URL del protocolo de recursos de Tauri v2
           if (window.__TAURI__ && window.__TAURI__.core && window.__TAURI__.core.convertFileSrc) {
             img.src = window.__TAURI__.core.convertFileSrc(normalized);
           } else {
-            // Fallback manual robusto con codificación URL por componente para evitar roturas por espacios
             const parts = normalized.split('/');
             const encodedParts = parts.map((part, index) => {
               if (index === 0 && part.endsWith(':')) return part;
@@ -340,7 +374,6 @@ function renderMarkdown() {
       }
     });
   } else {
-    // Fallback de texto plano si no se pudo cargar la librería
     DOM.preview.textContent = markdownText;
   }
   
@@ -1273,378 +1306,898 @@ function actualizarInsigniasAtajos() {
   });
 }
 
+function obtenerLimitesLinea(text, pos) {
+  let lineStart = text.lastIndexOf('\n', pos - 1);
+  lineStart = lineStart === -1 ? 0 : lineStart + 1;
+  let lineEnd = text.indexOf('\n', pos);
+  if (lineEnd === -1) lineEnd = text.length;
+  return { lineStart, lineEnd, lineText: text.substring(lineStart, lineEnd) };
+}
+
+function obtenerLimitesBloqueLineas(text, start, end) {
+  const effectiveEnd = (end > start && text.charAt(end - 1) === '\n') ? end - 1 : end;
+  const { lineStart } = obtenerLimitesLinea(text, start);
+  const { lineEnd } = obtenerLimitesLinea(text, effectiveEnd);
+  return { lineStart, lineEnd, blockText: text.substring(lineStart, lineEnd) };
+}
+
+function esDelimitadorExternoValido(text, s, e, open, close) {
+  if (s < open.length || e + close.length > text.length) return false;
+  if (text.substring(s - open.length, s) !== open) return false;
+  if (text.substring(e, e + close.length) !== close) return false;
+
+  // Evitar confundir * con ** (a menos que sea ***)
+  if (open === '*') {
+    const before2 = s >= 2 ? text.charAt(s - 2) : '';
+    const before3 = s >= 3 ? text.charAt(s - 3) : '';
+    if (before2 === '*' && before3 !== '*') return false;
+    const after2 = e + 1 < text.length ? text.charAt(e + 1) : '';
+    const after3 = e + 2 < text.length ? text.charAt(e + 2) : '';
+    if (after2 === '*' && after3 !== '*') return false;
+  }
+  // Evitar confundir ~ con ~~ (a menos que sea ~~~)
+  if (open === '~') {
+    const before2 = s >= 2 ? text.charAt(s - 2) : '';
+    const before3 = s >= 3 ? text.charAt(s - 3) : '';
+    if (before2 === '~' && before3 !== '~') return false;
+    const after2 = e + 1 < text.length ? text.charAt(e + 1) : '';
+    const after3 = e + 2 < text.length ? text.charAt(e + 2) : '';
+    if (after2 === '~' && after3 !== '~') return false;
+  }
+  // Evitar confundir ` con ```
+  if (open === '`') {
+    if (s >= 2 && text.charAt(s - 2) === '`') return false;
+    if (e + 1 < text.length && text.charAt(e + 1) === '`') return false;
+  }
+  // Evitar confundir $ con $$
+  if (open === '$') {
+    if (s >= 2 && text.charAt(s - 2) === '$') return false;
+    if (e + 1 < text.length && text.charAt(e + 1) === '$') return false;
+  }
+  return true;
+}
+
+function tieneDelimitadorInternoValido(str, open, close) {
+  if (str.length < open.length + close.length) return false;
+  if (!str.startsWith(open) || !str.endsWith(close)) return false;
+
+  if (open === '*') {
+    if (str.startsWith('**') && !str.startsWith('***')) return false;
+    if (str.endsWith('**') && !str.endsWith('***')) return false;
+  }
+  if (open === '~') {
+    if (str.startsWith('~~') && !str.startsWith('~~~')) return false;
+    if (str.endsWith('~~') && !str.endsWith('~~~')) return false;
+  }
+  if (open === '`') {
+    if (str.startsWith('``')) return false;
+    if (str.endsWith('``')) return false;
+  }
+  if (open === '$') {
+    if (str.startsWith('$$')) return false;
+    if (str.endsWith('$$')) return false;
+  }
+  return true;
+}
+
 function insertarSintaxisMarkdown(tipo) {
-  // Registrar estado previo antes del formateo
   if (historial) {
     historial.registrarCambioAntesDeFormato();
   }
 
+  const t = translations[appState.language] || translations.es || {};
   const textarea = DOM.editor;
   const start = textarea.selectionStart;
   const end = textarea.selectionEnd;
   const originalText = textarea.value;
   const rawSelection = originalText.substring(start, end);
   
-  // Aislar y limpiar espacios en blanco iniciales o finales (Trim interactivo premium)
   const leadingSpaces = rawSelection.match(/^\s*/)[0];
   const trailingSpaces = rawSelection.match(/\s*$/)[0];
   const selectedText = rawSelection.trim();
   const leadingLength = leadingSpaces.length;
-  
-  // LÓGICA DE HEADINGS CONTEXTUALES PREMIUM
-  const esHeading = ['h1', 'h2', 'h3', 'h4', 'h5', 'h6'].includes(tipo);
-  if (esHeading) {
-    let headingPrefix = '';
-    switch(tipo) {
-      case 'h1': headingPrefix = '# '; break;
-      case 'h2': headingPrefix = '## '; break;
-      case 'h3': headingPrefix = '### '; break;
-      case 'h4': headingPrefix = '#### '; break;
-      case 'h5': headingPrefix = '##### '; break;
-      case 'h6': headingPrefix = '###### '; break;
-    }
-    
-    if (rawSelection.length > 0) {
-      // Caso 2: Hay selección. Insertar salto de línea si es necesario y aplicar Heading
-      const caracterAnterior = start > 0 ? originalText.charAt(start - 1) : '\n';
-      const necesitaSalto = caracterAnterior !== '\n';
-      const prefijoConSalto = necesitaSalto ? ('\n' + headingPrefix) : headingPrefix;
-      
-      const textFormatted = leadingSpaces + prefijoConSalto + selectedText + trailingSpaces;
-      textarea.setRangeText(textFormatted, start, end, 'select');
-      
-      const newSelectStart = start + leadingLength + (necesitaSalto ? 1 : 0) + headingPrefix.length;
-      const newSelectEnd = newSelectStart + selectedText.length;
-      textarea.setSelectionRange(newSelectStart, newSelectEnd);
-    } else {
-      // Caso 1: No hay selección. Aplicar al inicio del párrafo actual
-      let inicioParrafo = originalText.lastIndexOf('\n', start - 1);
-      if (inicioParrafo === -1) {
-        inicioParrafo = 0;
-      } else {
-        inicioParrafo += 1;
-      }
-      let finParrafo = originalText.indexOf('\n', start);
-      if (finParrafo === -1) {
-        finParrafo = originalText.length;
-      }
-      
-      const textoParrafo = originalText.substring(inicioParrafo, finParrafo);
-      const regexHeading = /^(#{1,6}\s+)/;
-      const match = textoParrafo.match(regexHeading);
-      
-      let nuevoTextoParrafo = '';
-      let offsetCursor = 0;
-      
-      if (match) {
-        const anteriorPrefix = match[1];
-        nuevoTextoParrafo = headingPrefix + textoParrafo.substring(anteriorPrefix.length);
-        offsetCursor = headingPrefix.length - anteriorPrefix.length;
-      } else {
-        nuevoTextoParrafo = headingPrefix + textoParrafo;
-        offsetCursor = headingPrefix.length;
-      }
-      
-      textarea.setRangeText(nuevoTextoParrafo, inicioParrafo, finParrafo, 'select');
-      const nuevaPosCursor = Math.max(inicioParrafo, Math.min(finParrafo + offsetCursor, start + offsetCursor));
-      textarea.setSelectionRange(nuevaPosCursor, nuevaPosCursor);
-    }
-    
+  const trailingLength = trailingSpaces.length;
+
+  const finalizar = () => {
     renderMarkdown();
     setSavedState(false);
     DOM.editor.focus();
     if (historial) {
       historial.registrarCambioDespuesDeFormato();
     }
+  };
+
+  // =========================================================================
+  // 1. CATEGORÍA: HEADINGS (H1 - H6) CON TOGGLE
+  // =========================================================================
+  const headingMap = { h1: '# ', h2: '## ', h3: '### ', h4: '#### ', h5: '##### ', h6: '###### ' };
+  if (headingMap[tipo]) {
+    const headingPrefix = headingMap[tipo];
+    const { lineStart, lineEnd, lineText } = obtenerLimitesLinea(originalText, start);
+    const match = lineText.match(/^(#{1,6}\s+)/);
+
+    let nuevoTexto = '';
+    let offset = 0;
+
+    if (match && match[1] === headingPrefix) {
+      // Toggle Off: ya tiene exactamente el mismo Heading -> quitarlo por completo
+      nuevoTexto = lineText.substring(headingPrefix.length);
+      offset = -headingPrefix.length;
+    } else if (match) {
+      // Ya tiene otro Heading distinto -> reemplazar nivel
+      const oldPrefix = match[1];
+      nuevoTexto = headingPrefix + lineText.substring(oldPrefix.length);
+      offset = headingPrefix.length - oldPrefix.length;
+    } else {
+      // No tiene Heading -> aplicarlo al inicio de la línea
+      nuevoTexto = headingPrefix + lineText;
+      offset = headingPrefix.length;
+    }
+
+    textarea.setRangeText(nuevoTexto, lineStart, lineEnd, 'select');
+    if (start === end) {
+      const newCursor = Math.max(lineStart, Math.min(lineStart + nuevoTexto.length, start + offset));
+      textarea.setSelectionRange(newCursor, newCursor);
+    } else {
+      const newSelStart = Math.max(lineStart, start + offset);
+      const newSelEnd = Math.max(newSelStart, Math.min(lineStart + nuevoTexto.length, end + offset));
+      textarea.setSelectionRange(newSelStart, newSelEnd);
+    }
+    finalizar();
     return;
   }
-  
-  let prefix = '';
-  let suffix = '';
-  let cursorOffset = 0; // Para reposicionar el cursor si no hay selección
-  
-  switch(tipo) {
-    case 'bold':
-      prefix = '**';
-      suffix = '**';
-      break;
-    case 'italic':
-      prefix = '*';
-      suffix = '*';
-      break;
-    case 'underline':
-      prefix = '<u>';
-      suffix = '</u>';
-      break;
-    case 'strikethrough':
-      prefix = '~~';
-      suffix = '~~';
-      break;
-    case 'highlight':
-      prefix = '==';
-      suffix = '==';
-      break;
-    case 'superscript':
-      prefix = '^';
-      suffix = '^';
-      break;
-    case 'subscript':
-      prefix = '~';
-      suffix = '~';
-      break;
-    case 'link':
-      prefix = '[';
-      suffix = '](url)';
-      cursorOffset = 5; // Posicionar dentro de 'url'
-      break;
-    case 'image':
-      prefix = '![';
-      suffix = '](url_imagen)';
-      cursorOffset = 12; // Posicionar dentro de 'url_imagen'
-      break;
-    case 'table':
-      prefix = '| Encabezado 1 | Encabezado 2 |\n| ------------ | ------------ |\n| Celda 1      | Celda 2      |';
-      suffix = '';
-      break;
-    case 'ul':
-      prefix = '- ';
-      suffix = '';
-      if (selectedText.includes('\n')) {
-        const lineas = selectedText.split('\n').map(l => l.startsWith('- ') ? l : `- ${l}`).join('\n');
-        const finalBlock = leadingSpaces + lineas + trailingSpaces;
-        textarea.setRangeText(finalBlock, start, end, 'select');
-        renderMarkdown();
-        setSavedState(false);
-        DOM.editor.focus();
-        if (historial) {
-          historial.registrarCambioDespuesDeFormato();
-        }
-        return;
-      }
-      break;
-    case 'ol':
-      prefix = '1. ';
-      suffix = '';
-      if (selectedText.includes('\n')) {
-        let count = 1;
-        const lineas = selectedText.split('\n').map(l => {
-          const formatted = l.trim().length > 0 ? `${count}. ${l}` : l;
-          count++;
-          return formatted;
-        }).join('\n');
-        const finalBlock = leadingSpaces + lineas + trailingSpaces;
-        textarea.setRangeText(finalBlock, start, end, 'select');
-        renderMarkdown();
-        setSavedState(false);
-        DOM.editor.focus();
-        if (historial) {
-          historial.registrarCambioDespuesDeFormato();
-        }
-        return;
-      }
-      break;
-    case 'task':
-      prefix = '- [ ] ';
-      suffix = '';
-      if (selectedText.includes('\n')) {
-        const lineas = selectedText.split('\n').map(l => l.startsWith('- [ ] ') ? l : `- [ ] ${l}`).join('\n');
-        const finalBlock = leadingSpaces + lineas + trailingSpaces;
-        textarea.setRangeText(finalBlock, start, end, 'select');
-        renderMarkdown();
-        setSavedState(false);
-        DOM.editor.focus();
-        if (historial) {
-          historial.registrarCambioDespuesDeFormato();
-        }
-        return;
-      }
-      break;
-    case 'blockquote':
-      prefix = '> ';
-      suffix = '';
-      if (selectedText.includes('\n')) {
-        const lineas = selectedText.split('\n').map(l => l.startsWith('> ') ? l : `> ${l}`).join('\n');
-        const finalBlock = leadingSpaces + lineas + trailingSpaces;
-        textarea.setRangeText(finalBlock, start, end, 'select');
-        renderMarkdown();
-        setSavedState(false);
-        DOM.editor.focus();
-        if (historial) {
-          historial.registrarCambioDespuesDeFormato();
-        }
-        return;
-      }
-      break;
-    case 'callout':
-      prefix = '> [!NOTE]\n> ';
-      suffix = '';
-      if (selectedText.includes('\n')) {
-        const lineas = selectedText.split('\n').map(l => l.startsWith('> ') ? l : `> ${l}`).join('\n');
-        const finalBlock = leadingSpaces + '> [!NOTE]\n' + lineas + trailingSpaces;
-        textarea.setRangeText(finalBlock, start, end, 'select');
-        renderMarkdown();
-        setSavedState(false);
-        DOM.editor.focus();
-        if (historial) {
-          historial.registrarCambioDespuesDeFormato();
-        }
-        return;
-      }
-      break;
-    case 'comment':
-      prefix = '<!-- ';
-      suffix = ' -->';
-      break;
-    case 'inline-code':
-      prefix = '`';
-      suffix = '`';
-      break;
-    case 'code-block':
-      prefix = '```javascript\n';
-      suffix = '\n```';
-      break;
-    case 'inline-math':
-      prefix = '$';
-      suffix = '$';
-      break;
-    case 'block-math':
-      prefix = '$$\n';
-      suffix = '\n$$';
-      break;
-    case 'h1': prefix = '# '; break;
-    case 'h2': prefix = '## '; break;
-    case 'h3': prefix = '### '; break;
-    case 'h4': prefix = '#### '; break;
-    case 'h5': prefix = '##### '; break;
-    case 'h6': prefix = '###### '; break;
-    case 'hr':
-      prefix = '---';
-      suffix = '';
-      break;
-    case 'footnote': {
-      // Detección robusta de números de notas al pie existentes para evitar duplicados y conflictos
-      const numbers = Array.from(originalText.matchAll(/\[\^(\d+)\]/g)).map(m => parseInt(m[1], 10));
-      const nextNum = numbers.length > 0 ? Math.max(...numbers) + 1 : 1;
-      prefix = `[^${nextNum}]`;
-      suffix = '';
-      
-      // Si hay selección, la ignoramos y la reemplazamos con el marcador de nota para evitar formatos rotos
-      if (rawSelection.length > 0) {
-        textarea.setRangeText(prefix, start, end, 'select');
-        const nextCursor = start + prefix.length;
-        textarea.setSelectionRange(nextCursor, nextCursor);
-        
-        // Añadir la definición al final
-        const updatedText = textarea.value;
-        const defRegex = new RegExp(`\\n\\[\\^${nextNum}\\]:`);
-        if (!defRegex.test(updatedText)) {
-          const hasNewLine = updatedText.endsWith('\n');
-          const extraBreak = updatedText.length > 0 && !hasNewLine ? '\n\n' : (updatedText.endsWith('\n\n') ? '' : '\n');
-          textarea.value = updatedText + `${extraBreak}[^${nextNum}]: Descripción de la nota ${nextNum}`;
-        }
-        renderMarkdown();
-        setSavedState(false);
-        DOM.editor.focus();
-        if (historial) {
-          historial.registrarCambioDespuesDeFormato();
-        }
-        return;
-      }
-      
-      // Si no hay selección, continúa al flujo por defecto pero agrega primero la definición al final
-      const defRegex = new RegExp(`\\n\\[\\^${nextNum}\\]:`);
-      if (!defRegex.test(originalText)) {
-        const hasNewLine = originalText.endsWith('\n');
-        const extraBreak = originalText.length > 0 && !hasNewLine ? '\n\n' : (originalText.endsWith('\n\n') ? '' : '\n');
-        textarea.value = originalText + `${extraBreak}[^${nextNum}]: Descripción de la nota ${nextNum}`;
-      }
-      break;
-    }
-    case 'email': {
-      // Eliminar espacios, '<' y '>' accidentales de la selección
-      const cleanEmail = selectedText.trim().replace(/[\s<>]/g, '');
-      prefix = `<${cleanEmail || 'correo@ejemplo.com'}>`;
-      suffix = '';
-      if (rawSelection.length > 0) {
-        const textFormatted = leadingSpaces + prefix + trailingSpaces;
-        textarea.setRangeText(textFormatted, start, end, 'select');
-        const newSelectStart = start + leadingLength;
-        const newSelectEnd = newSelectStart + prefix.length;
-        textarea.setSelectionRange(newSelectStart, newSelectEnd);
-        renderMarkdown();
-        setSavedState(false);
-        DOM.editor.focus();
-        if (historial) {
-          historial.registrarCambioDespuesDeFormato();
-        }
-        return;
-      }
-      break;
-    }
-    case 'definition-list':
-      prefix = 'Término\n: Definición';
-      suffix = '';
-      if (rawSelection.length > 0) {
-        prefix = '';
-        suffix = '\n: Definición';
-      }
-      break;
-    case 'details':
-      if (rawSelection.length > 0) {
-        const block = leadingSpaces + '<details>\n<summary>Título</summary>\n\n' + selectedText + '\n\n</details>' + trailingSpaces;
-        textarea.setRangeText(block, start, end, 'select');
-        renderMarkdown();
-        setSavedState(false);
-        DOM.editor.focus();
-        if (historial) historial.registrarCambioDespuesDeFormato();
-        return;
-      } else {
-        const template = '<details>\n<summary>Título</summary>\n\nContenido...\n\n</details>';
-        textarea.setRangeText(template, start, start, 'select');
-        const focusStart = start + '<details>\n<summary>'.length;
-        const focusEnd = focusStart + 'Título'.length;
-        textarea.setSelectionRange(focusStart, focusEnd);
-        renderMarkdown();
-        setSavedState(false);
-        DOM.editor.focus();
-        if (historial) historial.registrarCambioDespuesDeFormato();
-        return;
-      }
-  }
-  
-  if (rawSelection.length > 0) {
-    // Aplicar el formato estrictamente al texto limpio, conservando los espacios por fuera
-    const textFormatted = leadingSpaces + prefix + selectedText + suffix + trailingSpaces;
-    textarea.setRangeText(textFormatted, start, end, 'select');
-    
-    // Ajustar la selección final para enfocar exactamente el texto formateado
-    const newSelectStart = start + leadingLength;
-    const newSelectEnd = newSelectStart + prefix.length + selectedText.length + suffix.length;
-    textarea.setSelectionRange(newSelectStart, newSelectEnd);
-  } else {
-    // Si no hay texto, colocar el cursor en el punto medio exacto
-    const placeholder = tipo === 'link' ? 'texto' : (tipo === 'image' ? 'texto_alternativo' : '');
-    const textInsert = prefix + placeholder + suffix;
-    textarea.setRangeText(textInsert, start, start, 'select');
-    
-    // Calcular posiciones de foco cómodas
-    const focusStart = start + prefix.length;
-    const focusEnd = focusStart + placeholder.length;
-    
-    if (cursorOffset > 0) {
-      textarea.setSelectionRange(start + textInsert.length - cursorOffset, start + textInsert.length);
-    } else {
-      textarea.setSelectionRange(focusStart, focusEnd);
-    }
-  }
-  
-  renderMarkdown();
-  setSavedState(false);
-  DOM.editor.focus();
 
-  // Registrar el estado final del formateo
-  if (historial) {
-    historial.registrarCambioDespuesDeFormato();
+  // =========================================================================
+  // 2. CATEGORÍA: BASIC TEXT + COMENTARIO OCULTO (INLINE WRAPPERS)
+  // =========================================================================
+  const basicWrappers = {
+    'bold': { open: '**', close: '**' },
+    'italic': { open: '*', close: '*' },
+    'underline': { open: '<u>', close: '</u>' },
+    'strikethrough': { open: '~~', close: '~~' },
+    'highlight': { open: '==', close: '==' },
+    'superscript': { open: '^', close: '^' },
+    'subscript': { open: '~', close: '~' },
+    'comment': { open: '<!-- ', close: ' -->' }
+  };
+
+  if (basicWrappers[tipo]) {
+    const { open, close } = basicWrappers[tipo];
+
+    if (rawSelection.length > 0) {
+      const selStart = start + leadingLength;
+      const selEnd = end - trailingLength;
+      const cleanSel = originalText.substring(selStart, selEnd);
+
+      // Caso 1A: La selección ya incluye los tags por dentro -> Quitar tags
+      if (tieneDelimitadorInternoValido(cleanSel, open, close)) {
+        const unwrapped = cleanSel.substring(open.length, cleanSel.length - close.length);
+        textarea.setRangeText(unwrapped, selStart, selEnd, 'select');
+        textarea.setSelectionRange(selStart, selStart + unwrapped.length);
+        finalizar();
+        return;
+      }
+
+      // Caso 1B: Los tags están inmediatamente por fuera de la selección -> Quitar tags
+      if (esDelimitadorExternoValido(originalText, selStart, selEnd, open, close)) {
+        textarea.setRangeText(cleanSel, selStart - open.length, selEnd + close.length, 'select');
+        const newPos = selStart - open.length;
+        textarea.setSelectionRange(newPos, newPos + cleanSel.length);
+        finalizar();
+        return;
+      }
+
+      // Caso 1C: Aplicar formato a la selección
+      const wrapped = open + cleanSel + close;
+      textarea.setRangeText(wrapped, selStart, selEnd, 'select');
+      textarea.setSelectionRange(selStart + open.length, selStart + open.length + cleanSel.length);
+      finalizar();
+      return;
+    } else {
+      // Sin selección (start === end)
+      // Caso 2A: El cursor está justo en medio de tags vacíos (ej. **|**) -> Quitar tags
+      if (esDelimitadorExternoValido(originalText, start, start, open, close)) {
+        textarea.setRangeText('', start - open.length, start + close.length, 'end');
+        finalizar();
+        return;
+      }
+
+      // Caso 2B: Verificar si el cursor está en medio o pegado a una palabra
+      const wordCharRegex = /[\p{L}\p{N}_]/u;
+      let wStart = start;
+      let wEnd = start;
+      while (wStart > 0 && wordCharRegex.test(originalText.charAt(wStart - 1))) {
+        wStart--;
+      }
+      while (wEnd < originalText.length && wordCharRegex.test(originalText.charAt(wEnd))) {
+        wEnd++;
+      }
+
+      if (wStart < wEnd) {
+        // El cursor está en una palabra: comprobar si la palabra ya tiene este formato
+        if (esDelimitadorExternoValido(originalText, wStart, wEnd, open, close)) {
+          const word = originalText.substring(wStart, wEnd);
+          textarea.setRangeText(word, wStart - open.length, wEnd + close.length, 'select');
+          const newCursor = Math.max(wStart - open.length, start - open.length);
+          textarea.setSelectionRange(newCursor, newCursor);
+          finalizar();
+          return;
+        } else {
+          // Encerrar la palabra completa con el formato
+          const word = originalText.substring(wStart, wEnd);
+          const wrappedWord = open + word + close;
+          textarea.setRangeText(wrappedWord, wStart, wEnd, 'select');
+          const newCursor = start + open.length;
+          textarea.setSelectionRange(newCursor, newCursor);
+          finalizar();
+          return;
+        }
+      }
+
+      // Caso 2C: Comprobar si el cursor está dentro de un bloque en la misma línea ya envuelto por open...close
+      const { lineStart, lineEnd, lineText } = obtenerLimitesLinea(originalText, start);
+      const relPos = start - lineStart;
+      const beforeCursor = lineText.substring(0, relPos);
+      const afterCursor = lineText.substring(relPos);
+      const lastOpen = beforeCursor.lastIndexOf(open);
+      const firstClose = afterCursor.indexOf(close);
+      if (lastOpen !== -1 && firstClose !== -1) {
+        const absOpenStart = lineStart + lastOpen;
+        const absInnerStart = absOpenStart + open.length;
+        const absInnerEnd = start + firstClose;
+        if (esDelimitadorExternoValido(originalText, absInnerStart, absInnerEnd, open, close)) {
+          const innerContent = originalText.substring(absInnerStart, absInnerEnd);
+          textarea.setRangeText(innerContent, absOpenStart, absInnerEnd + close.length, 'select');
+          const newCursor = Math.max(absOpenStart, start - open.length);
+          textarea.setSelectionRange(newCursor, newCursor);
+          finalizar();
+          return;
+        }
+      }
+
+      // Caso 2D: Espacio vacío -> insertar apertura y cierre y posicionar cursor al medio
+      const textInsert = open + close;
+      textarea.setRangeText(textInsert, start, start, 'select');
+      textarea.setSelectionRange(start + open.length, start + open.length);
+      finalizar();
+      return;
+    }
+  }
+
+  // =========================================================================
+  // 3. CATEGORÍA: LISTAS (UL, OL, TASK) AL INICIO DE LÍNEA Y CON TOGGLE
+  // =========================================================================
+  if (tipo === 'ul' || tipo === 'ol' || tipo === 'task') {
+    const { lineStart, lineEnd, blockText } = obtenerLimitesBloqueLineas(originalText, start, end);
+    const lineas = blockText.split('\n');
+
+    const regexTask = /^(\s*)(-\s+\[[ xX]\]\s+)/;
+    const regexUl = /^(\s*)([-*+]\s+)(?!\[[ xX]\])/;
+    const regexOl = /^(\s*)(\d+\.\s+)/;
+    const regexAnyList = /^(\s*)(-\s+\[[ xX]\]\s+|[-*+]\s+|\d+\.\s+)/;
+
+    const esTarget = (l) => {
+      if (tipo === 'task') return regexTask.test(l);
+      if (tipo === 'ul') return regexUl.test(l);
+      if (tipo === 'ol') return regexOl.test(l);
+      return false;
+    };
+
+    const nonEmptyLines = lineas.filter(l => l.trim().length > 0);
+    const checkPool = nonEmptyLines.length > 0 ? nonEmptyLines : lineas;
+    const todasTienenTarget = checkPool.length > 0 && checkPool.every(esTarget);
+
+    let nuevasLineas;
+    if (todasTienenTarget) {
+      // Toggle Off: Quitar el tag de lista de las líneas
+      nuevasLineas = lineas.map(l => {
+        if (tipo === 'task') return l.replace(regexTask, '$1');
+        if (tipo === 'ul') return l.replace(regexUl, '$1');
+        if (tipo === 'ol') return l.replace(regexOl, '$1');
+        return l;
+      });
+    } else {
+      // Aplicar (o reemplazar otro tipo de lista previo) al inicio de cada línea
+      let count = 1;
+      nuevasLineas = lineas.map(l => {
+        if (lineas.length > 1 && l.trim().length === 0) return l;
+        const prefix = tipo === 'ul' ? '- ' : (tipo === 'task' ? '- [ ] ' : `${count++}. `);
+        if (regexAnyList.test(l)) {
+          return l.replace(regexAnyList, `$1${prefix}`);
+        }
+        return prefix + l;
+      });
+    }
+
+    const finalBlock = nuevasLineas.join('\n');
+    const diff = finalBlock.length - blockText.length;
+    textarea.setRangeText(finalBlock, lineStart, lineEnd, 'select');
+    if (start === end) {
+      const newPos = Math.max(lineStart, Math.min(lineStart + finalBlock.length, start + diff));
+      textarea.setSelectionRange(newPos, newPos);
+    } else {
+      textarea.setSelectionRange(lineStart, lineStart + finalBlock.length);
+    }
+    finalizar();
+    return;
+  }
+
+  // =========================================================================
+  // 4. CATEGORÍA: LINKS & MEDIA (WEB LINK, IMAGE, EMAIL) CON TOGGLE
+  // =========================================================================
+  if (tipo === 'link' || tipo === 'image') {
+    const isImage = tipo === 'image';
+    const textPh = isImage ? (t.ph_image_alt || 'texto_alternativo') : (t.ph_link_text || 'texto');
+    const urlPh = isImage ? (t.ph_image_url || 'url_imagen') : (t.ph_link_url || 'url');
+    const openBracket = isImage ? '![' : '[';
+
+    // 1. Verificar Toggle: ¿El cursor o la selección ya está dentro o cubriendo este tag en la línea actual?
+    const { lineStart, lineEnd, lineText } = obtenerLimitesLinea(originalText, start);
+    const tagRegex = isImage ? /!\[([^\]]*)\]\(([^)]*)\)/g : /(?<!!)\[([^\]]*)\]\(([^)]*)\)/g;
+    let match;
+    while ((match = tagRegex.exec(lineText)) !== null) {
+      const mStart = lineStart + match.index;
+      const mEnd = mStart + match[0].length;
+      if ((start >= mStart && end <= mEnd) || (start <= mStart && end >= mEnd)) {
+        const innerLabel = match[1];
+        const innerUrl = match[2];
+        let replacement = '';
+        if (innerLabel === textPh && innerUrl === urlPh) {
+          replacement = '';
+        } else if (innerUrl && innerUrl !== urlPh) {
+          replacement = innerUrl;
+        } else {
+          replacement = innerLabel;
+        }
+        textarea.setRangeText(replacement, mStart, mEnd, 'select');
+        textarea.setSelectionRange(mStart, mStart + replacement.length);
+        finalizar();
+        return;
+      }
+    }
+
+    // 2. Si hay texto seleccionado: usar la selección en reemplazo de la palabra URL
+    if (rawSelection.length > 0) {
+      const selStart = start + leadingLength;
+      const selEnd = end - trailingLength;
+      const formatted = `${openBracket}${textPh}](${selectedText})`;
+      textarea.setRangeText(formatted, selStart, selEnd, 'select');
+      // Dejar seleccionado el texto descriptivo por si desea editarlo, o listo
+      const labelStart = selStart + openBracket.length;
+      textarea.setSelectionRange(labelStart, labelStart + textPh.length);
+      finalizar();
+      return;
+    }
+
+    // 3. En espacio vacío: insertar tag y seleccionar SOLO la palabra URL dentro de los paréntesis
+    const inserted = `${openBracket}${textPh}](${urlPh})`;
+    textarea.setRangeText(inserted, start, start, 'select');
+    const urlSelectStart = start + openBracket.length + textPh.length + 2; // después de "]("
+    const urlSelectEnd = urlSelectStart + urlPh.length; // antes de ")"
+    textarea.setSelectionRange(urlSelectStart, urlSelectEnd);
+    finalizar();
+    return;
+  }
+
+  if (tipo === 'email') {
+    const emailPh = t.ph_email || 'correo@ejemplo.com';
+
+    // 1. Verificar Toggle: ¿El cursor o selección está en un <correo>?
+    const { lineStart, lineText } = obtenerLimitesLinea(originalText, start);
+    const emailRegex = /<([^<>\s]+@[^<>\s]+)>/g;
+    let match;
+    while ((match = emailRegex.exec(lineText)) !== null) {
+      const mStart = lineStart + match.index;
+      const mEnd = mStart + match[0].length;
+      if ((start >= mStart && end <= mEnd) || (start <= mStart && end >= mEnd)) {
+        const innerEmail = match[1];
+        const replacement = innerEmail === emailPh ? '' : innerEmail;
+        textarea.setRangeText(replacement, mStart, mEnd, 'select');
+        textarea.setSelectionRange(mStart, mStart + replacement.length);
+        finalizar();
+        return;
+      }
+    }
+
+    // 2. Con texto seleccionado: asumir que es un correo y encerrarlo en <...>, seleccionando el correo adentro
+    if (rawSelection.length > 0) {
+      const selStart = start + leadingLength;
+      const selEnd = end - trailingLength;
+      const cleanEmail = selectedText.replace(/^[<\s]+|[>\s]+$/g, '');
+      const inserted = `<${cleanEmail}>`;
+      textarea.setRangeText(inserted, selStart, selEnd, 'select');
+      textarea.setSelectionRange(selStart + 1, selStart + 1 + cleanEmail.length);
+      finalizar();
+      return;
+    }
+
+    // 3. En espacio vacío: insertar <correo@ejemplo.com> y seleccionar SOLO correo@ejemplo.com dentro de <>
+    const inserted = `<${emailPh}>`;
+    textarea.setRangeText(inserted, start, start, 'select');
+    textarea.setSelectionRange(start + 1, start + 1 + emailPh.length);
+    finalizar();
+    return;
+  }
+
+  // =========================================================================
+  // 5. CATEGORÍA: BLOCKS & STRUCTURE (BLOCKQUOTE, CALLOUT, HR, TABLE)
+  // =========================================================================
+  if (tipo === 'blockquote') {
+    const { lineStart, lineEnd, blockText } = obtenerLimitesBloqueLineas(originalText, start, end);
+    const lineas = blockText.split('\n');
+    const regexQuote = /^(\s*)>\s?/;
+
+    const nonEmpty = lineas.filter(l => l.trim().length > 0);
+    const pool = nonEmpty.length > 0 ? nonEmpty : lineas;
+    const todasSonCita = pool.length > 0 && pool.every(l => regexQuote.test(l) && !/^\s*>\s*\[![A-Z]+\]/i.test(l));
+
+    let nuevasLineas;
+    if (todasSonCita) {
+      // Toggle Off: quitar "> "
+      nuevasLineas = lineas.map(l => l.replace(regexQuote, '$1'));
+    } else {
+      // Aplicar "> " al inicio de cada línea
+      nuevasLineas = lineas.map(l => {
+        if (lineas.length > 1 && l.trim().length === 0) return l;
+        return regexQuote.test(l) ? l : `> ${l}`;
+      });
+    }
+
+    const finalBlock = nuevasLineas.join('\n');
+    const diff = finalBlock.length - blockText.length;
+    textarea.setRangeText(finalBlock, lineStart, lineEnd, 'select');
+    if (start === end) {
+      const newPos = Math.max(lineStart, Math.min(lineStart + finalBlock.length, start + diff));
+      textarea.setSelectionRange(newPos, newPos);
+    } else {
+      textarea.setSelectionRange(lineStart, lineStart + finalBlock.length);
+    }
+    finalizar();
+    return;
+  }
+
+  if (tipo === 'callout') {
+    const { lineStart, lineEnd } = obtenerLimitesBloqueLineas(originalText, start, end);
+    const allLines = originalText.split('\n');
+    // Encontrar índices de línea
+    let startLineIdx = originalText.substring(0, lineStart).split('\n').length - 1;
+    let endLineIdx = originalText.substring(0, lineEnd).split('\n').length - 1;
+
+    // Expandir hacia arriba y abajo si estamos dentro de un bloque "> " que comienza con "> [!..."
+    let topIdx = startLineIdx;
+    while (topIdx > 0 && /^\s*>/.test(allLines[topIdx]) && /^\s*>/.test(allLines[topIdx - 1])) {
+      topIdx--;
+    }
+    if (/^\s*>\s*\[![A-Z]+\]/i.test(allLines[topIdx])) {
+      let botIdx = Math.max(endLineIdx, topIdx);
+      while (botIdx + 1 < allLines.length && /^\s*>/.test(allLines[botIdx + 1])) {
+        botIdx++;
+      }
+      // Calcular posiciones absolutas de topIdx..botIdx
+      const absStart = topIdx === 0 ? 0 : allLines.slice(0, topIdx).join('\n').length + 1;
+      const absEnd = allLines.slice(0, botIdx + 1).join('\n').length;
+      const contentLines = allLines.slice(topIdx + 1, botIdx + 1).map(l => l.replace(/^(\s*)>\s?/, '$1'));
+      const restored = contentLines.join('\n');
+      textarea.setRangeText(restored, absStart, absEnd, 'select');
+      textarea.setSelectionRange(absStart, absStart + restored.length);
+      finalizar();
+      return;
+    }
+
+    // No estaba en un Callout -> Aplicarlo al inicio de la línea o párrafo
+    const blockText = originalText.substring(lineStart, lineEnd);
+    if (blockText.trim().length === 0) {
+      const insert = '> [!NOTE]\n> ';
+      textarea.setRangeText(insert, lineStart, lineEnd, 'select');
+      const pos = lineStart + insert.length;
+      textarea.setSelectionRange(pos, pos);
+    } else {
+      const lineas = blockText.split('\n').map(l => /^\s*>\s?/.test(l) ? l : `> ${l}`);
+      const finalBlock = '> [!NOTE]\n' + lineas.join('\n');
+      textarea.setRangeText(finalBlock, lineStart, lineEnd, 'select');
+      textarea.setSelectionRange(lineStart + '> [!NOTE]\n> '.length, lineStart + finalBlock.length);
+    }
+    finalizar();
+    return;
+  }
+
+  if (tipo === 'hr') {
+    const { lineStart, lineEnd, lineText } = obtenerLimitesLinea(originalText, start);
+
+    // Toggle Off Caso 1: La línea actual es "---"
+    if (lineText.trim() === '---') {
+      const deleteEnd = (lineEnd < originalText.length && originalText.charAt(lineEnd) === '\n') ? lineEnd + 1 : lineEnd;
+      textarea.setRangeText('', lineStart, deleteEnd, 'select');
+      textarea.setSelectionRange(lineStart, lineStart);
+      finalizar();
+      return;
+    }
+
+    // Toggle Off Caso 2: La línea inmediatamente superior es "---"
+    if (lineStart >= 4) {
+      const prevLine = obtenerLimitesLinea(originalText, lineStart - 1);
+      if (prevLine.lineText.trim() === '---') {
+        const removedLen = lineStart - prevLine.lineStart;
+        textarea.setRangeText('', prevLine.lineStart, lineStart, 'select');
+        const newPos = Math.max(prevLine.lineStart, start - removedLen);
+        textarea.setSelectionRange(newPos, newPos);
+        finalizar();
+        return;
+      }
+    }
+
+    // Aplicar HR: si la línea está vacía se inserta "---", si tiene texto se inserta "---\n" al inicio de la línea
+    if (lineText.trim().length === 0) {
+      textarea.setRangeText('---', lineStart, lineEnd, 'select');
+      textarea.setSelectionRange(lineStart + 3, lineStart + 3);
+    } else {
+      textarea.setRangeText('---\n', lineStart, lineStart, 'select');
+      textarea.setSelectionRange(start + 4, start + 4);
+    }
+    finalizar();
+    return;
+  }
+
+  if (tipo === 'table') {
+    const h1 = t.ph_table_h1 || 'Encabezado 1';
+    const h2 = t.ph_table_h2 || 'Encabezado 2';
+    const c1 = t.ph_table_c1 || 'Celda 1';
+    const c2 = t.ph_table_c2 || 'Celda 2';
+    const sep1 = '-'.repeat(Math.max(12, h1.length));
+    const sep2 = '-'.repeat(Math.max(12, h2.length));
+    const tableStr = `| ${h1.padEnd(sep1.length)} | ${h2.padEnd(sep2.length)} |\n| ${sep1} | ${sep2} |\n| ${c1.padEnd(sep1.length)} | ${c2.padEnd(sep2.length)} |`;
+    textarea.setRangeText(tableStr, start, end, 'end');
+    finalizar();
+    return;
+  }
+
+  // =========================================================================
+  // 6. CATEGORÍA: CODE & MATH (INLINE-CODE, INLINE-MATH, CODE-BLOCK, BLOCK-MATH)
+  // =========================================================================
+  if (tipo === 'inline-code' || tipo === 'inline-math') {
+    const marker = tipo === 'inline-code' ? '`' : '$';
+
+    // Con selección previa
+    if (rawSelection.length > 0) {
+      const selStart = start + leadingLength;
+      const selEnd = end - trailingLength;
+      const cleanSel = originalText.substring(selStart, selEnd);
+
+      if (tieneDelimitadorInternoValido(cleanSel, marker, marker)) {
+        const unwrapped = cleanSel.substring(marker.length, cleanSel.length - marker.length);
+        textarea.setRangeText(unwrapped, selStart, selEnd, 'select');
+        textarea.setSelectionRange(selStart, selStart + unwrapped.length);
+        finalizar();
+        return;
+      }
+      if (esDelimitadorExternoValido(originalText, selStart, selEnd, marker, marker)) {
+        textarea.setRangeText(cleanSel, selStart - marker.length, selEnd + marker.length, 'select');
+        const newPos = selStart - marker.length;
+        textarea.setSelectionRange(newPos, newPos + cleanSel.length);
+        finalizar();
+        return;
+      }
+
+      const wrapped = marker + cleanSel + marker;
+      textarea.setRangeText(wrapped, selStart, selEnd, 'select');
+      textarea.setSelectionRange(selStart + marker.length, selStart + marker.length + cleanSel.length);
+      finalizar();
+      return;
+    }
+
+    // Sin selección
+    // 1. ¿Está justo entre dos marcadores vacíos (`|` o $|$)?
+    if (esDelimitadorExternoValido(originalText, start, start, marker, marker)) {
+      textarea.setRangeText('', start - marker.length, start + marker.length, 'end');
+      finalizar();
+      return;
+    }
+
+    const { lineStart, lineEnd, lineText } = obtenerLimitesLinea(originalText, start);
+
+    // 2. Si la línea está vacía -> insertar par en el cursor
+    if (lineText.trim().length === 0) {
+      textarea.setRangeText(marker + marker, start, start, 'select');
+      textarea.setSelectionRange(start + marker.length, start + marker.length);
+      finalizar();
+      return;
+    }
+
+    // 3. Si la línea tiene texto: comprobar si la línea ya está envuelta al inicio y al final con el marcador
+    const leadLineSpaces = lineText.match(/^\s*/)[0];
+    const trailLineSpaces = lineText.match(/\s*$/)[0];
+    const trimmedLine = lineText.trim();
+    const contentStart = lineStart + leadLineSpaces.length;
+    const contentEnd = lineEnd - trailLineSpaces.length;
+
+    if (tieneDelimitadorInternoValido(trimmedLine, marker, marker)) {
+      // Toggle Off en toda la línea
+      const unwrapped = trimmedLine.substring(marker.length, trimmedLine.length - marker.length);
+      textarea.setRangeText(unwrapped, contentStart, contentEnd, 'select');
+      const newCursor = Math.max(contentStart, Math.min(contentStart + unwrapped.length, start - marker.length));
+      textarea.setSelectionRange(newCursor, newCursor);
+      finalizar();
+      return;
+    }
+
+    // También comprobar si el cursor está dentro de un fragmento `...` o $...$ dentro de la línea
+    const relPos = start - lineStart;
+    const before = lineText.substring(0, relPos);
+    const after = lineText.substring(relPos);
+    const lastOpen = before.lastIndexOf(marker);
+    const firstClose = after.indexOf(marker);
+    if (lastOpen !== -1 && firstClose !== -1) {
+      const absInnerStart = lineStart + lastOpen + marker.length;
+      const absInnerEnd = start + firstClose;
+      if (esDelimitadorExternoValido(originalText, absInnerStart, absInnerEnd, marker, marker)) {
+        const inner = originalText.substring(absInnerStart, absInnerEnd);
+        textarea.setRangeText(inner, absInnerStart - marker.length, absInnerEnd + marker.length, 'select');
+        const newCursor = Math.max(absInnerStart - marker.length, start - marker.length);
+        textarea.setSelectionRange(newCursor, newCursor);
+        finalizar();
+        return;
+      }
+    }
+
+    // Aplicar marcador al inicio y al final del texto de la línea
+    const wrappedLine = marker + trimmedLine + marker;
+    textarea.setRangeText(wrappedLine, contentStart, contentEnd, 'select');
+    const newCursor = start + marker.length;
+    textarea.setSelectionRange(newCursor, newCursor);
+    finalizar();
+    return;
+  }
+
+  if (tipo === 'code-block' || tipo === 'block-math') {
+    const isCode = tipo === 'code-block';
+    const openFence = isCode ? '```javascript\n' : '$$\n';
+    const closeFence = isCode ? '\n```' : '\n$$';
+    const blockRegex = isCode
+      ? /```[^\n]*\n([\s\S]*?)\n```/g
+      : /\$\$\n([\s\S]*?)\n\$\$/g;
+
+    // 1. Verificar Toggle: ¿El cursor o selección ya se encuentra dentro o cubriendo un bloque?
+    let match;
+    while ((match = blockRegex.exec(originalText)) !== null) {
+      const mStart = match.index;
+      const mEnd = mStart + match[0].length;
+      if ((start >= mStart && end <= mEnd) || (start <= mStart && end >= mEnd)) {
+        const innerContent = match[1];
+        textarea.setRangeText(innerContent, mStart, mEnd, 'select');
+        textarea.setSelectionRange(mStart, mStart + innerContent.length);
+        finalizar();
+        return;
+      }
+    }
+
+    // 2. Si hay selección previa: envolver la selección
+    if (rawSelection.length > 0) {
+      const selStart = start + leadingLength;
+      const selEnd = end - trailingLength;
+      const wrapped = openFence + selectedText + closeFence;
+      textarea.setRangeText(wrapped, selStart, selEnd, 'select');
+      textarea.setSelectionRange(selStart + openFence.length, selStart + openFence.length + selectedText.length);
+      finalizar();
+      return;
+    }
+
+    // 3. Sin selección: revisar si hay texto en la línea actual
+    const { lineStart, lineEnd, lineText } = obtenerLimitesLinea(originalText, start);
+    if (lineText.trim().length === 0) {
+      const emptyBlock = openFence + closeFence;
+      textarea.setRangeText(emptyBlock, start, start, 'select');
+      textarea.setSelectionRange(start + openFence.length, start + openFence.length);
+    } else {
+      // Abrir tag al inicio de la línea y cerrarlo al final de la línea
+      const wrappedLine = openFence + lineText + closeFence;
+      textarea.setRangeText(wrappedLine, lineStart, lineEnd, 'select');
+      const newCursor = start + openFence.length;
+      textarea.setSelectionRange(newCursor, newCursor);
+    }
+    finalizar();
+    return;
+  }
+
+  // =========================================================================
+  // 7. CATEGORÍA: ADVANCED ELEMENTS (FOOTNOTE, DEFINITION-LIST, DETAILS)
+  // =========================================================================
+  if (tipo === 'footnote') {
+    const descBase = t.ph_footnote_desc || 'Descripción de la nota';
+    const { lineStart, lineEnd, lineText } = obtenerLimitesLinea(originalText, start);
+
+    // 1. Verificar Toggle:
+    // Caso A: ¿Está el cursor en una línea de definición "[^n]: ..."?
+    const defLineMatch = lineText.match(/^\[\^(\d+)\]:\s*(.*)$/);
+    // Caso B: ¿Contiene la línea actual o la selección una llamada "[^n]"?
+    const refInLineMatch = lineText.match(/\[\^(\d+)\]/);
+
+    const toggleNum = defLineMatch ? defLineMatch[1] : (refInLineMatch ? refInLineMatch[1] : null);
+    if (toggleNum !== null) {
+      let newDoc = originalText;
+      // Eliminar la definición [^n]: ...
+      const removeDefRegex = new RegExp(`\\n*\\[\\^${toggleNum}\\]:[^\\n]*`, 'g');
+      newDoc = newDoc.replace(removeDefRegex, '');
+      // Eliminar la referencia [^n]
+      const removeRefRegex = new RegExp(`\\[\\^${toggleNum}\\]`, 'g');
+      newDoc = newDoc.replace(removeRefRegex, '');
+      textarea.value = newDoc;
+      const safePos = Math.min(start, newDoc.length);
+      textarea.setSelectionRange(safePos, safePos);
+      finalizar();
+      return;
+    }
+
+    // 2. Calcular el siguiente número disponible de nota al pie
+    const numbers = Array.from(originalText.matchAll(/\[\^(\d+)\]/g)).map(m => parseInt(m[1], 10));
+    const nextNum = numbers.length > 0 ? Math.max(...numbers) + 1 : 1;
+    const marker = `[^${nextNum}]`;
+
+    // 3. Insertar [^n] al final de la selección (sin borrarla) o al final de la línea actual
+    const insertPos = rawSelection.length > 0 ? (end - trailingLength) : lineEnd;
+    textarea.setRangeText(marker, insertPos, insertPos, 'end');
+
+    // 4. Agregar la definición al final del documento y dejar seleccionado "Descripción de la nota N"
+    const updatedText = textarea.value;
+    const descWithNum = `${descBase} ${nextNum}`;
+    const defPrefix = `[^${nextNum}]: `;
+    const hasNewLine = updatedText.endsWith('\n');
+    const extraBreak = updatedText.length > 0 && !hasNewLine ? '\n\n' : (updatedText.endsWith('\n\n') ? '' : '\n');
+    const fullDoc = updatedText + extraBreak + defPrefix + descWithNum;
+    textarea.value = fullDoc;
+
+    const selDescStart = fullDoc.length - descWithNum.length;
+    const selDescEnd = fullDoc.length;
+    textarea.setSelectionRange(selDescStart, selDescEnd);
+    finalizar();
+    return;
+  }
+
+  if (tipo === 'definition-list') {
+    const termPh = t.ph_def_term || 'Término';
+    const descPh = t.ph_def_desc || 'Definición';
+
+    let { lineStart, lineEnd, blockText } = obtenerLimitesBloqueLineas(originalText, start, end);
+
+    // Si es una sola línea que no empieza con ": ", mirar si la línea inmediatamente siguiente empieza con ": "
+    if (!blockText.includes('\n') && !/^\s*:\s+/.test(blockText) && lineEnd < originalText.length) {
+      const nextLine = obtenerLimitesLinea(originalText, lineEnd + 1);
+      if (/^\s*:\s+/.test(nextLine.lineText)) {
+        lineEnd = nextLine.lineEnd;
+        blockText = originalText.substring(lineStart, lineEnd);
+      }
+    }
+    // Si estamos en la línea ": Definición", incluir también la línea del término arriba si existe
+    if (!blockText.includes('\n') && /^\s*:\s+/.test(blockText) && lineStart > 0) {
+      const prevLine = obtenerLimitesLinea(originalText, lineStart - 1);
+      if (prevLine.lineText.trim().length > 0 && !/^\s*:\s+/.test(prevLine.lineText)) {
+        lineStart = prevLine.lineStart;
+        blockText = originalText.substring(lineStart, lineEnd);
+      }
+    }
+
+    const lineas = blockText.split('\n');
+    const tieneDefinicion = lineas.some(l => /^\s*:\s+/.test(l));
+
+    if (tieneDefinicion) {
+      // Toggle Off:
+      // Si es el bloque por defecto intacto "Término\n: Definición" -> borrar todo
+      if (lineas.length === 2 && lineas[0].trim() === termPh && lineas[1].trim() === `: ${descPh}`) {
+        textarea.setRangeText('', lineStart, lineEnd, 'select');
+        textarea.setSelectionRange(lineStart, lineStart);
+      } else if (lineas.length === 2 && lineas[1].trim() === `: ${descPh}`) {
+        // Si la segunda línea era solo el placeholder ": Definición", dejar únicamente el término original
+        textarea.setRangeText(lineas[0], lineStart, lineEnd, 'select');
+        textarea.setSelectionRange(lineStart + lineas[0].length, lineStart + lineas[0].length);
+      } else {
+        // Quitar el prefijo ": " de las líneas de definición
+        const limpias = lineas.map(l => l.replace(/^(\s*):\s+/, '$1')).join('\n');
+        textarea.setRangeText(limpias, lineStart, lineEnd, 'select');
+        textarea.setSelectionRange(lineStart, lineStart + limpias.length);
+      }
+      finalizar();
+      return;
+    }
+
+    // Aplicar Lista de Definición:
+    if (blockText.trim().length === 0) {
+      // Caso 1: Línea vacía -> insertar "Término\n: Definición" y seleccionar "Término"
+      const tpl = `${termPh}\n: ${descPh}`;
+      textarea.setRangeText(tpl, lineStart, lineEnd, 'select');
+      textarea.setSelectionRange(lineStart, lineStart + termPh.length);
+    } else if (lineas.length === 1) {
+      // Caso 2: Una sola línea con texto -> esa línea es el Término, añadir debajo "\n: Definición" y seleccionar "Definición"
+      const suffixDef = `\n: ${descPh}`;
+      textarea.setRangeText(suffixDef, lineEnd, lineEnd, 'select');
+      const defStart = lineEnd + 3; // después de "\n: "
+      textarea.setSelectionRange(defStart, defStart + descPh.length);
+    } else {
+      // Caso 3: Múltiples líneas seleccionadas -> primera línea es Término, las siguientes llevan ": "
+      const formateadas = lineas.map((l, idx) => {
+        if (l.trim().length === 0) return l;
+        if (idx === 0) return l;
+        return /^\s*:\s+/.test(l) ? l : `: ${l}`;
+      }).join('\n');
+      textarea.setRangeText(formateadas, lineStart, lineEnd, 'select');
+      textarea.setSelectionRange(lineStart, lineStart + formateadas.length);
+    }
+    finalizar();
+    return;
+  }
+
+  if (tipo === 'details') {
+    const titlePh = t.ph_details_title || 'Título';
+    const contentPh = t.ph_details_content || 'Contenido...';
+
+    // 1. Verificar Toggle: ¿Está el cursor o selección dentro de un bloque <details>...</details>?
+    const detailsRegex = /<details>\s*<summary>([\s\S]*?)<\/summary>\s*([\s\S]*?)\s*<\/details>/gi;
+    let match;
+    while ((match = detailsRegex.exec(originalText)) !== null) {
+      const mStart = match.index;
+      const mEnd = mStart + match[0].length;
+      if ((start >= mStart && end <= mEnd) || (start <= mStart && end >= mEnd)) {
+        const summaryText = match[1].trim();
+        const innerContent = match[2].trim();
+        let restored = '';
+        if (summaryText === titlePh && innerContent === contentPh) {
+          restored = '';
+        } else if (innerContent === contentPh) {
+          restored = summaryText;
+        } else {
+          restored = innerContent;
+        }
+        textarea.setRangeText(restored, mStart, mEnd, 'select');
+        textarea.setSelectionRange(mStart, mStart + restored.length);
+        finalizar();
+        return;
+      }
+    }
+
+    const openTag = '<details>\n<summary>';
+    const midTag = '</summary>\n\n';
+    const closeTag = '\n\n</details>';
+
+    // 2. Si hay selección previa: envolver la selección como contenido y seleccionar el Título
+    if (rawSelection.length > 0) {
+      const selStart = start + leadingLength;
+      const selEnd = end - trailingLength;
+      const block = openTag + titlePh + midTag + selectedText + closeTag;
+      textarea.setRangeText(block, selStart, selEnd, 'select');
+      const titleStart = selStart + openTag.length;
+      textarea.setSelectionRange(titleStart, titleStart + titlePh.length);
+      finalizar();
+      return;
+    }
+
+    // 3. Sin selección: revisar si el cursor está en una línea o párrafo con texto
+    const { lineText } = obtenerLimitesLinea(originalText, start);
+    if (lineText.trim().length > 0) {
+      // Encontrar los límites del párrafo actual (líneas contiguas no vacías)
+      const allLines = originalText.split('\n');
+      const curLineIdx = originalText.substring(0, start).split('\n').length - 1;
+      let pTop = curLineIdx;
+      let pBot = curLineIdx;
+      while (pTop > 0 && allLines[pTop - 1].trim().length > 0) pTop--;
+      while (pBot + 1 < allLines.length && allLines[pBot + 1].trim().length > 0) pBot++;
+
+      const paraStart = pTop === 0 ? 0 : allLines.slice(0, pTop).join('\n').length + 1;
+      const paraEnd = allLines.slice(0, pBot + 1).join('\n').length;
+      const paraText = originalText.substring(paraStart, paraEnd);
+
+      const block = openTag + titlePh + midTag + paraText + closeTag;
+      textarea.setRangeText(block, paraStart, paraEnd, 'select');
+      const titleStart = paraStart + openTag.length;
+      textarea.setSelectionRange(titleStart, titleStart + titlePh.length);
+      finalizar();
+      return;
+    }
+
+    // 4. En línea vacía: insertar plantilla y seleccionar Título
+    const template = openTag + titlePh + midTag + contentPh + closeTag;
+    textarea.setRangeText(template, start, start, 'select');
+    const focusStart = start + openTag.length;
+    textarea.setSelectionRange(focusStart, focusStart + titlePh.length);
+    finalizar();
+    return;
   }
 }
 
@@ -2074,8 +2627,9 @@ function actualizarTextosInterfaz(lang) {
 
   // 5. Títulos de Categorías y Paneles Flotantes
   const setCategoryTitle = (cat, text) => {
-    const titleEl = document.querySelector(`[data-category-title="${cat}"]`);
-    if (titleEl) titleEl.textContent = text;
+    document.querySelectorAll(`[data-category-title="${cat}"]`).forEach(titleEl => {
+      titleEl.textContent = text;
+    });
   };
   setCategoryTitle('basic', t.md_title_basic || t.md_cat_basic);
   setCategoryTitle('headings', t.md_title_headings || t.md_cat_headings);
@@ -2102,39 +2656,39 @@ function actualizarTextosInterfaz(lang) {
   setFloatingHeaderAndFooter('modal-md-structure', t.md_title_structure, t.help_structure);
   setFloatingHeaderAndFooter('modal-md-advanced', t.md_title_advanced, t.help_advanced);
 
-  // 6. Botones de Atajos
+  // 6. Botones de Atajos (leídos íntegramente desde los archivos de configuración de idioma)
   const shortcutTranslations = {
-    'bold': { text: t.btn_bold, title: lang === 'es' ? 'Negrita - Sintaxis: **texto**' : (lang === 'en' ? 'Bold - Syntax: **text**' : 'Crassus - Syntaxis: **textus**') },
-    'italic': { text: t.btn_italic, title: lang === 'es' ? 'Cursiva - Sintaxis: *texto*' : (lang === 'en' ? 'Italic - Syntax: *text*' : 'Obliquus - Syntaxis: *textus*') },
-    'underline': { text: t.btn_underline, title: lang === 'es' ? 'Subrayado - Sintaxis: <u>texto</u>' : (lang === 'en' ? 'Underline - Syntax: <u>text</u>' : 'Sublineatus - Syntaxis: <u>textus</u>') },
-    'strikethrough': { text: t.btn_strikethrough, title: lang === 'es' ? 'Tachado - Sintaxis: ~~texto~~' : (lang === 'en' ? 'Strikethrough - Syntax: ~~text~~' : 'Deletus - Syntaxis: ~~textus~~') },
-    'highlight': { text: t.btn_highlight || 'Resaltado', title: lang === 'es' ? 'Resaltado - Sintaxis: ==texto==' : (lang === 'en' ? 'Highlight - Syntax: ==text==' : 'Insigne - Syntaxis: ==textus==') },
-    'superscript': { text: t.btn_superscript || 'Superíndice', title: lang === 'es' ? 'Superíndice - Sintaxis: ^texto^' : (lang === 'en' ? 'Superscript - Syntax: ^text^' : 'Superscriptum - Syntaxis: ^textus^') },
-    'subscript': { text: t.btn_subscript || 'Subíndice', title: lang === 'es' ? 'Subíndice - Sintaxis: ~texto~' : (lang === 'en' ? 'Subscript - Syntax: ~text~' : 'Subscriptum - Syntaxis: ~textus~') },
-    'h1': { text: t.btn_h1, title: lang === 'es' ? 'Título 1 - Sintaxis: # Título' : (lang === 'en' ? 'Heading 1 - Syntax: # Heading' : 'Titulus 1 - Syntaxis: # Titulus') },
-    'h2': { text: t.btn_h2, title: lang === 'es' ? 'Título 2 - Sintaxis: ## Título' : (lang === 'en' ? 'Heading 2 - Syntax: ## Heading' : 'Titulus 2 - Syntaxis: ## Titulus') },
-    'h3': { text: t.btn_h3, title: lang === 'es' ? 'Título 3 - Sintaxis: ### Título' : (lang === 'en' ? 'Heading 3 - Syntax: ### Heading' : 'Titulus 3 - Syntaxis: ### Titulus') },
-    'h4': { text: t.btn_h4, title: lang === 'es' ? 'Título 4 - Sintaxis: #### Título' : (lang === 'en' ? 'Heading 4 - Syntax: #### Heading' : 'Titulus 4 - Syntaxis: #### Titulus') },
-    'h5': { text: t.btn_h5, title: lang === 'es' ? 'Título 5 - Sintaxis: ##### Título' : (lang === 'en' ? 'Heading 5 - Syntax: ##### Heading' : 'Titulus 5 - Syntaxis: ##### Titulus') },
-    'h6': { text: t.btn_h6, title: lang === 'es' ? 'Título 6 - Sintaxis: ###### Título' : (lang === 'en' ? 'Heading 6 - Syntax: ###### Heading' : 'Titulus 6 - Syntaxis: ###### Titulus') },
-    'ul': { text: t.btn_ul, title: lang === 'es' ? 'Lista desordenada - Sintaxis: - Elemento' : (lang === 'en' ? 'Unordered List - Syntax: - Item' : 'Index Inordinatus - Syntaxis: - Elementum') },
-    'ol': { text: t.btn_ol, title: lang === 'es' ? 'Lista ordenada - Sintaxis: 1. Elemento' : (lang === 'en' ? 'Ordered List - Syntax: 1. Item' : 'Index Ordinatus - Syntaxis: 1. Elementum') },
-    'task': { text: t.btn_task, title: lang === 'es' ? 'Lista de tareas - Sintaxis: - [ ] Tarea' : (lang === 'en' ? 'Task List - Syntax: - [ ] Task' : 'Index Pensorum - Syntaxis: - [ ] Pensum') },
-    'link': { text: t.btn_link, title: lang === 'es' ? 'Enlace web - Sintaxis: [texto](url)' : (lang === 'en' ? 'Web Link - Syntax: [text](url)' : 'Nexus Interretialis - Syntaxis: [textus](url)') },
-    'image': { text: t.btn_image, title: lang === 'es' ? 'Imagen - Sintaxis: ![texto](url)' : (lang === 'en' ? 'Image - Syntax: ![text](url)' : 'Imago - Syntaxis: ![textus](url)') },
-    'email': { text: t.btn_email, title: lang === 'es' ? 'Enlace de correo - Sintaxis: <correo>' : (lang === 'en' ? 'Email Link - Syntax: <email>' : 'Nexus Litterae Electronicae - Syntaxis: <littera>') },
-    'inline-code': { text: t.btn_inline_code, title: lang === 'es' ? 'Código en línea - Sintaxis: `código`' : (lang === 'en' ? 'Inline Code - Syntax: `code`' : 'Codex in linea - Syntaxis: `codex`') },
-    'code-block': { text: t.btn_code_block, title: lang === 'es' ? 'Bloque de código - Sintaxis: ```javascript' : (lang === 'en' ? 'Code Block - Syntax: ```javascript' : 'Codex in textu - Syntaxis: ```javascript') },
-    'inline-math': { text: t.btn_inline_math, title: lang === 'es' ? 'Fórmula en línea - Sintaxis: $f(x)$' : (lang === 'en' ? 'Inline Math - Syntax: $f(x)$' : 'Formula in linea - Syntaxis: $f(x)$') },
-    'block-math': { text: t.btn_block_math, title: lang === 'es' ? 'Fórmula en bloque - Sintaxis: $$' : (lang === 'en' ? 'Block Math - Syntax: $$' : 'Formula in textu - Syntaxis: $$') },
-    'blockquote': { text: t.btn_blockquote, title: lang === 'es' ? 'Cita - Sintaxis: > cita' : (lang === 'en' ? 'Blockquote - Syntax: > quote' : 'Citatio - Syntaxis: > citatio') },
-    'callout': { text: t.btn_callout || 'Bloque de Alerta', title: lang === 'es' ? 'Bloque de Alerta - Sintaxis: > [!NOTE]' : (lang === 'en' ? 'Callout Alert - Syntax: > [!NOTE]' : 'Monitio - Syntaxis: > [!NOTE]') },
-    'table': { text: t.btn_table, title: lang === 'es' ? 'Tabla - Sintaxis: tabular' : (lang === 'en' ? 'Table - Syntax: tabular' : 'Tabula - Syntaxis: tabular') },
-    'hr': { text: t.btn_hr, title: lang === 'es' ? 'Línea divisoria - Sintaxis: ---' : (lang === 'en' ? 'Horizontal Rule - Syntax: ---' : 'Linea divisoria - Syntaxis: ---') },
-    'comment': { text: t.btn_comment || 'Comentario Oculto', title: lang === 'es' ? 'Comentario Oculto - Sintaxis: <!-- comentario -->' : (lang === 'en' ? 'Hidden Comment - Syntax: <!-- comment -->' : 'Commentarium Occultum - Syntaxis: <!-- commentarium -->') },
-    'footnote': { text: t.btn_footnote, title: lang === 'es' ? 'Nota al pie - Sintaxis: [^1]' : (lang === 'en' ? 'Footnote - Syntax: [^1]' : 'Nota ad calcem - Syntaxis: [^1]') },
-    'definition-list': { text: t.btn_def_list, title: lang === 'es' ? 'Lista de definición - Sintaxis: Término\\n: Definición' : (lang === 'en' ? 'Definition List - Syntax: Term\\n: Definition' : 'Index Definitionum - Syntaxis: Terminus\\n: Definitio') },
-    'details': { text: t.btn_details || 'Bloque Plegable', title: lang === 'es' ? 'Bloque Plegable - Sintaxis: <details>' : (lang === 'en' ? 'Collapsible Block - Syntax: <details>' : 'Pars Plicatilis - Syntaxis: <details>') }
+    'bold': { text: t.btn_bold, title: t.tip_bold },
+    'italic': { text: t.btn_italic, title: t.tip_italic },
+    'underline': { text: t.btn_underline, title: t.tip_underline },
+    'strikethrough': { text: t.btn_strikethrough, title: t.tip_strikethrough },
+    'highlight': { text: t.btn_highlight, title: t.tip_highlight },
+    'superscript': { text: t.btn_superscript, title: t.tip_superscript },
+    'subscript': { text: t.btn_subscript, title: t.tip_subscript },
+    'h1': { text: t.btn_h1, title: t.tip_h1 },
+    'h2': { text: t.btn_h2, title: t.tip_h2 },
+    'h3': { text: t.btn_h3, title: t.tip_h3 },
+    'h4': { text: t.btn_h4, title: t.tip_h4 },
+    'h5': { text: t.btn_h5, title: t.tip_h5 },
+    'h6': { text: t.btn_h6, title: t.tip_h6 },
+    'ul': { text: t.btn_ul, title: t.tip_ul },
+    'ol': { text: t.btn_ol, title: t.tip_ol },
+    'task': { text: t.btn_task, title: t.tip_task },
+    'link': { text: t.btn_link, title: t.tip_link },
+    'image': { text: t.btn_image, title: t.tip_image },
+    'email': { text: t.btn_email, title: t.tip_email },
+    'inline-code': { text: t.btn_inline_code, title: t.tip_inline_code },
+    'code-block': { text: t.btn_code_block, title: t.tip_code_block },
+    'inline-math': { text: t.btn_inline_math, title: t.tip_inline_math },
+    'block-math': { text: t.btn_block_math, title: t.tip_block_math },
+    'blockquote': { text: t.btn_blockquote, title: t.tip_blockquote },
+    'callout': { text: t.btn_callout, title: t.tip_callout },
+    'table': { text: t.btn_table, title: t.tip_table },
+    'hr': { text: t.btn_hr, title: t.tip_hr },
+    'comment': { text: t.btn_comment, title: t.tip_comment },
+    'footnote': { text: t.btn_footnote, title: t.tip_footnote },
+    'definition-list': { text: t.btn_def_list, title: t.tip_def_list },
+    'details': { text: t.btn_details, title: t.tip_details }
   };
 
   document.querySelectorAll('.md-shortcut-btn').forEach(btn => {
@@ -2147,30 +2701,32 @@ function actualizarTextosInterfaz(lang) {
       } else {
         btn.textContent = trans.text;
       }
-      btn.setAttribute('title', trans.title);
+      if (trans.title) {
+        btn.setAttribute('title', trans.title);
+      }
     }
   });
 
   const masterShortcutsTitle = document.querySelector('#modal-md .modal-header h3');
-  if (masterShortcutsTitle) masterShortcutsTitle.textContent = t.title_shortcuts_panel || 'Atajos y Formato Markdown';
+  if (masterShortcutsTitle) masterShortcutsTitle.textContent = t.title_shortcuts_panel;
   const sidebarShortcutsTitle = document.querySelector('#shortcuts-sidebar .shortcuts-sidebar-title');
-  if (sidebarShortcutsTitle) sidebarShortcutsTitle.textContent = t.title_shortcuts_panel || 'Atajos y Formato Markdown';
+  if (sidebarShortcutsTitle) sidebarShortcutsTitle.textContent = t.title_shortcuts_panel;
   
   const btnDockMaster = document.getElementById('btn-dock-shortcuts-master');
-  if (btnDockMaster) btnDockMaster.setAttribute('title', t.tooltip_dock_sidebar || 'Reacoplar a la barra lateral');
+  if (btnDockMaster) btnDockMaster.setAttribute('title', t.tooltip_dock_sidebar);
   const btnUndockSidebar = document.getElementById('btn-undock-shortcuts-sidebar');
-  if (btnUndockSidebar) btnUndockSidebar.setAttribute('title', t.tooltip_tearoff_panel || 'Desacoplar a ventana flotante o monitor externo');
+  if (btnUndockSidebar) btnUndockSidebar.setAttribute('title', t.tooltip_tearoff_panel);
   const btnDockSide = document.getElementById('btn-dock-shortcuts-side');
-  if (btnDockSide) btnDockSide.setAttribute('title', t.tooltip_dock_side || 'Alternar acople Izquierda/Derecha');
+  if (btnDockSide) btnDockSide.setAttribute('title', t.tooltip_dock_side);
 
   document.querySelectorAll('.btn-tearoff-cat').forEach(b => {
-    b.setAttribute('title', t.tooltip_tearoff_cat || 'Desacoplar esta categoría a una ventana flotante individual');
+    b.setAttribute('title', t.tooltip_tearoff_cat);
   });
 
   document.querySelectorAll('.btn-collapse-cat').forEach(b => {
     const card = b.closest('.shortcuts-category-card');
     const isCollapsed = card && card.classList.contains('collapsed');
-    b.setAttribute('title', isCollapsed ? (t.tooltip_expand_cat || 'Expandir categoría') : (t.tooltip_collapse_cat || 'Minimizar categoría'));
+    b.setAttribute('title', isCollapsed ? t.tooltip_expand_cat : t.tooltip_collapse_cat);
   });
 
   actualizarInsigniasAtajos();

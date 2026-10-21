@@ -2698,16 +2698,85 @@ dl {
 }
 
 dt {
-  font-weight: bold;
+  font-weight: 700;
   color: var(--text-main);
   margin-top: 12px;
 }
 
 dd {
   margin-left: 20px;
-  color: #cbd5e1;
+  padding-left: 10px;
+  border-left: 2px solid var(--border-subtle, rgba(139, 92, 246, 0.35));
+  color: var(--text-muted, #cbd5e1);
   font-style: italic;
   margin-bottom: 8px;
+}
+
+/* Resaltado, Superíndice, Subíndice, Bloques de Alerta y Bloques Plegables en Modo Lectura */
+.markdown-body mark {
+  background-color: rgba(250, 204, 21, 0.25);
+  color: inherit;
+  padding: 1px 5px;
+  border-radius: 4px;
+  border-bottom: 1px solid rgba(250, 204, 21, 0.45);
+}
+
+.markdown-body sup,
+.markdown-body sub {
+  font-size: 0.78em;
+  line-height: 0;
+  position: relative;
+  vertical-align: baseline;
+}
+
+.markdown-body sup {
+  top: -0.5em;
+}
+
+.markdown-body sub {
+  bottom: -0.25em;
+}
+
+.markdown-body .markdown-callout {
+  margin: 18px 0;
+  padding: 12px 16px;
+  border-left: 4px solid var(--accent-color, #8b5cf6);
+  background-color: rgba(139, 92, 246, 0.08);
+  border-radius: 0 8px 8px 0;
+}
+
+.markdown-body .markdown-callout .callout-header {
+  font-weight: 700;
+  font-size: 0.85em;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--accent-hover, #c084fc);
+  margin-bottom: 6px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.markdown-body details {
+  margin: 16px 0;
+  padding: 10px 14px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+}
+
+.markdown-body details summary {
+  font-weight: 600;
+  cursor: pointer;
+  color: var(--text-main);
+  outline: none;
+  user-select: none;
+}
+
+.markdown-body details[open] summary {
+  margin-bottom: 10px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border-subtle);
 }
 
 /* ==========================================================================

@@ -5529,6 +5529,7 @@ function inicializarThemePlayground() {
   // 2. Botón de cerrar visualizador
   btnClosePlayground.addEventListener('click', async () => {
     playgroundBox.classList.remove('active');
+    playgroundBox.style.height = '';
     await refrescarListaTemas();
     if (DOM.modalConfig) {
       DOM.modalConfig.classList.add('active');

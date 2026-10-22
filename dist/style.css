@@ -2481,9 +2481,8 @@ body {
   width: 430px;
   min-width: 340px;
   max-width: 700px;
-  height: calc(100vh - 60px);
-  min-height: 450px;
-  max-height: calc(100vh - 40px);
+  height: auto;
+  max-height: calc(100vh - 60px);
   background: var(--bg-modal, rgba(23, 28, 42, 0.95));
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
@@ -2547,12 +2546,13 @@ body {
 }
 
 .playground-body {
-  flex: 1;
-  padding: 16px 18px;
+  flex: 1 1 auto;
+  min-height: 0;
+  padding: 14px 18px;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 14px;
 }
 
 .playground-body::-webkit-scrollbar {

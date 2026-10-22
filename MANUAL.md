@@ -216,10 +216,11 @@ Desde el desplegable de **Exportar** en la barra superior puedes generar tres ti
 2. **Exportar como PDF:**
    Abre el diálogo nativo de impresión y generación de PDF del sistema operativo, configurado con estilos optimizados para impresión en papel (márgenes cuidados, saltos de página inteligentes y tipografía de alta legibilidad).
 3. **Exportar como EPUB:**
-   Genera un libro electrónico estándar (`.epub`) compatible con lectores de tinta electrónica y aplicaciones de lectura (Kindle, Kobo, Apple Books, etc.). Al seleccionarlo, se despliega una ventana de maquetación que ofrece dos modalidades:
+   Genera un libro electrónico estándar (`.epub`) compatible con lectores de tinta electrónica y aplicaciones de lectura (Kindle, Kobo, Apple Books, etc.). Al seleccionarlo, se despliega una ventana de maquetación que ofrece:
+   - **Gestión de Imagen de Portada:** Detección automática de imágenes candidatas en la carpeta del documento (`cover.jpg`, `portada.png`, etc.) y selector manual (archivos `.jpg`, `.png`, `.webp`) con previsualización proporcional (1:1.6), diagnóstico de resolución (óptima, advertencia si es baja) y optimización en memoria.
    - **Alto Contraste (Eink):** Fondo blanco puro y texto negro absoluto, optimizado al máximo para e-readers de tinta electrónica sin fatiga visual.
    - **Estilo de la Aplicación:** Respeta la atmósfera satinada, los colores y las fuentes tipográficas activas de Summa Scriptura.  
-   *Empaquetamiento integral:* El exportador empaqueta automáticamente el contenido XHTML estructurado y todas las imágenes locales referenciadas en el documento dentro del archivo final.
+   *Empaquetamiento integral:* El exportador empaqueta automáticamente la portada, la página de portada SVG adaptativa, el contenido XHTML estructurado y todas las imágenes locales referenciadas en el documento dentro del archivo final.
 
 ---
 

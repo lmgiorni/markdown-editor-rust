@@ -1,7 +1,13 @@
 # Summa Scriptura ✍️
 
+<p align="center">
+  <img src="app-icon.png" alt="Summa Scriptura Logo" width="128" />
+</p>
+
 **Entorno de autoría, jerarquía de contenido y forjado de datos estructurados.**  
 Diseñado para autores, diseñadores de juegos, redactores técnicos y directores de proyecto que requieren concentración absoluta, jerarquía impecable y la capacidad de transformar texto descriptivo en datos estructurados listos para producción.
+
+> 📖 **Documentación Completa:** Para consultar la guía de uso paso a paso de cada módulo y atajo, revisa el [Manual de Usuario](MANUAL.md).
 
 ---
 
@@ -64,7 +70,7 @@ La mayoría de los editores Markdown convencionales nacieron pensados únicament
 ### 7. Exportación Multi-Formato Profesional
 - **HTML:** Exporta páginas limpias y autocontenidas listas para compartir en la web.
 - **PDF:** Documentos listos para impresión o distribución con tipografía cuidada y salto de página optimizado.
-- **EPUB:** Genera libros electrónicos completos con maquetación seleccionable (Alto Contraste Eink optimizado para lectores de tinta electrónica o Estilo Satinado fiel a la aplicación), empaquetando imágenes y texto estructurado.
+- **EPUB:** Genera libros electrónicos completos con detección automática o selección manual de imagen de portada (con previsualización proporcional y optimización de resolución), maquetación seleccionable (Alto Contraste Eink optimizado para lectores de tinta electrónica o Estilo de la Aplicación) y empaquetamiento integral de texto estructurado e imágenes locales.
 
 ### 8. Personalización Satinada e Internacionalización
 - **Theme Playground:** Ajuste de paleta de color interactivo en vivo, con generación de colores análogos, complementarios, control de opacidad y casillas de guardado rápido.

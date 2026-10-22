@@ -5667,3 +5667,63 @@ function refrescarPlaygroundLocal() {
     console.error('Error al refrescar localmente el Playground:', err);
   }
 }
+
+
+// ==========================================================================
+// GESTION SEGURA DE ENLACES: APERTURA EXTERNA Y DESPLAZAMIENTO INTERNO
+// ==========================================================================
+async function gestionarClicEnlace(e) {
+  // Buscar si el objetivo del clic o alguno de sus padres es una etiqueta <a>
+  const link = e.target.closest('a');
+  if (!link) return;
+
+  // Si tiene el atributo download, permitimos la descarga nativa del archivo
+  if (link.hasAttribute('download')) return;
+
+  const href = link.getAttribute('href');
+  if (!href) return;
+
+  // 1. Enlaces internos / anclas (ej: #fn-1, #fnref-1, #seccion)
+  if (href.startsWith('#')) {
+    e.preventDefault();
+    const targetId = href.slice(1);
+    if (!targetId) return;
+
+    // Buscar el elemento de destino por ID o por atributo name
+    let targetEl = null;
+    try {
+      targetEl = document.getElementById(targetId) || 
+        (DOM.preview ? DOM.preview.querySelector(`[name="${CSS.escape(targetId)}"]`) : null) ||
+        document.querySelector(`[name="${CSS.escape(targetId)}"]`);
+    } catch (_) {
+      targetEl = document.getElementById(targetId);
+    }
+
+    if (targetEl) {
+      targetEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+    return;
+  }
+
+  // 2. Enlaces externos (http, https, mailto)
+  if (/^(https?:\/\/|mailto:)/i.test(href)) {
+    e.preventDefault();
+    if (invoke) {
+      try {
+        await invoke('abrir_url_externa', { url: href });
+      } catch (err) {
+        console.error('Error al abrir URL en el navegador externo:', err);
+      }
+    } else {
+      window.open(href, '_blank', 'noopener,noreferrer');
+    }
+  }
+}
+
+// Escuchar tanto clic izquierdo como clic con la rueda del ratón (auxclick)
+document.addEventListener('click', gestionarClicEnlace);
+document.addEventListener('auxclick', (e) => {
+  if (e.button === 1) { // Botón del medio del ratón
+    gestionarClicEnlace(e);
+  }
+});

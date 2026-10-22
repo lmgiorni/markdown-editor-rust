@@ -599,6 +599,55 @@ fn abrir_carpeta_idiomas(app_handle: tauri::AppHandle) -> Result<(), String> {
     Ok(())
 }
 
+fn es_url_permitida(url: &str) -> bool {
+    let url_lower = url.trim().to_lowercase();
+    url_lower.starts_with("http://") || url_lower.starts_with("https://") || url_lower.starts_with("mailto:")
+}
+
+#[tauri::command]
+fn abrir_url_externa(url: String) -> Result<(), String> {
+    let url_trimmed = url.trim();
+    if !es_url_permitida(url_trimmed) {
+        return Err("Esquema de URL no permitido. Solo se admiten enlaces http, https y mailto.".to_string());
+    }
+
+    #[cfg(target_os = "windows")]
+    {
+        use std::os::windows::process::CommandExt;
+        const CREATE_NO_WINDOW: u32 = 0x08000000;
+        
+        let status = std::process::Command::new("rundll32")
+            .args(["url.dll,FileProtocolHandler", url_trimmed])
+            .spawn();
+
+        if let Err(e) = status {
+            std::process::Command::new("cmd")
+                .args(["/c", "start", "", url_trimmed])
+                .creation_flags(CREATE_NO_WINDOW)
+                .spawn()
+                .map_err(|e2| format!("Error abriendo enlace externo (rundll32: {}, cmd: {})", e, e2))?;
+        }
+    }
+
+    #[cfg(target_os = "macos")]
+    {
+        std::process::Command::new("open")
+            .arg(url_trimmed)
+            .spawn()
+            .map_err(|e| format!("No se pudo abrir el navegador externo: {}", e))?;
+    }
+
+    #[cfg(target_os = "linux")]
+    {
+        std::process::Command::new("xdg-open")
+            .arg(url_trimmed)
+            .spawn()
+            .map_err(|e| format!("No se pudo abrir el navegador externo: {}", e))?;
+    }
+
+    Ok(())
+}
+
 fn sincronizar_idioma_base(path: &std::path::Path, base_content: &str) {
     if !path.exists() {
         let _ = fs::write(path, base_content);
@@ -817,7 +866,8 @@ pub fn run() {
         leer_tema,
         listar_idiomas,
         leer_idioma,
-        abrir_carpeta_idiomas
+        abrir_carpeta_idiomas,
+        abrir_url_externa
     ])
     .run(tauri::generate_context!())
     .expect("error while running tauri application");
@@ -826,6 +876,22 @@ pub fn run() {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_es_url_permitida() {
+        assert!(es_url_permitida("https://google.com"));
+        assert!(es_url_permitida("http://localhost:8000"));
+        assert!(es_url_permitida("HTTPS://WIKIPEDIA.ORG/TEST"));
+        assert!(es_url_permitida("mailto:autor@summascriptura.com"));
+        assert!(es_url_permitida("  https://ejemplo.com  "));
+
+        // Esquemas inseguros o no permitidos
+        assert!(!es_url_permitida("file:///C:/Windows/System32/cmd.exe"));
+        assert!(!es_url_permitida("javascript:alert(1)"));
+        assert!(!es_url_permitida("cmd.exe"));
+        assert!(!es_url_permitida("powershell -c ls"));
+        assert!(!es_url_permitida("data:text/html,test"));
+    }
 
     #[test]
     fn test_buscar_portada_candidata() {

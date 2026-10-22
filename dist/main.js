@@ -126,6 +126,8 @@ const DOM = {
   
   // Selector de tema
   selectTheme: document.getElementById('select-theme'),
+  btnOpenThemesDir: document.getElementById('btn-open-themes-dir'),
+  btnEditTheme: document.getElementById('btn-edit-theme'),
   
   // Selectores e Inputs de Configuración
   selectEditorFont: document.getElementById('select-editor-font'),
@@ -1030,10 +1032,11 @@ async function guardarArchivo() {
     
     setSavedState(true);
     
-    // Limpiar borrador temporal del Playground si aplica
+    // Limpiar borrador temporal del Playground si aplica y refrescar selector de temas
     if (appState.filePath && appState.filePath.includes('themes')) {
       localStorage.removeItem('md-theme-draft-text');
       localStorage.removeItem('md-theme-draft-path');
+      await refrescarListaTemas(appState.filePath);
     }
 
     alertNotification('Cambios guardados con éxito', 'success');
@@ -1122,11 +1125,12 @@ async function guardarComo() {
       appState.fileName = name;
       setSavedState(true);
       
-      // Limpiar borrador temporal del Playground si aplica
-      if (appState.filePath && appState.filePath.includes('themes')) {
-        localStorage.removeItem('md-theme-draft-text');
-        localStorage.removeItem('md-theme-draft-path');
-      }
+      // Limpiar borrador temporal del Playground si aplica y refrescar selector de temas
+    if (appState.filePath && appState.filePath.includes('themes')) {
+      localStorage.removeItem('md-theme-draft-text');
+      localStorage.removeItem('md-theme-draft-path');
+      await refrescarListaTemas(appState.filePath);
+    }
 
       alertNotification('Archivo guardado con éxito', 'success');
     }
@@ -2812,6 +2816,16 @@ if (DOM.btnOpenLanguagesDir) {
   });
 }
 
+if (DOM.btnOpenThemesDir) {
+  DOM.btnOpenThemesDir.addEventListener('click', () => {
+    if (invoke) {
+      invoke('abrir_carpeta_temas').catch(err => {
+        console.error('Error al abrir la carpeta de temas:', err);
+      });
+    }
+  });
+}
+
 async function cambiarIdioma(lang) {
   appState.language = lang;
   localStorage.setItem('md-language', lang);
@@ -3792,7 +3806,10 @@ DOM.viewPreview.addEventListener('click', () => cambiarVista('preview'));
 // Diálogos modales
 DOM.btnMd.addEventListener('click', toggleShortcutsSidebar);
 DOM.btnStats.addEventListener('click', () => abrirModal(DOM.modalStats));
-DOM.btnConfig.addEventListener('click', () => abrirModal(DOM.modalConfig));
+DOM.btnConfig.addEventListener('click', async () => {
+  await refrescarListaTemas();
+  abrirModal(DOM.modalConfig);
+});
 
 // Click sobre el nombre de archivo superior para renombrarlo
 DOM.fileNameContainer.addEventListener('click', habilitarEdicionNombre);
@@ -5303,11 +5320,12 @@ function renderizarComponentesFiltrados() {
 // ==========================================================================
 // SISTEMA DINÁMICO DE TEMAS (JSON v4.0)
 // ==========================================================================
-async function inicializarTemas() {
-  if (!DOM.selectTheme) return;
+async function refrescarListaTemas(temaPathASeleccionar = null) {
+  if (!DOM.selectTheme || !invoke) return;
 
   try {
     const temas = await invoke('listar_temas');
+    const valorPrevio = temaPathASeleccionar || DOM.selectTheme.value;
     DOM.selectTheme.innerHTML = '';
 
     if (!temas || temas.length === 0) {
@@ -5315,31 +5333,45 @@ async function inicializarTemas() {
       return;
     }
 
+    let encontrado = false;
     temas.forEach(tema => {
       const opt = document.createElement('option');
       opt.value = tema.filePath;
       opt.textContent = tema.themeName.replace(/-/g, ' ');
-      if (tema.themeName === appState.activeTheme) {
+
+      if (valorPrevio && (tema.filePath === valorPrevio || tema.themeName === valorPrevio || tema.filePath.endsWith(valorPrevio))) {
         opt.selected = true;
+        encontrado = true;
+      } else if (!encontrado && tema.themeName === appState.activeTheme) {
+        opt.selected = true;
+        encontrado = true;
       }
       DOM.selectTheme.appendChild(opt);
     });
 
-    DOM.selectTheme.addEventListener('change', async (e) => {
-      const filePath = e.target.value;
-      if (filePath) {
-        await cargarYAplicarTema(filePath);
-      }
-    });
-
-    // Cargar y aplicar el tema guardado al iniciar
-    const temaActivo = temas.find(t => t.themeName === appState.activeTheme) || temas[0];
-    if (temaActivo) {
-      await cargarYAplicarTema(temaActivo.filePath);
+    if (!encontrado && DOM.selectTheme.options.length > 0) {
+      DOM.selectTheme.selectedIndex = 0;
     }
-
   } catch (err) {
-    console.error('Error al inicializar temas:', err);
+    console.error('Error al refrescar la lista de temas:', err);
+  }
+}
+
+async function inicializarTemas() {
+  if (!DOM.selectTheme) return;
+
+  DOM.selectTheme.addEventListener('change', async (e) => {
+    const filePath = e.target.value;
+    if (filePath) {
+      await cargarYAplicarTema(filePath);
+    }
+  });
+
+  await refrescarListaTemas();
+
+  // Cargar y aplicar el tema guardado al iniciar
+  if (DOM.selectTheme.value) {
+    await cargarYAplicarTema(DOM.selectTheme.value);
   }
 }
 
@@ -5495,8 +5527,9 @@ function inicializarThemePlayground() {
   });
 
   // 2. Botón de cerrar visualizador
-  btnClosePlayground.addEventListener('click', () => {
+  btnClosePlayground.addEventListener('click', async () => {
     playgroundBox.classList.remove('active');
+    await refrescarListaTemas();
     if (DOM.modalConfig) {
       DOM.modalConfig.classList.add('active');
     }
@@ -5560,8 +5593,10 @@ function inicializarThemePlayground() {
     const dx = e.clientX - startX;
     const dy = e.clientY - startY;
     
-    const newWidth = Math.max(320, Math.min(600, startWidth + dx));
-    const newHeight = Math.max(400, Math.min(800, startHeight + dy));
+    const maxAllowedWidth = Math.max(600, (window.innerWidth || 1200) - 60);
+    const maxAllowedHeight = Math.max(700, (window.innerHeight || 800) - 60);
+    const newWidth = Math.max(340, Math.min(maxAllowedWidth, startWidth + dx));
+    const newHeight = Math.max(450, Math.min(maxAllowedHeight, startHeight + dy));
     
     playgroundBox.style.width = `${newWidth}px`;
     playgroundBox.style.height = `${newHeight}px`;
@@ -5589,6 +5624,64 @@ function inicializarThemePlayground() {
   DOM.editor.addEventListener('click', () => {
     actualizarFocoContextualPlayground();
   });
+
+  // 7. Inspector Bidireccional: Al hacer clic en cualquier muestra del Playground,
+  // navega automáticamente a la variable en el editor y abre el Selector de Color.
+  const playgroundBody = playgroundBox.querySelector('.playground-body');
+  if (playgroundBody) {
+    playgroundBody.addEventListener('click', (e) => {
+      const specimenEl = e.target.closest('[data-theme-var]');
+      if (!specimenEl) return;
+
+      const varName = specimenEl.getAttribute('data-theme-var');
+      if (!varName) return;
+
+      const editorText = DOM.editor.value;
+      const escapedVar = varName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const varRegex = new RegExp(`\\*\\*${escapedVar}\\*\\*:\\s*([^\\r\\n]+)`, 'i');
+      const match = varRegex.exec(editorText);
+
+      if (match) {
+        const fullMatch = match[0];
+        const colorVal = match[1].trim();
+        const colorValIndexInMatch = fullMatch.lastIndexOf(colorVal);
+        const colorStart = match.index + colorValIndexInMatch;
+        let colorEnd = colorStart + colorVal.length;
+
+        // Foco y selección en el editor de la cadena de color
+        DOM.editor.focus();
+        DOM.editor.setSelectionRange(colorStart, colorEnd);
+
+        // Desplazamiento del scroll para centrar la línea visualizada
+        const linesBefore = editorText.substring(0, colorStart).split('\n');
+        const lineIndex = linesBefore.length - 1;
+        const approxLineHeight = 22;
+        DOM.editor.scrollTop = Math.max(0, (lineIndex * approxLineHeight) - (DOM.editor.clientHeight / 2));
+
+        // Pulso visual reactivo en la muestra pulsada
+        const prevGlow = playgroundBox.querySelectorAll('.playground-pulse-bg, .playground-pulse-border, .playground-pulse-text, .playground-highlight-pulse');
+        prevGlow.forEach(el => el.classList.remove('playground-pulse-bg', 'playground-pulse-border', 'playground-pulse-text', 'playground-highlight-pulse'));
+
+        let pulseClass = 'playground-pulse-bg';
+        if (varName.startsWith('border-')) pulseClass = 'playground-pulse-border';
+        else if (varName.startsWith('text-')) pulseClass = 'playground-pulse-text';
+        void specimenEl.offsetWidth;
+        specimenEl.classList.add(pulseClass);
+
+        // Apertura inmediata del Selector de Color
+        abrirColorPicker(colorVal, (nuevoColor) => {
+          DOM.editor.setRangeText(nuevoColor, colorStart, colorEnd, 'select');
+          DOM.editor.dispatchEvent(new Event('input', { bubbles: true }));
+          setSavedState(false);
+          if (typeof refrescarPlaygroundLocal === 'function') {
+            refrescarPlaygroundLocal();
+          }
+          colorEnd = colorStart + nuevoColor.length;
+          DOM.editor.setSelectionRange(colorStart, colorEnd);
+        });
+      }
+    });
+  }
 }
 
 // Verifica si estamos editando un tema y muestra/oculta el Playground
@@ -5604,7 +5697,7 @@ function actualizarEstadoThemePlayground() {
   }
 }
 
-// Inteligencia de foco: Resalta el elemento en la ventana flotante según la línea del cursor
+// Inteligencia de foco: Resalta el elemento en la ventana flotante según la línea del cursor con micro-glow animado de 1s
 function actualizarFocoContextualPlayground() {
   const playgroundBox = document.getElementById('modal-theme-playground');
   if (!playgroundBox || !playgroundBox.classList.contains('active')) return;
@@ -5619,39 +5712,41 @@ function actualizarFocoContextualPlayground() {
   const lines = text.split('\n');
   const currentLineText = lines[currentLineIndex] || '';
 
-  // Limpiar resaltados previos en el Playground
-  const highlighted = playgroundBox.querySelectorAll('.playground-highlight-pulse');
-  highlighted.forEach(el => el.classList.remove('playground-highlight-pulse'));
+  // Limpiar micro-glows y pulsos previos
+  const prevGlow = playgroundBox.querySelectorAll('.playground-pulse-bg, .playground-pulse-border, .playground-pulse-text, .playground-highlight-pulse');
+  prevGlow.forEach(el => el.classList.remove('playground-pulse-bg', 'playground-pulse-border', 'playground-pulse-text', 'playground-highlight-pulse'));
 
   // Buscar coincidencia de variable en la línea
-  const propRegex = /\*\*(bg-[a-zA-Z-]+|text-[a-zA-Z-]+|border-[a-zA-Z-]+|accent[a-zA-Z-]*)\*\*/i;
+  const propRegex = /\*\*([a-zA-Z0-9-]+)\*\*:\s*([^\r\n]*)/i;
   const match = currentLineText.match(propRegex);
   if (match) {
     const variableName = match[1].toLowerCase().trim();
     
-    // Mapear variables específicas a elementos specimen
-    let specimenId = null;
+    // Mapear a muestra específica por data-theme-var o por mapeos contextuales
+    let targetEl = playgroundBox.querySelector(`[data-theme-var="${variableName}"]`);
 
-    if (variableName.includes('badge-int')) specimenId = 'specimen-badge-int';
-    else if (variableName.includes('badge-float')) specimenId = 'specimen-badge-float';
-    else if (variableName.includes('badge-bool')) specimenId = 'specimen-badge-bool';
-    else if (variableName.includes('badge-str')) specimenId = 'specimen-badge-str';
-    else if (variableName.includes('code-inline')) specimenId = 'specimen-code';
-    else if (variableName.includes('blockquote')) specimenId = 'specimen-blockquote';
-    else if (variableName.includes('table-header')) specimenId = 'specimen-th';
-    else if (variableName.includes('table-zebra')) specimenId = 'specimen-tr-even';
-    else if (variableName.includes('strong')) specimenId = 'specimen-strong';
-    else if (variableName.includes('reader') || variableName === 'text-reader') specimenId = 'specimen-p';
-    else if (variableName === 'bg-app' || variableName === 'bg-panel') specimenId = 'specimen-reader';
-    else if (variableName.includes('accent') || variableName.includes('accent-color')) specimenId = 'specimen-accent-btn';
-    else if (variableName.includes('input')) specimenId = 'specimen-input';
+    if (!targetEl) {
+      if (variableName.includes('badge-int')) targetEl = document.getElementById('specimen-badge-int');
+      else if (variableName.includes('badge-float')) targetEl = document.getElementById('specimen-badge-float');
+      else if (variableName.includes('badge-bool')) targetEl = document.getElementById('specimen-badge-bool');
+      else if (variableName.includes('badge-str')) targetEl = document.getElementById('specimen-badge-str');
+      else if (variableName === 'border-subtle') targetEl = document.getElementById('specimen-editor-box');
+      else if (variableName === 'accent-color') targetEl = document.getElementById('specimen-accent-btn');
+      else if (variableName === 'bg-toolbar') targetEl = document.getElementById('specimen-toolbar-mock');
+      else if (variableName === 'bg-modal') targetEl = document.getElementById('specimen-editor-box');
+    }
 
-    if (specimenId) {
-      const element = document.getElementById(specimenId);
-      if (element) {
-        element.classList.add('playground-highlight-pulse');
-        element.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    if (targetEl) {
+      let pulseClass = 'playground-pulse-bg';
+      if (variableName.startsWith('border-')) {
+        pulseClass = 'playground-pulse-border';
+      } else if (variableName.startsWith('text-')) {
+        pulseClass = 'playground-pulse-text';
       }
+
+      void targetEl.offsetWidth; // Forzar reinicio de animación
+      targetEl.classList.add(pulseClass);
+      targetEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }
   }
 }

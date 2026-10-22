@@ -599,6 +599,40 @@ fn abrir_carpeta_idiomas(app_handle: tauri::AppHandle) -> Result<(), String> {
     Ok(())
 }
 
+#[tauri::command]
+fn abrir_carpeta_temas(app_handle: tauri::AppHandle) -> Result<(), String> {
+    let base_dir = app_handle.path().app_data_dir()
+        .map_err(|e| format!("No se pudo obtener el directorio de datos de la app: {}", e))?;
+    let path = base_dir.join("assets").join("themes");
+    fs::create_dir_all(&path).map_err(|e| e.to_string())?;
+
+    #[cfg(target_os = "windows")]
+    {
+        std::process::Command::new("explorer")
+            .arg(&path)
+            .spawn()
+            .map_err(|e| format!("No se pudo abrir el explorador de archivos: {}", e))?;
+    }
+
+    #[cfg(target_os = "macos")]
+    {
+        std::process::Command::new("open")
+            .arg(&path)
+            .spawn()
+            .map_err(|e| format!("No se pudo abrir el buscador: {}", e))?;
+    }
+
+    #[cfg(target_os = "linux")]
+    {
+        std::process::Command::new("xdg-open")
+            .arg(&path)
+            .spawn()
+            .map_err(|e| format!("No se pudo abrir el gestor de archivos: {}", e))?;
+    }
+
+    Ok(())
+}
+
 fn es_url_permitida(url: &str) -> bool {
     let url_lower = url.trim().to_lowercase();
     url_lower.starts_with("http://") || url_lower.starts_with("https://") || url_lower.starts_with("mailto:")
@@ -717,121 +751,24 @@ pub fn run() {
       // Inyectar activos base en modules si está vacío
       if let Ok(mut entries) = fs::read_dir(&modules_dir) {
           if entries.next().is_none() {
-              let atributos_content = "# Atributos `Módulo de atributos de RPG clásico: vida, fuerza, agilidad, activo.`\n\t**Vida:** 100i\n\t**Fuerza:** 10i\n\t**Agilidad:** 5.5f\n\t**Activo:** Sí";
-              fs::write(modules_dir.join("Atributos.md"), atributos_content).unwrap_or_default();
-
-              let historia_content = "# Historia `Contenido narrativo básico del lore de tu personaje.`\n\tEste guerrero proviene de las tierras frías del norte. Su clan ha custodiado los secretos del metal durante generaciones.";
-              fs::write(modules_dir.join("Historia.md"), historia_content).unwrap_or_default();
-
-              let habilidad_content = "# Habilidad `Módulo de habilidades clásicas de batalla y costo.`\n\t**Nombre:** Ráfaga Feroz\n\t**Costo:** 15i\n\t**Multiplicador:** 1.5f";
-              fs::write(modules_dir.join("Habilidad.md"), habilidad_content).unwrap_or_default();
+              fs::write(modules_dir.join("Atributos.md"), include_str!("../../assets/modules/Atributos.md")).unwrap_or_default();
+              fs::write(modules_dir.join("Historia.md"), include_str!("../../assets/modules/Historia.md")).unwrap_or_default();
+              fs::write(modules_dir.join("Habilidad.md"), include_str!("../../assets/modules/Habilidad.md")).unwrap_or_default();
           }
       }
 
       // Inyectar activos base en templates si está vacío
       if let Ok(mut entries) = fs::read_dir(&templates_dir) {
           if entries.next().is_none() {
-              let ficha_content = "# Personaje `Plantilla inicial interactiva para crear un personaje completo.`\n# Datos_Generales\n\t**Nombre:** {{Nombre_del_Personaje}}\n\t**Clase:** {{Clase_Guerrero_Mago}}\n\n# Atributos `Módulo de atributos de RPG clásico: vida, fuerza, agilidad, activo.`\n\t**Vida:** 100i\n\t**Fuerza:** 10i\n\t**Agilidad:** 5.5f\n\t**Activo:** Sí";
-              fs::write(templates_dir.join("Ficha_Personaje.md"), ficha_content).unwrap_or_default();
+              fs::write(templates_dir.join("Ficha_Personaje.md"), include_str!("../../assets/templates/Ficha_Personaje.md")).unwrap_or_default();
           }
       }
 
-      // Inyectar/Actualizar temas por defecto con el formato de Markdown estructurado jerárquico
-      let cyberpunk_content = r##"# Tema `Esquema de colores Cyberpunk-Dark para la interfaz`
-	**themeName**: Cyberpunk-Dark
-
-	# colors `Parámetros de estilo estructurados`
-		
-		## Interfaz General `Fondo, bordes y acento de la app`
-			**bg-app**: #0b0b0e
-			**bg-panel**: #111116
-			**bg-toolbar**: #0c0e16
-			**bg-sidebar**: #111116
-			**bg-modal**: rgba(23, 28, 42, 0.95)
-			**bg-input**: rgba(255, 255, 255, 0.02)
-			**bg-code**: #161b29
-			**border-subtle**: rgba(255, 255, 255, 0.08)
-			**border-focus**: rgba(188, 19, 254, 0.45)
-			**accent**: #bc13fe
-			**accent-color**: #bc13fe
-			**accent-hover**: #d946ef
-
-		## Textos de Edición `Colores para la interfaz del cromo y editor`
-			**text-main**: #f1f5f9
-			**text-muted**: #64748b
-			**text-editor**: #cbd5e1
-
-		## Visor de Lectura `Colores aplicables en el modo Read`
-			**bg-reader**: #0b0b0e
-			**text-reader**: #cbd5e1
-			**text-strong**: #f1f5f9
-			**text-code-inline**: #f472b6
-			**bg-blockquote**: rgba(139, 92, 246, 0.03)
-			**bg-table-header**: rgba(255, 255, 255, 0.02)
-			**bg-table-zebra**: rgba(255, 255, 255, 0.01)
-
-		## Badges de Datos `Insignias de tipo de dato en modo estructurado`
-			**bg-badge-int**: rgba(16, 185, 129, 0.1)
-			**text-badge-int**: #34d399
-			**border-badge-int**: rgba(16, 185, 129, 0.2)
-			**bg-badge-float**: rgba(6, 182, 212, 0.1)
-			**text-badge-float**: #22d3ee
-			**border-badge-float**: rgba(6, 182, 212, 0.2)
-			**bg-badge-bool**: rgba(139, 92, 246, 0.1)
-			**text-badge-bool**: #a78bfa
-			**border-badge-bool**: rgba(139, 92, 246, 0.2)
-			**bg-badge-str**: rgba(59, 130, 246, 0.1)
-			**text-badge-str**: #60a5fa
-			**border-badge-str**: rgba(59, 130, 246, 0.2)"##;
-      fs::write(themes_dir.join("Cyberpunk-Dark.md"), cyberpunk_content).unwrap_or_default();
-
-      let light_content = r##"# Tema `Esquema de colores Classic-Light para la interfaz`
-	**themeName**: Classic-Light
-
-	# colors `Parámetros de estilo estructurados`
-		
-		## Interfaz General `Fondo, bordes y acento de la app`
-			**bg-app**: #ffffff
-			**bg-panel**: #ffffff
-			**bg-toolbar**: #e2e8f0
-			**bg-sidebar**: #f1f5f9
-			**bg-modal**: #ffffff
-			**bg-input**: rgba(0, 0, 0, 0.03)
-			**bg-code**: #f1f5f9
-			**border-subtle**: rgba(0, 0, 0, 0.08)
-			**border-focus**: rgba(99, 102, 241, 0.45)
-			**accent**: #6366f1
-			**accent-color**: #6366f1
-			**accent-hover**: #4f46e5
-
-		## Textos de Edición `Colores para la interfaz del cromo y editor`
-			**text-main**: #0f172a
-			**text-muted**: #475569
-			**text-editor**: #1e293b
-
-		## Visor de Lectura `Colores aplicables en el modo Read`
-			**bg-reader**: #ffffff
-			**text-reader**: #1e293b
-			**text-strong**: #0f172a
-			**text-code-inline**: #be185d
-			**bg-blockquote**: rgba(99, 102, 241, 0.03)
-			**bg-table-header**: rgba(0, 0, 0, 0.02)
-			**bg-table-zebra**: rgba(0, 0, 0, 0.01)
-
-		## Badges de Datos `Insignias de tipo de dato en modo estructurado`
-			**bg-badge-int**: rgba(16, 185, 129, 0.08)
-			**text-badge-int**: #047857
-			**border-badge-int**: rgba(16, 185, 129, 0.15)
-			**bg-badge-float**: rgba(6, 182, 212, 0.08)
-			**text-badge-float**: #0369a1
-			**border-badge-float**: rgba(6, 182, 212, 0.15)
-			**bg-badge-bool**: rgba(139, 92, 246, 0.08)
-			**text-badge-bool**: #6d28d9
-			**border-badge-bool**: rgba(139, 92, 246, 0.15)
-			**bg-badge-str**: rgba(59, 130, 246, 0.08)
-			**text-badge-str**: #1d4ed8
-			**border-badge-str**: rgba(59, 130, 246, 0.15)"##;
-      fs::write(themes_dir.join("Classic-Light.md"), light_content).unwrap_or_default();
+      // Inyectar o actualizar temas por defecto con la estructura unificada
+      fs::write(themes_dir.join("Cyberpunk-Dark.md"), include_str!("../../assets/themes/Cyberpunk-Dark.md")).unwrap_or_default();
+      fs::write(themes_dir.join("Classic-Light.md"), include_str!("../../assets/themes/Classic-Light.md")).unwrap_or_default();
+      fs::write(themes_dir.join("Summa_Scriptura-Dark.md"), include_str!("../../assets/themes/Summa_Scriptura-Dark.md")).unwrap_or_default();
+      fs::write(themes_dir.join("Argentina-Light.md"), include_str!("../../assets/themes/Argentina-Light.md")).unwrap_or_default();
 
       // Limpiar antiguos archivos JSON obsoletos si existen
       let _ = fs::remove_file(themes_dir.join("Cyberpunk-Dark.json"));
@@ -867,6 +804,7 @@ pub fn run() {
         listar_idiomas,
         leer_idioma,
         abrir_carpeta_idiomas,
+        abrir_carpeta_temas,
         abrir_url_externa
     ])
     .run(tauri::generate_context!())

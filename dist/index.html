@@ -915,6 +915,7 @@
                 <!-- Se cargará dinámicamente desde assets/themes -->
               </select>
               <button id="btn-edit-theme" title="Editar Tema Seleccionado" class="config-action-btn" style="margin-top: 0; height: 38px; width: 38px; display: flex; align-items: center; justify-content: center; padding: 0; flex-shrink: 0;">✏️</button>
+              <button type="button" id="btn-open-themes-dir" class="btn-subtle" title="Abrir carpeta de temas en el explorador" style="padding: 0 10px; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; border-radius: 4px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); height: 38px;">📂</button>
             </div>
           </div>
 
@@ -1100,29 +1101,59 @@
       <button id="btn-close-playground" class="playground-close-btn" title="Ocultar Visualizador">&times;</button>
     </header>
     <div class="playground-body">
-      <!-- Sección 1: Cromo e Interfaz en Miniatura -->
+      <!-- Categoría 1: Interfaz General -->
       <div class="playground-section">
-        <h4>Interfaz & Controles</h4>
-        <div class="playground-specimen-row">
-          <button class="playground-btn-specimen" id="specimen-accent-btn">Botón Acento</button>
-          <input type="text" class="playground-input-specimen" id="specimen-input" placeholder="Campo de búsqueda..." value="Ejemplo de texto">
+        <h4>1. Interfaz General</h4>
+        <div class="playground-editor-specimen" id="specimen-editor-box" data-theme-var="bg-app" title="Fondo general y marco (bg-app, bg-modal, border-subtle)">
+          <div class="playground-editor-toolbar-mock" id="specimen-toolbar-mock" data-theme-var="bg-toolbar" title="Barra Superior de Herramientas (bg-toolbar)">
+            <div class="mock-dots">
+              <span class="mock-dot"></span>
+              <span class="mock-dot"></span>
+              <span class="mock-dot"></span>
+            </div>
+            <span class="mock-toolbar-title">Summa Scriptura</span>
+          </div>
+          <div class="playground-editor-inner-mock">
+            <div class="playground-editor-sidebar-mock" id="specimen-sidebar-mock" data-theme-var="bg-sidebar" title="Barra Lateral (bg-sidebar)"></div>
+            <div class="playground-editor-panel-mock" id="specimen-panel-mock" data-theme-var="bg-panel" title="Panel Contenedor (bg-panel)">
+              <div class="mock-panel-line"></div>
+              <div class="mock-panel-line short"></div>
+            </div>
+          </div>
+        </div>
+        <div class="playground-specimen-row" style="margin-top: 4px;">
+          <button class="playground-btn-specimen" id="specimen-accent-btn" data-theme-var="accent" title="Acento Primario (accent, accent-color)">Acento</button>
+          <button class="playground-btn-specimen specimen-hover-btn" id="specimen-accent-hover" data-theme-var="accent-hover" title="Acento Hover (accent-hover)">Hover</button>
+          <input type="text" class="playground-input-specimen" id="specimen-input" data-theme-var="bg-input" placeholder="Normal..." value="Normal" title="Entrada Normal (bg-input)">
+          <input type="text" class="playground-input-specimen specimen-focused-input" id="specimen-input-focus" data-theme-var="border-focus" placeholder="Foco..." value="Foco" title="Entrada con Foco (border-focus)">
         </div>
       </div>
 
-      <!-- Sección 2: Muestras del Visor de Lectura -->
+      <!-- Categoría 2: Editor de Escritura -->
       <div class="playground-section">
-        <h4>Elementos del Visor de Lectura</h4>
-        <div class="playground-reader-specimen" id="specimen-reader">
-          <h1 class="playground-h1-specimen" id="specimen-h1">Título Principal</h1>
-          <p class="playground-p-specimen" id="specimen-p">Este es un párrafo de muestra para visualizar la tipografía y el color general de lectura del tema. Aquí puedes observar una palabra en <strong class="playground-strong-specimen" id="specimen-strong">negrita destacada</strong> que resalta en el texto, y por otro lado, un fragmento de <code class="playground-code-specimen" id="specimen-code">código inline</code> para resaltar variables rápidas.</p>
-          <blockquote class="playground-blockquote-specimen" id="specimen-blockquote">
-            <p>«Esta es una cita en bloque (blockquote) con fuente en cursiva estilizada para lore o explicaciones de sistemas de juego».</p>
+        <h4>2. Editor de Escritura</h4>
+        <div class="playground-editor-specimen-standalone" id="specimen-writing-box" data-theme-var="bg-panel" title="Área del Editor (bg-panel)">
+          <span class="playground-editor-text-specimen" id="specimen-editor-text" data-theme-var="text-editor" title="Texto de Edición (text-editor)">const valor = 42; // Tipografía del editor</span>
+          <pre class="playground-pre-code-specimen" id="specimen-pre-code" data-theme-var="bg-code" title="Bloque de Código (bg-code y border-subtle)"><code>function calcular() {
+  return "Summa Scriptura";
+}</code></pre>
+        </div>
+      </div>
+
+      <!-- Categoría 3: Visor de Lectura -->
+      <div class="playground-section">
+        <h4>3. Visor de Lectura</h4>
+        <div class="playground-reader-specimen" id="specimen-reader" data-theme-var="bg-reader" title="Fondo del Visor (bg-reader)">
+          <h1 class="playground-h1-specimen" id="specimen-h1" data-theme-var="text-main" title="Título Principal (text-main)">Título Principal</h1>
+          <p class="playground-p-specimen" id="specimen-p" data-theme-var="text-reader" title="Texto de Lectura (text-reader)">Este es un párrafo de muestra para visualizar la tipografía y el color general de lectura del tema. Aquí puedes observar una palabra en <strong class="playground-strong-specimen" id="specimen-strong" data-theme-var="text-strong" title="Negrita (text-strong)">negrita destacada</strong> que resalta en el texto, y por otro lado, un fragmento de <code class="playground-code-specimen" id="specimen-code" data-theme-var="text-code-inline" title="Código Inline (text-code-inline)">código inline</code> para resaltar variables rápidas.</p>
+          <blockquote class="playground-blockquote-specimen" id="specimen-blockquote" data-theme-var="bg-blockquote" title="Cita Narrativa (bg-blockquote y accent)">
+            <p data-theme-var="text-muted" title="Texto Cursiva / Secundario (text-muted)">«Esta es una cita en bloque (blockquote) con fuente en cursiva estilizada para lore o explicaciones de sistemas de juego».</p>
           </blockquote>
           <table class="playground-table-specimen" id="specimen-table">
             <thead>
               <tr>
-                <th class="playground-th-specimen" id="specimen-th">Atributo</th>
-                <th class="playground-th-specimen">Valor</th>
+                <th class="playground-th-specimen" id="specimen-th" data-theme-var="bg-table-header" title="Cabecera de Tabla (bg-table-header y text-main)">Atributo</th>
+                <th class="playground-th-specimen" data-theme-var="bg-table-header" title="Cabecera de Tabla (bg-table-header)">Valor</th>
               </tr>
             </thead>
             <tbody>
@@ -1130,7 +1161,7 @@
                 <td class="playground-td-specimen">Fuerza</td>
                 <td class="playground-td-specimen">15i</td>
               </tr>
-              <tr class="playground-tr-even-specimen" id="specimen-tr-even">
+              <tr class="playground-tr-even-specimen" id="specimen-tr-even" data-theme-var="bg-table-zebra" title="Fila Zebra de Tabla (bg-table-zebra)">
                 <td class="playground-td-specimen">Agilidad</td>
                 <td class="playground-td-specimen">8.5f</td>
               </tr>
@@ -1139,14 +1170,14 @@
         </div>
       </div>
 
-      <!-- Sección 3: Insignias de Base de Datos RPG -->
+      <!-- Categoría 4: Badges de Datos -->
       <div class="playground-section">
-        <h4>Insignias de Datos RPG (Badges)</h4>
+        <h4>4. Badges de Datos</h4>
         <div class="playground-badges-row">
-          <span class="playground-badge-specimen type-int" id="specimen-badge-int">Entero</span>
-          <span class="playground-badge-specimen type-float" id="specimen-badge-float">Decimal</span>
-          <span class="playground-badge-specimen type-bool" id="specimen-badge-bool">Booleano</span>
-          <span class="playground-badge-specimen type-str" id="specimen-badge-str">Texto</span>
+          <span class="playground-badge-specimen type-int" id="specimen-badge-int" data-theme-var="bg-badge-int" title="Insignia Entero (bg-badge-int, text-badge-int, border-badge-int)">Entero</span>
+          <span class="playground-badge-specimen type-float" id="specimen-badge-float" data-theme-var="bg-badge-float" title="Insignia Decimal (bg-badge-float, text-badge-float, border-badge-float)">Decimal</span>
+          <span class="playground-badge-specimen type-bool" id="specimen-badge-bool" data-theme-var="bg-badge-bool" title="Insignia Booleano (bg-badge-bool, text-badge-bool, border-badge-bool)">Booleano</span>
+          <span class="playground-badge-specimen type-str" id="specimen-badge-str" data-theme-var="bg-badge-str" title="Insignia Texto (bg-badge-str, text-badge-str, border-badge-str)">Texto</span>
         </div>
       </div>
     </div>

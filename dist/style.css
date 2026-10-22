@@ -2476,14 +2476,14 @@ body {
    ========================================================================== */
 .modal-playground-box {
   position: fixed;
-  top: 50px;
-  right: 50px;
-  width: 380px;
-  min-width: 320px;
-  max-width: 600px;
-  height: 700px;
-  min-height: 400px;
-  max-height: calc(100vh - 70px);
+  top: 30px;
+  right: 30px;
+  width: 430px;
+  min-width: 340px;
+  max-width: 700px;
+  height: calc(100vh - 60px);
+  min-height: 450px;
+  max-height: calc(100vh - 40px);
   background: var(--bg-modal, rgba(23, 28, 42, 0.95));
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
@@ -2761,11 +2761,174 @@ body {
 }
 
 /* ANIMACIÓN PULSACIÓN DE FOCO PREMIUM */
+/* Miniatura de Ventana en Playground */
+.playground-editor-specimen {
+  display: flex;
+  flex-direction: column;
+  background-color: var(--bg-app);
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  overflow: hidden;
+  height: 96px;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.playground-editor-toolbar-mock {
+  height: 22px;
+  background-color: var(--bg-toolbar);
+  border-bottom: 1px solid var(--border-subtle);
+  display: flex;
+  align-items: center;
+  padding: 0 10px;
+  gap: 8px;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  flex-shrink: 0;
+}
+
+.mock-dots {
+  display: flex;
+  gap: 4px;
+}
+
+.mock-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background-color: var(--border-subtle);
+  opacity: 0.6;
+}
+
+.mock-toolbar-title {
+  font-size: 9.5px;
+  font-family: 'Inter', sans-serif;
+  color: var(--text-muted);
+}
+
+.playground-editor-inner-mock {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
+.playground-editor-sidebar-mock {
+  width: 26px;
+  background-color: var(--bg-sidebar);
+  border-right: 1px solid var(--border-subtle);
+  flex-shrink: 0;
+  transition: background-color var(--transition-fast);
+}
+
+.playground-editor-panel-mock {
+  flex: 1;
+  background-color: var(--bg-panel);
+  padding: 10px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  overflow: hidden;
+  transition: background-color var(--transition-fast);
+}
+
+.mock-panel-line {
+  height: 5px;
+  background: var(--border-subtle);
+  border-radius: 3px;
+  width: 80%;
+  opacity: 0.4;
+}
+
+.mock-panel-line.short {
+  width: 50%;
+}
+
+.playground-editor-specimen-standalone {
+  background-color: var(--bg-panel);
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  padding: 8px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  transition: all var(--transition-fast);
+}
+
+.playground-editor-text-specimen {
+  font-family: var(--editor-font-family, monospace);
+  font-size: 11px;
+  color: var(--text-editor);
+  white-space: nowrap;
+  transition: color var(--transition-fast);
+}
+
+.playground-pre-code-specimen {
+  background-color: var(--bg-code);
+  border: 1px solid var(--border-subtle);
+  border-radius: 6px;
+  padding: 6px 8px;
+  margin: 0;
+  font-family: var(--editor-font-family, monospace);
+  font-size: 10px;
+  color: var(--text-editor);
+  white-space: pre-wrap;
+  line-height: 1.35;
+  transition: all var(--transition-fast);
+}
+
+.specimen-hover-btn {
+  background: var(--accent-hover) !important;
+  opacity: 0.95;
+}
+
+.specimen-focused-input {
+  border-color: var(--border-focus) !important;
+  box-shadow: 0 0 8px var(--border-focus) !important;
+}
+
+/* Cursor pointer y hover en todos los elementos inspeccionables */
+[data-theme-var] {
+  cursor: pointer !important;
+  transition: all var(--transition-fast);
+}
+
+[data-theme-var]:hover {
+  filter: brightness(1.08);
+}
+
+/* Micro-Glow Animations (1 segundo de pulso elegante) */
+@keyframes pulseGlowBg {
+  0% { filter: brightness(1); }
+  50% { filter: brightness(1.35) drop-shadow(0 0 8px var(--accent)); }
+  100% { filter: brightness(1); }
+}
+
+@keyframes pulseGlowBorder {
+  0% { outline: 2px solid transparent; box-shadow: 0 0 0 transparent; }
+  50% { outline: 2px solid var(--accent); box-shadow: 0 0 10px var(--accent); }
+  100% { outline: 2px solid transparent; box-shadow: 0 0 0 transparent; }
+}
+
+@keyframes pulseGlowText {
+  0% { filter: drop-shadow(0 0 0 transparent); transform: scale(1); }
+  50% { filter: drop-shadow(0 0 8px var(--accent)); transform: scale(1.05); }
+  100% { filter: drop-shadow(0 0 0 transparent); transform: scale(1); }
+}
+
+.playground-pulse-bg {
+  animation: pulseGlowBg 1s ease-in-out !important;
+}
+.playground-pulse-border {
+  animation: pulseGlowBorder 1s ease-in-out !important;
+}
+.playground-pulse-text {
+  animation: pulseGlowText 1s ease-in-out !important;
+}
+
 .playground-highlight-pulse {
   outline: 2px solid var(--accent) !important;
-  box-shadow: 0 0 14px var(--accent-hover) !important;
-  transform: scale(1.03) !important;
-  transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275) !important;
+  box-shadow: 0 0 12px var(--accent) !important;
+  transition: all 0.2s ease !important;
 }
 
 /* ESTILOS PREMIUM PARA TARJETAS DE OPCIONES DE EPUB */

@@ -7,7 +7,7 @@
 **Entorno de autoría, jerarquía de contenido y forjado de datos estructurados.**  
 Diseñado para autores, diseñadores de juegos, redactores técnicos y directores de proyecto que requieren concentración absoluta, jerarquía impecable y la capacidad de transformar texto descriptivo en datos estructurados listos para producción.
 
-> 📖 **Documentación Completa:** Para consultar la guía de uso paso a paso de cada módulo y atajo, revisa el [Manual de Usuario](MANUAL.md).
+> 📖 **Documentación Completa:** Para consultar la guía de uso paso a paso de cada módulo y atajo, revisa el [Manual de Usuario](docs/MANUAL.md).
 
 ---
 
@@ -111,8 +111,8 @@ cargo build --release --manifest-path src-tauri/Cargo.toml
 El archivo ejecutable se generará en:
 `d:\mi_editor_markdown\src-tauri\target\release\app.exe`
 
-> Para detalles sobre empaquetado de instaladores (`.exe` con asistente / `.msi`) y la automatización multiplataforma (Windows, macOS y Linux) mediante GitHub Actions, consulta la guía interna en:  
-> [SUMA_SCRIPTURA_COMPILAR_FINAL.md](___PROCESS/_old/SUMA_SCRIPTURA_COMPILAR_FINAL.md)
+> Para detalles sobre empaquetado de instaladores (`.exe` con asistente / `.msi`) y la automatización multiplataforma (Windows, macOS y Linux) mediante GitHub Actions, consulta la guía técnica en:  
+> [Guía de Compilación y Distribución Multiplataforma](docs/COMPILACION_Y_DISTRIBUCION.md)
 
 ---
 

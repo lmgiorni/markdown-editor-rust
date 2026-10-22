@@ -9,6 +9,6 @@ Thumbs.db
 .env
 *.rs.bk
 
-
 # Ignorar carpetas
 ___PROCESS/
+backup/

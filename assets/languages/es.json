@@ -259,5 +259,11 @@
   "recent_files_count_7": "7 archivos",
   "recent_files_count_8": "8 archivos",
   "recent_files_count_9": "9 archivos",
-  "recent_files_count_10": "10 archivos"
+  "recent_files_count_10": "10 archivos",
+  "config_paragraph_indent": "Sangría de Párrafo (Prosa)",
+  "config_indent_size": "Tamaño de Sangría",
+  "config_section_typography": "Áreas de Trabajo y Tipografía",
+  "config_section_interface": "Interfaz y Personalización",
+  "config_section_files": "Gestión de Archivos y Proyecto",
+  "config_adjust_general": "Ajuste General de Tamaño"
 }

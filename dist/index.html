@@ -814,7 +814,10 @@
       </header>
       <div class="modal-body">
         <div class="config-container">
-          <!-- Tipografía del Editor -->
+          <!-- ── ÁREAS DE TRABAJO Y TIPOGRAFÍA ── -->
+          <div class="config-section-title" id="title-sec-typography" data-i18n="config_section_typography">Áreas de Trabajo y Tipografía</div>
+
+          <!-- 1. Editor de Escritura -->
           <div class="config-row">
             <label for="select-editor-font">Editor Font</label>
             <select id="select-editor-font" class="config-select">
@@ -828,8 +831,16 @@
             </select>
           </div>
 
-          <!-- Tipografía del Visor -->
           <div class="config-row">
+            <div class="config-label-with-value">
+              <label for="range-editor-size">Editor Font Size</label>
+              <span id="val-editor-size" class="config-value-badge">14px</span>
+            </div>
+            <input type="range" id="range-editor-size" min="10" max="24" value="14" class="config-slider">
+          </div>
+
+          <!-- 2. Visor de Lectura (Prosa y Narrativa) -->
+          <div class="config-row" style="margin-top: 4px;">
             <label for="select-reader-font">Reader Font</label>
             <select id="select-reader-font" class="config-select">
               <option value="Inter" selected>Inter (Moderna)</option>
@@ -843,26 +854,6 @@
             </select>
           </div>
 
-          <!-- Tipografía del Código Estructurado -->
-          <div class="config-row">
-            <label for="select-structured-font">Structured Code Font</label>
-            <select id="select-structured-font" class="config-select">
-              <option value="Fira Code" selected>Fira Code (Moderna)</option>
-              <option value="JetBrains Mono">JetBrains Mono (Clara)</option>
-              <option value="Iosevka">Iosevka (Compacta)</option>
-            </select>
-          </div>
-
-          <!-- Tamaño de fuente del Editor -->
-          <div class="config-row">
-            <div class="config-label-with-value">
-              <label for="range-editor-size">Editor Font Size</label>
-              <span id="val-editor-size" class="config-value-badge">14px</span>
-            </div>
-            <input type="range" id="range-editor-size" min="10" max="24" value="14" class="config-slider">
-          </div>
-
-          <!-- Tamaño de fuente del Visor -->
           <div class="config-row">
             <div class="config-label-with-value">
               <label for="range-reader-size">Reader Font Size</label>
@@ -871,7 +862,31 @@
             <input type="range" id="range-reader-size" min="10" max="24" value="15" class="config-slider">
           </div>
 
-          <!-- Tamaño de fuente del Código Estructurado -->
+          <!-- Sangría de Párrafo (Prosa / Narrativa) -->
+          <div class="config-row config-row-checkbox">
+            <label for="check-paragraph-indent" data-i18n="config_paragraph_indent" style="margin: 0; cursor: pointer;">Sangría de Párrafo (Prosa)</label>
+            <input type="checkbox" id="check-paragraph-indent" class="config-checkbox" style="width: 18px; height: 18px; cursor: pointer; accent-color: var(--accent, #6366f1);">
+          </div>
+
+          <!-- Tamaño de Sangría de Párrafo (Condicional) -->
+          <div class="config-row" id="row-paragraph-indent-size" style="display: none;">
+            <div class="config-label-with-value">
+              <label for="range-indent-size" data-i18n="config_indent_size">Tamaño de Sangría</label>
+              <span id="val-indent-size" class="config-value-badge">24px</span>
+            </div>
+            <input type="range" id="range-indent-size" min="10" max="60" step="2" value="24" class="config-slider">
+          </div>
+
+          <!-- 3. Modo Estructurado (Datos) -->
+          <div class="config-row" style="margin-top: 4px;">
+            <label for="select-structured-font">Structured Code Font</label>
+            <select id="select-structured-font" class="config-select">
+              <option value="Fira Code" selected>Fira Code (Moderna)</option>
+              <option value="JetBrains Mono">JetBrains Mono (Clara)</option>
+              <option value="Iosevka">Iosevka (Compacta)</option>
+            </select>
+          </div>
+
           <div class="config-row">
             <div class="config-label-with-value">
               <label for="range-structured-size">Structured Font Size</label>
@@ -880,14 +895,17 @@
             <input type="range" id="range-structured-size" min="10" max="24" value="13" class="config-slider">
           </div>
 
-          <!-- Ajuste General Combinado +1 | -1 -->
-          <div class="config-row config-row-buttons">
-            <label>Ajuste General de Tamaño</label>
+          <!-- 4. Escala Rápida General -->
+          <div class="config-row config-row-buttons" style="margin-top: 4px;">
+            <label id="lbl-adjust-general" data-i18n="config_adjust_general">Ajuste General de Tamaño</label>
             <div class="config-buttons-group">
               <button id="btn-font-dec" class="config-action-btn">Font Size -1</button>
               <button id="btn-font-inc" class="config-action-btn">Font Size +1</button>
             </div>
           </div>
+
+          <!-- ── INTERFAZ Y PERSONALIZACIÓN ── -->
+          <div class="config-section-title" id="title-sec-interface" data-i18n="config_section_interface" style="margin-top: 14px;">Interfaz y Personalización</div>
 
           <!-- Tema Dinámico de la Interfaz -->
           <div class="config-row">
@@ -910,6 +928,9 @@
               <button type="button" id="btn-open-languages-dir" class="btn-subtle" title="Abrir carpeta de idiomas en el explorador" style="padding: 0 10px; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; border-radius: 4px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);">📂</button>
             </div>
           </div>
+
+          <!-- ── GESTIÓN DE ARCHIVOS Y PROYECTO ── -->
+          <div class="config-section-title" id="title-sec-files" data-i18n="config_section_files" style="margin-top: 14px;">Gestión de Archivos y Proyecto</div>
 
           <!-- Dígitos de Versionado Automático -->
           <div class="config-row">
@@ -944,7 +965,8 @@
               <button type="button" id="btn-reset-root-folder" class="btn-subtle" title="Restablecer a la carpeta de Documentos predeterminada del sistema" data-i18n-title="tooltip_reset_root" style="padding: 0 10px; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; border-radius: 4px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);">↺</button>
             </div>
           </div>
-<!-- Fila Acerca de Summa Scriptura -->
+          
+          <!-- Fila Acerca de Summa Scriptura -->
           <div class="config-row-about" style="margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border-subtle); display: flex; justify-content: space-between; align-items: center;">
             <button type="button" id="btn-open-about" class="btn-about-trigger" style="display: inline-flex; align-items: center; gap: 8px; padding: 7px 14px; border-radius: 6px; background: rgba(255,255,255,0.06); border: 1px solid var(--border-subtle); color: var(--text-main); font-size: 13px; font-weight: 600; cursor: pointer;">
               <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">

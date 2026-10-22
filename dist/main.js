@@ -34,6 +34,8 @@ let appState = {
   language: localStorage.getItem('md-language') || 'es',
   versioningDigits: parseInt(localStorage.getItem('md-versioning-digits') || '3', 10),
   maxRecentFiles: parseInt(localStorage.getItem('md-max-recent-files') || '5', 10),
+  enableParagraphIndent: localStorage.getItem('md-enable-indent') === 'true',
+  paragraphIndentSize: parseInt(localStorage.getItem('md-indent-size')) || 24,
   systemDefaultRootFolder: '',
   customRootFolder: localStorage.getItem('md-root-folder') || '',
   lastUsedFolder: localStorage.getItem('md-last-used-folder') || ''
@@ -137,6 +139,10 @@ const DOM = {
   valEditorSize: document.getElementById('val-editor-size'),
   valReaderSize: document.getElementById('val-reader-size'),
   valStructuredSize: document.getElementById('val-structured-size'),
+  checkParagraphIndent: document.getElementById('check-paragraph-indent'),
+  rowParagraphIndentSize: document.getElementById('row-paragraph-indent-size'),
+  rangeIndentSize: document.getElementById('range-indent-size'),
+  valIndentSize: document.getElementById('val-indent-size'),
   btnFontDec: document.getElementById('btn-font-dec'),
   btnFontInc: document.getElementById('btn-font-inc'),
   
@@ -202,6 +208,15 @@ function aplicarConfiguracionVisual() {
   root.style.setProperty('--editor-font-size', `${appState.editorFontSize}px`);
   root.style.setProperty('--reader-font-size', `${appState.readerFontSize}px`);
   root.style.setProperty('--structured-font-size', `${appState.structuredFontSize}px`);
+  root.style.setProperty('--reader-paragraph-indent', `${appState.paragraphIndentSize}px`);
+
+  if (DOM.preview) {
+    if (appState.enableParagraphIndent) {
+      DOM.preview.classList.add('enable-paragraph-indent');
+    } else {
+      DOM.preview.classList.remove('enable-paragraph-indent');
+    }
+  }
 
   // Sincronizar los controles visuales del Modal de Configuración
   if (DOM.selectEditorFont) DOM.selectEditorFont.value = appState.editorFont;
@@ -216,6 +231,12 @@ function aplicarConfiguracionVisual() {
   if (DOM.valEditorSize) DOM.valEditorSize.textContent = `${appState.editorFontSize}px`;
   if (DOM.valReaderSize) DOM.valReaderSize.textContent = `${appState.readerFontSize}px`;
   if (DOM.valStructuredSize) DOM.valStructuredSize.textContent = `${appState.structuredFontSize}px`;
+  if (DOM.checkParagraphIndent) DOM.checkParagraphIndent.checked = appState.enableParagraphIndent;
+  if (DOM.rangeIndentSize) DOM.rangeIndentSize.value = appState.paragraphIndentSize;
+  if (DOM.valIndentSize) DOM.valIndentSize.textContent = `${appState.paragraphIndentSize}px`;
+  if (DOM.rowParagraphIndentSize) {
+    DOM.rowParagraphIndentSize.style.display = appState.enableParagraphIndent ? 'flex' : 'none';
+  }
   
   // Guardar permanentemente en almacenamiento del navegador
   localStorage.setItem('md-editor-font', appState.editorFont);
@@ -225,6 +246,8 @@ function aplicarConfiguracionVisual() {
   localStorage.setItem('md-reader-font-size', appState.readerFontSize);
   localStorage.setItem('md-structured-font-size', appState.structuredFontSize);
   localStorage.setItem('md-language', appState.language);
+  localStorage.setItem('md-enable-indent', appState.enableParagraphIndent);
+  localStorage.setItem('md-indent-size', appState.paragraphIndentSize);
 }
 
 // ==========================================================================
@@ -2723,6 +2746,19 @@ if (DOM.btnFontDec) {
 if (DOM.btnFontInc) {
   DOM.btnFontInc.addEventListener('click', () => ajustarTamañoGeneral(1));
 }
+
+if (DOM.checkParagraphIndent) {
+  DOM.checkParagraphIndent.addEventListener('change', (e) => {
+    appState.enableParagraphIndent = e.target.checked;
+    aplicarConfiguracionVisual();
+  });
+}
+if (DOM.rangeIndentSize) {
+  DOM.rangeIndentSize.addEventListener('input', (e) => {
+    appState.paragraphIndentSize = parseInt(e.target.value, 10);
+    aplicarConfiguracionVisual();
+  });
+}
 let listaIdiomasCargados = [];
 
 async function inicializarIdiomas() {
@@ -2969,10 +3005,16 @@ function actualizarTextosInterfaz(lang) {
   setLabelText('[for="select-structured-font"]', t.config_font_tree);
   setLabelText('[for="range-editor-size"]', t.config_size_editor);
   setLabelText('[for="range-reader-size"]', t.config_size_reader);
+  setLabelText('[for="check-paragraph-indent"]', t.config_paragraph_indent);
+  setLabelText('[for="range-indent-size"]', t.config_indent_size);
   setLabelText('[for="range-structured-size"]', t.config_size_tree);
   setLabelText('[for="select-theme"]', t.config_theme);
   setLabelText('[for="select-language"]', t.config_lang);
   setLabelText('[for="select-max-recent-files"]', t.config_max_recent_files);
+  setLabelText('#title-sec-typography', t.config_section_typography);
+  setLabelText('#title-sec-interface', t.config_section_interface);
+  setLabelText('#title-sec-files', t.config_section_files);
+  setLabelText('#lbl-adjust-general', t.config_adjust_general);
   if (DOM.selectMaxRecentFiles) {
     const opts = DOM.selectMaxRecentFiles.options;
     if (opts && opts.length >= 6) {

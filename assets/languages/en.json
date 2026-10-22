@@ -259,5 +259,11 @@
   "recent_files_count_7": "7 files",
   "recent_files_count_8": "8 files",
   "recent_files_count_9": "9 files",
-  "recent_files_count_10": "10 files"
+  "recent_files_count_10": "10 files",
+  "config_paragraph_indent": "Paragraph Indent (Prose)",
+  "config_indent_size": "Indent Size",
+  "config_section_typography": "Workspaces & Typography",
+  "config_section_interface": "Interface & Personalization",
+  "config_section_files": "Files & Project Management",
+  "config_adjust_general": "General Size Adjustment"
 }

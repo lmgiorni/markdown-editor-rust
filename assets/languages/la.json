@@ -259,5 +259,11 @@
   "recent_files_count_7": "7 tabulae",
   "recent_files_count_8": "8 tabulae",
   "recent_files_count_9": "9 tabulae",
-  "recent_files_count_10": "10 tabulae"
+  "recent_files_count_10": "10 tabulae",
+  "config_paragraph_indent": "Indenta Paragraphorum",
+  "config_indent_size": "Magnitudo Indentationis",
+  "config_section_typography": "Spatia Operis et Typographia",
+  "config_section_interface": "Interficies et Habitus",
+  "config_section_files": "Tractatio Tabularum et Operis",
+  "config_adjust_general": "Aptatio Generalis Magnitudinis"
 }

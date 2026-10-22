@@ -34,6 +34,7 @@
   --reader-font-family: 'Inter', system-ui, -apple-system, sans-serif;
   --editor-font-size: 14px;
   --reader-font-size: 15px;
+  --reader-paragraph-indent: 24px;
 }
 
 /* Reseteo y Estilos Base */
@@ -384,6 +385,17 @@ body {
   margin-bottom: 1em;
 }
 
+.markdown-body.enable-paragraph-indent p {
+  text-indent: var(--reader-paragraph-indent, 24px);
+}
+
+.markdown-body.enable-paragraph-indent blockquote p,
+.markdown-body.enable-paragraph-indent .markdown-callout p,
+.markdown-body.enable-paragraph-indent .footnote-item p,
+.markdown-body.enable-paragraph-indent p:has(img) {
+  text-indent: 0;
+}
+
 .markdown-body strong {
   font-weight: 600;
   color: var(--text-strong, inherit);
@@ -468,8 +480,9 @@ body {
   font-size: 0.9em;
   border: none;
   display: block;
-  word-break: normal;
-  white-space: pre;
+  word-break: break-word;
+  overflow-wrap: break-word;
+  white-space: pre-wrap;
 }
 
 /* Tablas Premium */
@@ -1349,10 +1362,29 @@ body {
   gap: 9px;
 }
 
+.config-section-title {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--accent, #6366f1);
+  padding-bottom: 4px;
+  border-bottom: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.08));
+  margin-bottom: 2px;
+  opacity: 0.95;
+}
+
 .config-row {
   display: flex;
   flex-direction: column;
   gap: 3px;
+}
+
+.config-row-checkbox {
+  flex-direction: row !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  padding: 4px 0;
 }
 
 .config-row label {

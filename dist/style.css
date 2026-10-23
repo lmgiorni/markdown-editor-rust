@@ -308,7 +308,7 @@ body {
    VISOR (PANEL DERECHO)
    ========================================================================== */
 #preview-container {
-  background-color: var(--bg-reader, var(--bg-app));
+  background-color: var(--bg-panel);
   overflow-y: auto;
 }
 
@@ -3529,7 +3529,52 @@ dd {
   outline: none;
 }
 
-/* Paleta de Sesión */
+/* Selector de Esquema Armónico */
+.color-scheme-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 2px 0 6px 0;
+  border-bottom: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.08));
+}
+
+.color-scheme-label {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--text-muted, #94a3b8);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.color-scheme-select {
+  flex: 1;
+  max-width: 240px;
+  background: var(--bg-input, rgba(255, 255, 255, 0.06));
+  border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.15));
+  border-radius: 5px;
+  color: var(--text-main, #f1f5f9);
+  padding: 4px 8px;
+  font-size: 12px;
+  outline: none;
+  cursor: pointer;
+  transition: border-color var(--transition-fast);
+}
+
+.color-scheme-select:focus {
+  border-color: var(--accent);
+}
+
+.draggable-swatch {
+  cursor: grab;
+}
+
+.draggable-swatch:active {
+  cursor: grabbing;
+  transform: scale(0.98);
+}
+
+/* Paleta Armónica (10 casillas, fijación y almacenamiento) */
 .color-palette-section {
   display: flex;
   flex-direction: column;
@@ -3544,6 +3589,59 @@ dd {
   align-items: center;
   font-size: 11px;
   color: var(--text-muted, #94a3b8);
+}
+
+.palette-header-left,
+.palette-header-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.palette-title {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-muted, #94a3b8);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.btn-palette-pin {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: transparent;
+  border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.15));
+  border-radius: 4px;
+  padding: 2px 7px;
+  font-size: 11px;
+  color: var(--text-muted, #94a3b8);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.btn-palette-pin:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-main, #f1f5f9);
+}
+
+.btn-palette-pin.pinned {
+  background: var(--accent, #6366f1);
+  border-color: var(--accent, #6366f1);
+  color: #ffffff;
+  box-shadow: 0 0 8px rgba(99, 102, 241, 0.4);
+}
+
+.palette-select-sm {
+  background: var(--bg-input, rgba(255, 255, 255, 0.06));
+  border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.15));
+  border-radius: 4px;
+  color: var(--text-main, #f1f5f9);
+  padding: 2px 6px;
+  font-size: 11px;
+  max-width: 140px;
+  outline: none;
+  cursor: pointer;
 }
 
 .btn-subtle-sm {
@@ -3564,12 +3662,17 @@ dd {
 
 .color-palette-slots {
   display: flex;
-  gap: 8px;
+  gap: 6px;
+}
+
+.color-palette-slots.ten-slots {
+  display: grid;
+  grid-template-columns: repeat(10, 1fr);
+  gap: 6px;
 }
 
 .color-slot {
-  flex: 1;
-  height: 32px;
+  height: 30px;
   border-radius: 5px;
   border: 1px solid var(--border-subtle);
   cursor: pointer;
@@ -3592,6 +3695,13 @@ dd {
 .color-slot.active {
   border-color: var(--accent);
   box-shadow: 0 0 0 2px var(--border-focus, var(--accent));
+}
+
+.color-slot.drag-over {
+  border-color: var(--accent, #6366f1) !important;
+  box-shadow: 0 0 0 2px var(--accent, #6366f1) !important;
+  transform: scale(1.08);
+  z-index: 2;
 }
 
 /* Menú Contextual de Armonías de Color */

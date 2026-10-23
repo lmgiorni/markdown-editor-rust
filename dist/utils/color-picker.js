@@ -1,33 +1,62 @@
 // ==========================================================================
-// MOTOR DEL SELECTOR DE COLOR TRIANGULAR (ESTILO PAINTER / PHOTOSHOP)
+// MOTOR DEL SELECTOR DE COLOR TRIANGULAR Y SISTEMA DE ARMONÍAS CROMÁTICAS
 // ==========================================================================
+
+function getInvoke() {
+  if (typeof window !== 'undefined') {
+    if (window.__TAURI__ && window.__TAURI__.core && typeof window.__TAURI__.core.invoke === 'function') {
+      return window.__TAURI__.core.invoke;
+    }
+    if (window.__TAURI__ && typeof window.__TAURI__.invoke === 'function') {
+      return window.__TAURI__.invoke;
+    }
+  }
+  return null;
+}
 
 // Estado interno del Color Picker
 let pickerState = {
-  hue: 280,            // 0 - 360
-  sat: 0.8,           // 0 - 1
-  val: 0.9,           // 0 - 1
-  alpha: 1.0,         // 0 - 1
-  outputFormat: 'hex', // 'hex' o 'rgba'
-  originalColor: '#bc13fe',
-  currentColor: '#bc13fe',
+  hue: 280,             // 0 - 360
+  sat: 0.8,            // 0 - 1
+  val: 0.9,            // 0 - 1
+  alpha: 1.0,          // 0 - 1
+  outputFormat: 'hex',  // 'hex' | 'rgba'
+  originalColor: '#bc13fe', // Color fijo inmutable durante la selección
+  currentColor: '#bc13fe',  // Color en previsualización "Nuevo"
+  currentScheme: 'monochromatic', // 'monochromatic' | 'complementary' | 'analogous' | 'triadic' | 'tetradic' | 'custom'
+  isPinned: false,      // Si está fijado, seleccionar colores en la rueda no sobreescribe las 10 casillas
+  activePaletteName: '', // Nombre de la paleta activa en disco si existe
   activeSlotIndex: 0,
-  palette: ['', '', '', '', '', ''],
+  palette: [
+    '#bc13fe', '#a80fe4', '#940dcb', '#800bb1', '#6d0ab0',
+    '#5d0999', '#4e0882', '#3f076c', '#310555', '#240440'
+  ], // 10 casillas de paleta armónica
   onApplyCallback: null,
   isDraggingHue: false,
   isDraggingTriangle: false
 };
 
-// Cargar paleta de sesión si existe
+// Cargar paleta y estado de sesión si existen
 try {
   if (typeof sessionStorage !== 'undefined') {
-    const savedPalette = sessionStorage.getItem('md-color-palette');
+    const savedPalette = sessionStorage.getItem('md-color-palette-10');
     if (savedPalette) {
-      pickerState.palette = JSON.parse(savedPalette);
+      const parsedPal = JSON.parse(savedPalette);
+      if (Array.isArray(parsedPal) && parsedPal.length === 10) {
+        pickerState.palette = parsedPal;
+      }
+    }
+    const savedPin = sessionStorage.getItem('md-color-picker-pinned');
+    if (savedPin !== null) {
+      pickerState.isPinned = savedPin === 'true';
+    }
+    const savedScheme = sessionStorage.getItem('md-color-picker-scheme');
+    if (savedScheme) {
+      pickerState.currentScheme = savedScheme;
     }
   }
 } catch (e) {
-  console.warn('Error leyendo paleta de sesión:', e);
+  console.warn('Error leyendo estado de sesión del color picker:', e);
 }
 
 // --------------------------------------------------------------------------
@@ -35,6 +64,10 @@ try {
 // --------------------------------------------------------------------------
 
 export function hsvToRgb(h, s, v) {
+  h = ((h % 360) + 360) % 360;
+  s = Math.max(0, Math.min(1, s));
+  v = Math.max(0, Math.min(1, v));
+
   let r, g, b;
   const i = Math.floor((h / 60) % 6);
   const f = (h / 60) - i;
@@ -79,7 +112,7 @@ export function rgbToHsv(r, g, b) {
 
 export function parseColorString(str) {
   str = (str || '').trim().toLowerCase();
-  
+
   // 1. Hexadecimal (#fff, #ffffff, #ffffffff)
   if (str.startsWith('#')) {
     let hex = str.slice(1);
@@ -125,7 +158,7 @@ export function formatColorOutput(r, g, b, a, format) {
       return aVal === 1 ? `rgb(${r}, ${g}, ${b})` : `rgba(${r}, ${g}, ${b}, ${aVal})`;
     }
   }
-  
+
   if (format === 'hex') {
     const toHex = n => n.toString(16).padStart(2, '0');
     if (a < 1) {
@@ -139,7 +172,112 @@ export function formatColorOutput(r, g, b, a, format) {
 }
 
 // --------------------------------------------------------------------------
-// Inicialización del Color Picker y Renderizado en Canvas
+// Cálculo Matemático de las Armonías Cromáticas (10 Casillas)
+// --------------------------------------------------------------------------
+
+function calcularArmonias10(h, s, v, a, scheme) {
+  const toColor = (nh, ns, nv) => {
+    const rgb = hsvToRgb(nh, ns, nv);
+    return formatColorOutput(rgb.r, rgb.g, rgb.b, a, pickerState.outputFormat);
+  };
+
+  const results = [];
+
+  switch (scheme) {
+    case 'monochromatic': {
+      // 10 niveles progresivos de luminosidad y saturación del mismo tono
+      const steps = [
+        { s: Math.max(0.12, s * 0.25), v: Math.min(1.0, v * 0.35 + 0.65) },
+        { s: Math.max(0.20, s * 0.45), v: Math.min(1.0, v * 0.50 + 0.50) },
+        { s: Math.max(0.30, s * 0.65), v: Math.min(1.0, v * 0.68 + 0.32) },
+        { s: Math.max(0.40, s * 0.82), v: Math.min(1.0, v * 0.85 + 0.15) },
+        { s: s, v: v }, // Base color
+        { s: Math.min(1.0, s * 1.05), v: Math.max(0.08, v * 0.82) },
+        { s: Math.min(1.0, s * 1.10), v: Math.max(0.08, v * 0.68) },
+        { s: Math.min(1.0, s * 1.15), v: Math.max(0.08, v * 0.52) },
+        { s: Math.min(1.0, s * 1.20), v: Math.max(0.08, v * 0.38) },
+        { s: Math.min(1.0, s * 1.25), v: Math.max(0.08, v * 0.22) }
+      ];
+      steps.forEach(st => results.push(toColor(h, st.s, st.v)));
+      break;
+    }
+
+    case 'complementary': {
+      // 5 variantes del tono base y 5 variantes del tono opuesto (+180°)
+      const compH = (h + 180) % 360;
+      const variations = [
+        { s: Math.max(0.15, s * 0.4), v: Math.min(1.0, v * 0.5 + 0.5) },
+        { s: Math.max(0.25, s * 0.7), v: Math.min(1.0, v * 0.75 + 0.25) },
+        { s: s, v: v },
+        { s: Math.min(1.0, s * 1.08), v: Math.max(0.1, v * 0.7) },
+        { s: Math.min(1.0, s * 1.18), v: Math.max(0.1, v * 0.4) }
+      ];
+      variations.forEach(st => results.push(toColor(h, st.s, st.v)));
+      variations.forEach(st => results.push(toColor(compH, st.s, st.v)));
+      break;
+    }
+
+    case 'analogous': {
+      // 5 tonos adyacentes (-40°, -20°, 0°, +20°, +40°) con variaciones armónicas
+      const angles = [-40, -20, 0, 20, 40];
+      angles.forEach(offset => {
+        const nh = (h + offset + 360) % 360;
+        results.push(toColor(nh, s, v));
+        results.push(toColor(nh, Math.max(0.2, s * 0.6), Math.min(1.0, v * 0.6 + 0.4)));
+      });
+      break;
+    }
+
+    case 'triadic': {
+      // Tres tonos equidistantes (0°, +120°, +240°) con 3 variantes cada uno + 1 acento
+      const hues = [h, (h + 120) % 360, (h + 240) % 360];
+      hues.forEach(th => {
+        results.push(toColor(th, s, v)); // Base
+        results.push(toColor(th, Math.max(0.2, s * 0.55), Math.min(1.0, v * 0.6 + 0.4))); // Light
+        results.push(toColor(th, Math.min(1.0, s * 1.1), Math.max(0.15, v * 0.55))); // Dark
+      });
+      results.push(toColor((h + 60) % 360, s, v));
+      break;
+    }
+
+    case 'tetradic': {
+      // Cuatro tonos perpendiculares (0°, +90°, +180°, +270°) con 2 variantes cada uno
+      const tetHues = [h, (h + 90) % 360, (h + 180) % 360, (h + 270) % 360];
+      tetHues.forEach(th => {
+        results.push(toColor(th, s, v));
+        results.push(toColor(th, Math.max(0.25, s * 0.65), Math.min(1.0, v * 0.7 + 0.3)));
+      });
+      results.push(toColor(h, Math.min(1.0, s * 1.15), Math.max(0.12, v * 0.45)));
+      results.push(toColor((h + 180) % 360, Math.min(1.0, s * 1.15), Math.max(0.12, v * 0.45)));
+      break;
+    }
+
+    case 'custom':
+    default:
+      return [...pickerState.palette];
+  }
+
+  return results.slice(0, 10);
+}
+
+function recalcularArmonias() {
+  if (pickerState.isPinned || pickerState.currentScheme === 'custom') {
+    return;
+  }
+  const nuevasCasillas = calcularArmonias10(
+    pickerState.hue,
+    pickerState.sat,
+    pickerState.val,
+    pickerState.alpha,
+    pickerState.currentScheme
+  );
+  pickerState.palette = nuevasCasillas;
+  guardarPaletaSesion();
+  renderizarSlots();
+}
+
+// --------------------------------------------------------------------------
+// Canvas Interactivo (Anillo de Tono y Triángulo Equilátero de Saturación/Valor)
 // --------------------------------------------------------------------------
 
 let canvas, ctx;
@@ -160,11 +298,14 @@ export function inicializarColorPicker() {
   }
 
   configurarControlesUI();
-  configurarPaletaSesion();
+  configurarPaletaArmonica();
   configurarArrastreFlotante();
+  configurarModalNombrePaleta();
+
+  // Cargar lista de paletas guardadas en assets/palettes
+  recargarListaPaletas();
 }
 
-// Dibuja el anillo de tono y el triángulo equilátero interior
 function dibujarCanvas() {
   if (!ctx) return;
   ctx.clearRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
@@ -208,15 +349,10 @@ function dibujarCanvas() {
   ctx.stroke();
 
   // 3. Dibujar triángulo interior (Painter/Photoshop style)
-  // Vértices del triángulo equilátero orientado hacia arriba:
-  // Vértice A (Arriba): Color Puro (Hue, Sat=1, Val=1)
-  // Vértice B (Abajo-Izquierda): Blanco Puro (Sat=0, Val=1)
-  // Vértice C (Abajo-Derecha): Negro Puro (Val=0)
   const vA = { x: CENTER, y: CENTER - TRIANGLE_R };
   const vB = { x: CENTER - TRIANGLE_R * Math.cos(Math.PI / 6), y: CENTER + TRIANGLE_R * Math.sin(Math.PI / 6) };
   const vC = { x: CENTER + TRIANGLE_R * Math.cos(Math.PI / 6), y: CENTER + TRIANGLE_R * Math.sin(Math.PI / 6) };
 
-  // Renderizar degradado del triángulo
   ctx.save();
   ctx.beginPath();
   ctx.moveTo(vA.x, vA.y);
@@ -225,7 +361,7 @@ function dibujarCanvas() {
   ctx.closePath();
   ctx.clip();
 
-  // Fondo del color del Hue en vértice A
+  // Fondo del tono en vértice A
   ctx.fillStyle = `hsl(${pickerState.hue}, 100%, 50%)`;
   ctx.fill();
 
@@ -256,7 +392,6 @@ function dibujarCanvas() {
   ctx.stroke();
 
   // 4. Cursor del color actual dentro del triángulo
-  // Mapear Saturation y Value a coordenadas del triángulo
   const pos = hsvToTriangleCoords(pickerState.sat, pickerState.val, vA, vB, vC);
   ctx.beginPath();
   ctx.arc(pos.x, pos.y, 5, 0, Math.PI * 2);
@@ -268,8 +403,6 @@ function dibujarCanvas() {
 }
 
 function hsvToTriangleCoords(s, v, vA, vB, vC) {
-  // s: saturación (0 a 1), v: valor (0 a 1)
-  // Si v=0, es negro (punto C). Si v=1, s=0 es blanco (punto B), v=1, s=1 es puro (punto A)
   const wA = s * v;
   const wB = (1 - s) * v;
   const wC = 1 - v;
@@ -280,7 +413,6 @@ function hsvToTriangleCoords(s, v, vA, vB, vC) {
 }
 
 function triangleCoordsToHsv(x, y, vA, vB, vC) {
-  // Coordenadas baricéntricas con clamp
   const denom = (vB.y - vC.y) * (vA.x - vC.x) + (vC.x - vB.x) * (vA.y - vC.y);
   let wA = ((vB.y - vC.y) * (x - vC.x) + (vC.x - vB.x) * (y - vC.y)) / denom;
   let wB = ((vC.y - vA.y) * (x - vC.x) + (vA.x - vC.x) * (y - vC.y)) / denom;
@@ -299,10 +431,6 @@ function triangleCoordsToHsv(x, y, vA, vB, vC) {
   return { s, v };
 }
 
-// --------------------------------------------------------------------------
-// Interacción de Ratón con el Canvas
-// --------------------------------------------------------------------------
-
 function configurarEventosCanvas() {
   if (!canvas) return;
 
@@ -320,6 +448,7 @@ function configurarEventosCanvas() {
       pickerState.hue = Math.round(angle);
       sincronizarDesdeHsv();
       dibujarCanvas();
+      recalcularArmonias();
       return;
     }
 
@@ -332,10 +461,10 @@ function configurarEventosCanvas() {
       pickerState.val = hsv.v;
       sincronizarDesdeHsv();
       dibujarCanvas();
+      recalcularArmonias();
       return;
     }
 
-    // Comprobar inicio de clic
     if (dist >= RING_INNER_R - 4 && dist <= RING_OUTER_R + 4) {
       pickerState.isDraggingHue = true;
       let angle = Math.atan2(dy, dx) * 180 / Math.PI;
@@ -343,6 +472,7 @@ function configurarEventosCanvas() {
       pickerState.hue = Math.round(angle);
       sincronizarDesdeHsv();
       dibujarCanvas();
+      recalcularArmonias();
     } else if (dist < RING_INNER_R) {
       pickerState.isDraggingTriangle = true;
       const vA = { x: CENTER, y: CENTER - TRIANGLE_R };
@@ -353,6 +483,7 @@ function configurarEventosCanvas() {
       pickerState.val = hsv.v;
       sincronizarDesdeHsv();
       dibujarCanvas();
+      recalcularArmonias();
     }
   };
 
@@ -373,7 +504,7 @@ function configurarEventosCanvas() {
 }
 
 // --------------------------------------------------------------------------
-// Sincronización Bidireccional de Controles UI
+// Muestra Bicapa (Color sobre Damero de Transparencia)
 // --------------------------------------------------------------------------
 
 function actualizarVisualizacionSwatch(swatchContainer, fillElement, r, g, b, alpha) {
@@ -399,23 +530,27 @@ function actualizarVisualizacionSwatch(swatchContainer, fillElement, r, g, b, al
   }
 }
 
+// --------------------------------------------------------------------------
+// Sincronización de Controles UI (Actualiza "Nuevo" sin tocar "Original")
+// --------------------------------------------------------------------------
+
 function sincronizarDesdeHsv() {
   const rgb = hsvToRgb(pickerState.hue, pickerState.sat, pickerState.val);
   const formatted = formatColorOutput(rgb.r, rgb.g, rgb.b, pickerState.alpha, pickerState.outputFormat);
   pickerState.currentColor = formatted;
 
-  // Actualizar previsualización: bicapa con color sobre damero progresivo
+  // Actualizar previsualización "Nuevo" únicamente
   const newSwatch = document.getElementById('color-preview-new');
   const newFill = document.getElementById('color-fill-new');
   actualizarVisualizacionSwatch(newSwatch, newFill, rgb.r, rgb.g, rgb.b, pickerState.alpha);
 
-  // Pista de opacidad progresiva: El color cubre gradualmente el damero físico
+  // Pista de opacidad progresiva
   const alphaGrad = document.getElementById('alpha-slider-gradient');
   if (alphaGrad) {
     alphaGrad.style.background = `linear-gradient(to right, rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0), rgb(${rgb.r}, ${rgb.g}, ${rgb.b}))`;
   }
 
-  // Actualizar campos de texto y número
+  // Inputs y etiquetas numéricas
   const inputHex = document.getElementById('color-input-hex');
   const inputR = document.getElementById('color-input-r');
   const inputG = document.getElementById('color-input-g');
@@ -436,14 +571,26 @@ function sincronizarDesdeHsv() {
   if (labelAlpha) labelAlpha.textContent = `${Math.round(pickerState.alpha * 100)}%`;
 }
 
+// Carga un color activo en "Nuevo" y controles, sin tocar el Color Original
+function cargarColorActivo(colorString) {
+  const parsed = parseColorString(colorString);
+  pickerState.hue = Math.round(parsed.h);
+  pickerState.sat = parsed.s;
+  pickerState.val = parsed.v;
+  pickerState.alpha = parsed.a;
+
+  sincronizarDesdeHsv();
+  dibujarCanvas();
+}
+
 function configurarControlesUI() {
-  // Inputs numéricos R, G, B, A
   const inputR = document.getElementById('color-input-r');
   const inputG = document.getElementById('color-input-g');
   const inputB = document.getElementById('color-input-b');
   const inputA = document.getElementById('color-input-a');
   const inputHex = document.getElementById('color-input-hex');
   const rangeAlpha = document.getElementById('color-range-alpha');
+  const selectScheme = document.getElementById('select-color-scheme');
 
   const updateFromRgbInputs = () => {
     const r = Math.min(255, Math.max(0, parseInt(inputR.value, 10) || 0));
@@ -455,6 +602,7 @@ function configurarControlesUI() {
     pickerState.val = hsv.v;
     sincronizarDesdeHsv();
     dibujarCanvas();
+    recalcularArmonias();
   };
 
   [inputR, inputG, inputB].forEach(input => {
@@ -467,6 +615,7 @@ function configurarControlesUI() {
       if (isNaN(a)) a = 1;
       pickerState.alpha = Math.min(1, Math.max(0, a));
       sincronizarDesdeHsv();
+      recalcularArmonias();
     });
   }
 
@@ -474,6 +623,7 @@ function configurarControlesUI() {
     rangeAlpha.addEventListener('input', (e) => {
       pickerState.alpha = parseInt(e.target.value, 10) / 100;
       sincronizarDesdeHsv();
+      recalcularArmonias();
     });
   }
 
@@ -487,27 +637,79 @@ function configurarControlesUI() {
         pickerState.val = parsed.v;
         sincronizarDesdeHsv();
         dibujarCanvas();
+        recalcularArmonias();
       }
     });
   }
 
-  // Radios de formato
+  // Radios de formato de salida [HEX | RGBA]
   const radioHex = document.getElementById('radio-format-hex');
   const radioRgba = document.getElementById('radio-format-rgba');
-  if (radioHex) radioHex.addEventListener('change', () => { pickerState.outputFormat = 'hex'; sincronizarDesdeHsv(); });
-  if (radioRgba) radioRgba.addEventListener('change', () => { pickerState.outputFormat = 'rgba'; sincronizarDesdeHsv(); });
+  if (radioHex) {
+    radioHex.addEventListener('change', () => {
+      pickerState.outputFormat = 'hex';
+      sincronizarDesdeHsv();
+    });
+  }
+  if (radioRgba) {
+    radioRgba.addEventListener('change', () => {
+      pickerState.outputFormat = 'rgba';
+      sincronizarDesdeHsv();
+    });
+  }
 
-  // Clic en muestra de "Color Actual" restaura todos los valores al color original
+  // Selector de Esquema Armónico
+  if (selectScheme) {
+    selectScheme.value = pickerState.currentScheme;
+    selectScheme.addEventListener('change', (e) => {
+      pickerState.currentScheme = e.target.value;
+      try {
+        sessionStorage.setItem('md-color-picker-scheme', pickerState.currentScheme);
+      } catch (err) {}
+
+      if (pickerState.currentScheme === 'custom') {
+        // En modo libre se fija automáticamente la paleta
+        pickerState.isPinned = true;
+        actualizarBotonFijar();
+      } else {
+        // Al elegir un esquema armónico estándar, se recalcula con el color actual
+        pickerState.isPinned = false;
+        actualizarBotonFijar();
+        recalcularArmonias();
+      }
+    });
+  }
+
+  // Clic en muestra de "Color Original / Actual": restaura "Nuevo" sin modificar la muestra Original
   const origSwatch = document.getElementById('color-preview-original');
   if (origSwatch) {
     origSwatch.addEventListener('click', () => {
       if (pickerState.originalColor) {
-        cargarColorEnPicker(pickerState.originalColor);
+        cargarColorActivo(pickerState.originalColor);
+        if (!pickerState.isPinned && pickerState.currentScheme !== 'custom') {
+          recalcularArmonias();
+        }
       }
     });
   }
 
-  // Botones Aceptar y Cancelar
+  // Drag & Drop desde la muestra "Nuevo"
+  const newSwatch = document.getElementById('color-preview-new');
+  if (newSwatch) {
+    newSwatch.setAttribute('draggable', 'true');
+    newSwatch.addEventListener('dragstart', (e) => {
+      e.dataTransfer.setData('text/plain', pickerState.currentColor);
+      e.dataTransfer.setData('application/x-color', pickerState.currentColor);
+      e.dataTransfer.effectAllowed = 'copyMove';
+      newSwatch.classList.add('is-dragging');
+    });
+    newSwatch.addEventListener('dragend', () => {
+      newSwatch.classList.remove('is-dragging');
+      document.querySelectorAll('.color-slot').forEach(s => s.classList.remove('drag-over'));
+    });
+  }
+
+  // Botón Aplicar (Aplica los cambios al editor/playground sin cerrar la ventana)
   const btnApply = document.getElementById('btn-apply-color-picker');
   const btnCancel = document.getElementById('btn-cancel-color-picker');
   const btnClose = document.getElementById('btn-close-color-picker');
@@ -524,7 +726,8 @@ function configurarControlesUI() {
       if (typeof pickerState.onApplyCallback === 'function') {
         pickerState.onApplyCallback(resultado);
       }
-      cerrarModal();
+      mostrarToast('Color aplicado al documento');
+      // No cerramos la ventana al pulsar Aplicar: se mantiene abierta para edición continua
     });
   }
 
@@ -533,88 +736,154 @@ function configurarControlesUI() {
 }
 
 // --------------------------------------------------------------------------
-// Paleta de Sesión con Armonías (Complementario y Análogo)
+// Paleta Armónica (10 Casillas, Fijar, Cargar y Guardar en assets/palettes)
 // --------------------------------------------------------------------------
 
 let contextMenuTargetIndex = null;
 
-function configurarPaletaSesion() {
-  const container = document.getElementById('color-palette-slots');
-  const btnSave = document.getElementById('btn-save-to-palette');
-  const ctxMenu = document.getElementById('palette-context-menu');
-  const btnComplementary = document.getElementById('ctx-palette-complementary');
-  const btnAnalogous = document.getElementById('ctx-palette-analogous');
+function guardarPaletaSesion() {
+  try {
+    sessionStorage.setItem('md-color-palette-10', JSON.stringify(pickerState.palette));
+    sessionStorage.setItem('md-color-picker-pinned', pickerState.isPinned ? 'true' : 'false');
+  } catch (e) {}
+}
 
+function actualizarBotonFijar() {
+  const btnPin = document.getElementById('btn-pin-palette');
+  const iconStatus = document.getElementById('pin-icon-status');
+  if (!btnPin) return;
+
+  if (pickerState.isPinned) {
+    btnPin.classList.add('pinned');
+    if (iconStatus) iconStatus.textContent = '📌';
+    btnPin.title = 'Paleta fijada (no se recalcula automáticamente)';
+  } else {
+    btnPin.classList.remove('pinned');
+    if (iconStatus) iconStatus.textContent = '📍';
+    btnPin.title = 'Fijar paleta para evitar actualización automática';
+  }
+}
+
+function renderizarSlots() {
+  const container = document.getElementById('color-palette-slots');
+  const ctxMenu = document.getElementById('palette-context-menu');
   if (!container) return;
 
-  const renderSlots = () => {
-    container.innerHTML = '';
-    pickerState.palette.forEach((color, idx) => {
-      const slot = document.createElement('div');
-      slot.className = `color-slot ${idx === pickerState.activeSlotIndex ? 'active' : ''}`;
-      slot.dataset.index = idx;
+  container.innerHTML = '';
 
-      const fill = document.createElement('div');
-      fill.className = 'color-slot-fill';
-      slot.appendChild(fill);
+  pickerState.palette.forEach((color, idx) => {
+    const slot = document.createElement('div');
+    slot.className = `color-slot ${idx === pickerState.activeSlotIndex ? 'active' : ''}`;
+    slot.dataset.index = idx;
 
+    const fill = document.createElement('div');
+    fill.className = 'color-slot-fill';
+    slot.appendChild(fill);
+
+    if (color) {
+      slot.classList.remove('empty');
+      slot.classList.add('filled');
+      const parsed = parseColorString(color);
+      actualizarVisualizacionSwatch(slot, fill, parsed.r, parsed.g, parsed.b, parsed.a);
+      slot.title = `Casilla ${idx + 1}: ${color}\n• Clic izq: Cargar en Nuevo\n• Clic der: Menú de opciones\n• Arrastra el color Nuevo aquí para asignar`;
+    } else {
+      slot.classList.remove('filled', 'has-transparency');
+      slot.classList.add('empty');
+      fill.style.backgroundColor = 'transparent';
+      slot.title = `Casilla ${idx + 1}: Vacía`;
+    }
+
+    // 1. Clic izquierdo: Carga en "Nuevo"
+    slot.addEventListener('click', () => {
+      pickerState.activeSlotIndex = idx;
+      renderizarSlots();
       if (color) {
-        slot.classList.remove('empty');
-        slot.classList.add('filled');
-        const parsed = parseColorString(color);
-        actualizarVisualizacionSwatch(slot, fill, parsed.r, parsed.g, parsed.b, parsed.a);
-        slot.title = `Casilla ${idx + 1}: ${color} (Clic izq: cargar, Clic der: armonía)`;
-      } else {
-        slot.classList.remove('filled', 'has-transparency');
-        slot.classList.add('empty');
-        fill.style.backgroundColor = 'transparent';
-        slot.title = `Casilla ${idx + 1}: Vacía`;
+        cargarColorActivo(color);
+        // Si no está fijada y no es modo libre, el cambio de Nuevo recalcula la paleta
+        if (!pickerState.isPinned && pickerState.currentScheme !== 'custom') {
+          recalcularArmonias();
+        }
       }
-
-      // Clic izquierdo: Cargar color
-      slot.addEventListener('click', () => {
-        pickerState.activeSlotIndex = idx;
-        renderSlots();
-        if (color) {
-          cargarColorEnPicker(color);
-        }
-      });
-
-      // Clic derecho: Menú contextual de armonía
-      slot.addEventListener('contextmenu', (e) => {
-        e.preventDefault();
-        pickerState.activeSlotIndex = idx;
-        renderSlots();
-
-        if (color && ctxMenu) {
-          contextMenuTargetIndex = idx;
-          ctxMenu.style.display = 'block';
-          ctxMenu.style.left = `${e.clientX}px`;
-          ctxMenu.style.top = `${e.clientY}px`;
-        }
-      });
-
-      container.appendChild(slot);
     });
-  };
 
-  renderSlots();
+    // 2. Drag & Drop: Asignar color al soltar sobre la casilla
+    slot.addEventListener('dragenter', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      e.dataTransfer.dropEffect = 'copy';
+      slot.classList.add('drag-over');
+    });
 
-  // Guardar paleta en sessionStorage
-  const guardarPaleta = () => {
-    try {
-      sessionStorage.setItem('md-color-palette', JSON.stringify(pickerState.palette));
-    } catch (e) {}
-  };
+    slot.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      e.dataTransfer.dropEffect = 'copy';
+      if (!slot.classList.contains('drag-over')) {
+        slot.classList.add('drag-over');
+      }
+    });
 
-  // Botón guardar color actual en casilla seleccionada
-  if (btnSave) {
-    btnSave.addEventListener('click', () => {
-      const rgb = hsvToRgb(pickerState.hue, pickerState.sat, pickerState.val);
-      const colorToSave = formatColorOutput(rgb.r, rgb.g, rgb.b, pickerState.alpha, pickerState.outputFormat);
-      pickerState.palette[pickerState.activeSlotIndex] = colorToSave;
-      guardarPaleta();
-      renderSlots();
+    slot.addEventListener('dragleave', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (!slot.contains(e.relatedTarget)) {
+        slot.classList.remove('drag-over');
+      }
+    });
+
+    slot.addEventListener('drop', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      slot.classList.remove('drag-over');
+      const colorDrop = e.dataTransfer.getData('application/x-color') || 
+                        e.dataTransfer.getData('text/plain') || 
+                        pickerState.currentColor;
+      if (colorDrop) {
+        pickerState.palette[idx] = colorDrop;
+        pickerState.activeSlotIndex = idx;
+        pickerState.isPinned = true;
+        actualizarBotonFijar();
+        guardarPaletaSesion();
+        renderizarSlots();
+        mostrarToast(`Color asignado a la casilla ${idx + 1}`);
+      }
+    });
+
+    // 3. Clic derecho: Menú contextual
+    slot.addEventListener('contextmenu', (e) => {
+      e.preventDefault();
+      pickerState.activeSlotIndex = idx;
+      contextMenuTargetIndex = idx;
+      renderizarSlots();
+
+      if (ctxMenu) {
+        ctxMenu.style.display = 'flex';
+        ctxMenu.style.left = `${Math.min(window.innerWidth - 220, e.clientX)}px`;
+        ctxMenu.style.top = `${Math.min(window.innerHeight - 100, e.clientY)}px`;
+      }
+    });
+
+    container.appendChild(slot);
+  });
+}
+
+function configurarPaletaArmonica() {
+  const btnPin = document.getElementById('btn-pin-palette');
+  const btnSave = document.getElementById('btn-save-palette');
+  const selectFile = document.getElementById('select-palette-file');
+  const ctxMenu = document.getElementById('palette-context-menu');
+  const btnCtxAssign = document.getElementById('ctx-palette-assign');
+  const btnCtxCopy = document.getElementById('ctx-palette-copy');
+
+  actualizarBotonFijar();
+  renderizarSlots();
+
+  // Botón Fijar
+  if (btnPin) {
+    btnPin.addEventListener('click', () => {
+      pickerState.isPinned = !pickerState.isPinned;
+      actualizarBotonFijar();
+      guardarPaletaSesion();
     });
   }
 
@@ -625,45 +894,255 @@ function configurarPaletaSesion() {
     }
   });
 
-  // Opción 1: Color Complementario (+180° de Hue)
-  if (btnComplementary) {
-    btnComplementary.addEventListener('click', () => {
+  // Opción Menú Contextual: Asignar color actual
+  if (btnCtxAssign) {
+    btnCtxAssign.addEventListener('click', () => {
       if (contextMenuTargetIndex !== null) {
-        const baseColor = pickerState.palette[contextMenuTargetIndex];
-        if (baseColor) {
-          const parsed = parseColorString(baseColor);
-          const compHue = (parsed.h + 180) % 360;
-          const compRgb = hsvToRgb(compHue, parsed.s, parsed.v);
-          const compFormatted = formatColorOutput(compRgb.r, compRgb.g, compRgb.b, parsed.a, parsed.format);
-          pickerState.palette[contextMenuTargetIndex] = compFormatted;
-          guardarPaleta();
-          renderSlots();
-          cargarColorEnPicker(compFormatted);
+        pickerState.palette[contextMenuTargetIndex] = pickerState.currentColor;
+        pickerState.isPinned = true;
+        actualizarBotonFijar();
+        guardarPaletaSesion();
+        renderizarSlots();
+        mostrarToast(`Color asignado a la casilla ${contextMenuTargetIndex + 1}`);
+      }
+      if (ctxMenu) ctxMenu.style.display = 'none';
+    });
+  }
+
+  // Opción Menú Contextual: Copiar código de color
+  if (btnCtxCopy) {
+    btnCtxCopy.addEventListener('click', async () => {
+      if (contextMenuTargetIndex !== null) {
+        const colorToCopy = pickerState.palette[contextMenuTargetIndex];
+        if (colorToCopy && navigator.clipboard) {
+          try {
+            await navigator.clipboard.writeText(colorToCopy);
+            mostrarToast('¡Color copiado al portapapeles!');
+          } catch (err) {
+            console.warn('Error al copiar al portapapeles:', err);
+          }
         }
       }
       if (ctxMenu) ctxMenu.style.display = 'none';
     });
   }
 
-  // Opción 2: Color Análogo (+30° de Hue)
-  if (btnAnalogous) {
-    btnAnalogous.addEventListener('click', () => {
-      if (contextMenuTargetIndex !== null) {
-        const baseColor = pickerState.palette[contextMenuTargetIndex];
-        if (baseColor) {
-          const parsed = parseColorString(baseColor);
-          const anaHue = (parsed.h + 30) % 360;
-          const anaRgb = hsvToRgb(anaHue, parsed.s, parsed.v);
-          const anaFormatted = formatColorOutput(anaRgb.r, anaRgb.g, anaRgb.b, parsed.a, parsed.format);
-          pickerState.palette[contextMenuTargetIndex] = anaFormatted;
-          guardarPaleta();
-          renderSlots();
-          cargarColorEnPicker(anaFormatted);
-        }
-      }
-      if (ctxMenu) ctxMenu.style.display = 'none';
+  // Selector de Paletas guardadas (Cargar paleta)
+  if (selectFile) {
+    selectFile.addEventListener('focus', recargarListaPaletas);
+    selectFile.addEventListener('mousedown', recargarListaPaletas);
+    selectFile.addEventListener('change', async (e) => {
+      const filePath = e.target.value;
+      if (!filePath) return;
+      await cargarPaletaDesdeArchivo(filePath);
     });
   }
+
+  // Botón Guardar Paleta (Abre diálogo para nombrar)
+  if (btnSave) {
+    btnSave.addEventListener('click', () => {
+      abrirModalGuardarPaleta();
+    });
+  }
+}
+
+function mostrarToast(mensaje) {
+  const toast = document.createElement('div');
+  toast.className = 'color-copied-toast';
+  toast.textContent = mensaje;
+  toast.style.cssText = `
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(15, 23, 42, 0.96);
+    color: #38bdf8;
+    padding: 8px 18px;
+    border-radius: 8px;
+    border: 1px solid rgba(56, 189, 248, 0.35);
+    font-size: 12px;
+    font-weight: 600;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.55);
+    z-index: 10000;
+    pointer-events: none;
+    transition: opacity 0.3s;
+  `;
+  document.body.appendChild(toast);
+  setTimeout(() => {
+    toast.style.opacity = '0';
+    setTimeout(() => toast.remove(), 300);
+  }, 1600);
+}
+
+// --------------------------------------------------------------------------
+// Gestión de Archivos de Paletas en assets/palettes/*.md
+// --------------------------------------------------------------------------
+
+export async function recargarListaPaletas() {
+  const selectFile = document.getElementById('select-palette-file');
+  if (!selectFile) return;
+
+  const inv = getInvoke();
+  if (inv) {
+    try {
+      const paletas = await inv('listar_paletas');
+      if (Array.isArray(paletas)) {
+        const currentVal = selectFile.value;
+        while (selectFile.options.length > 1) {
+          selectFile.remove(1);
+        }
+        paletas.forEach(p => {
+          const opt = document.createElement('option');
+          opt.value = p.filePath;
+          opt.textContent = p.paletteName.replace(/_/g, ' ');
+          selectFile.appendChild(opt);
+        });
+        if (currentVal) selectFile.value = currentVal;
+      }
+    } catch (e) {
+      console.warn('Error listando paletas:', e);
+    }
+  }
+}
+
+async function cargarPaletaDesdeArchivo(filePath) {
+  const inv = getInvoke();
+  if (!inv) return;
+  try {
+    const content = await inv('leer_paleta', { filePath });
+    if (!content) return;
+
+    // Extraer los 10 colores con expresiones regulares flexibles
+    const colorRegex = /\*\*(?:color|slot)-?(\d+)\*\*:\s*([^\r\n]+)/gi;
+    const coloresLeidos = [];
+    let match;
+    while ((match = colorRegex.exec(content)) !== null) {
+      const idx = parseInt(match[1], 10) - 1;
+      const colorVal = match[2].trim();
+      if (idx >= 0 && idx < 10) {
+        coloresLeidos[idx] = colorVal;
+      }
+    }
+
+    if (coloresLeidos.length > 0) {
+      for (let i = 0; i < 10; i++) {
+        if (coloresLeidos[i]) {
+          pickerState.palette[i] = coloresLeidos[i];
+        }
+      }
+
+      // Extraer nombre de la paleta
+      const nameMatch = content.match(/\*\*paletteName\*\*:\s*([^\r\n]+)/i);
+      if (nameMatch) {
+        pickerState.activePaletteName = nameMatch[1].trim();
+      }
+
+      // La carga de una paleta fija automáticamente el estado y pasa a modo libre
+      pickerState.isPinned = true;
+      pickerState.currentScheme = 'custom';
+      const selectScheme = document.getElementById('select-color-scheme');
+      if (selectScheme) selectScheme.value = 'custom';
+
+      actualizarBotonFijar();
+      guardarPaletaSesion();
+
+      // Cargar el primer color en "Nuevo"
+      if (pickerState.palette[0]) {
+        cargarColorActivo(pickerState.palette[0]);
+      }
+      renderizarSlots();
+      mostrarToast(`Paleta cargada: ${pickerState.activePaletteName.replace(/_/g, ' ')}`);
+    }
+  } catch (err) {
+    console.error('Error al cargar paleta desde archivo:', err);
+  }
+}
+
+function configurarModalNombrePaleta() {
+  const modal = document.getElementById('modal-palette-name');
+  const input = document.getElementById('input-palette-name');
+  const btnClose = document.getElementById('btn-close-palette-name-modal');
+  const btnCancel = document.getElementById('btn-cancel-palette-name');
+  const btnConfirm = document.getElementById('btn-confirm-palette-name');
+
+  if (!modal) return;
+
+  const cerrarModal = () => {
+    modal.classList.remove('active');
+  };
+
+  const ejecutarGuardado = async () => {
+    let name = (input.value || '').trim();
+    if (!name) name = 'Nueva_Paleta';
+
+    // Reemplazo de espacios por guiones bajos
+    const cleanName = name.replace(/\s+/g, '_').replace(/\.md$/i, '');
+    const mdContent = `# Paleta \`Colección de 10 colores armónicos\`
+\t**paletteName**: ${cleanName}
+
+\t# colors \`Colores de la paleta\`
+${pickerState.palette.map((c, i) => `\t\t**color-${i + 1}**: ${c}`).join('\n')}
+`;
+
+    const inv = getInvoke();
+    if (inv) {
+      try {
+        await inv('guardar_paleta', { fileName: cleanName, content: mdContent });
+        pickerState.activePaletteName = cleanName;
+        await recargarListaPaletas();
+
+        // Seleccionar la paleta guardada en el select
+        const selectFile = document.getElementById('select-palette-file');
+        if (selectFile) {
+          for (let i = 0; i < selectFile.options.length; i++) {
+            if (selectFile.options[i].text.toLowerCase() === cleanName.replace(/_/g, ' ').toLowerCase()) {
+              selectFile.selectedIndex = i;
+              break;
+            }
+          }
+        }
+        mostrarToast('¡Paleta guardada exitosamente!');
+      } catch (e) {
+        console.error('Error guardando paleta:', e);
+      }
+    }
+
+    cerrarModal();
+  };
+
+  if (btnClose) btnClose.addEventListener('click', cerrarModal);
+  if (btnCancel) btnCancel.addEventListener('click', cerrarModal);
+  if (btnConfirm) btnConfirm.addEventListener('click', ejecutarGuardado);
+
+  if (input) {
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        ejecutarGuardado();
+      } else if (e.key === 'Escape') {
+        cerrarModal();
+      }
+    });
+  }
+}
+
+function abrirModalGuardarPaleta() {
+  const modal = document.getElementById('modal-palette-name');
+  const input = document.getElementById('input-palette-name');
+  if (!modal || !input) return;
+
+  // Pre-cargar nombre si ya existía una paleta activa
+  if (pickerState.activePaletteName) {
+    input.value = pickerState.activePaletteName.replace(/_/g, ' ');
+  } else {
+    input.value = 'Mi Paleta';
+  }
+
+  modal.classList.add('active');
+  setTimeout(() => {
+    input.focus();
+    input.select();
+  }, 50);
 }
 
 // --------------------------------------------------------------------------
@@ -675,39 +1154,39 @@ export function abrirColorPicker(colorString, onApplyCallback) {
   if (!modal) return;
 
   pickerState.onApplyCallback = onApplyCallback;
+
+  // 1. Asignar el Color Original ÚNICAMENTE AQUÍ (Inmutable durante la sesión)
   pickerState.originalColor = colorString;
-
-  cargarColorEnPicker(colorString);
-
-  modal.classList.add('active');
-}
-
-function cargarColorEnPicker(colorString) {
-  const parsed = parseColorString(colorString);
-  pickerState.hue = Math.round(parsed.h);
-  pickerState.sat = parsed.s;
-  pickerState.val = parsed.v;
-  pickerState.alpha = parsed.a;
-  pickerState.outputFormat = parsed.format;
-
-  // Actualizar muestra original bicapa (color sobre damero si tiene alfa < 1)
+  const parsedOrig = parseColorString(colorString);
   const origSwatch = document.getElementById('color-preview-original');
   const origFill = document.getElementById('color-fill-original');
-  actualizarVisualizacionSwatch(origSwatch, origFill, parsed.r, parsed.g, parsed.b, parsed.a);
+  actualizarVisualizacionSwatch(origSwatch, origFill, parsedOrig.r, parsedOrig.g, parsedOrig.b, parsedOrig.a);
 
-  // Sincronizar radio buttons
+  // 2. Formato de salida: respeta el formato original del texto editado
+  pickerState.outputFormat = parsedOrig.format;
   const radioHex = document.getElementById('radio-format-hex');
   const radioRgba = document.getElementById('radio-format-rgba');
-  if (parsed.format === 'rgba' && radioRgba) {
+  if (parsedOrig.format === 'rgba' && radioRgba) {
     radioRgba.checked = true;
   } else if (radioHex) {
     radioHex.checked = true;
   }
 
-  sincronizarDesdeHsv();
-  dibujarCanvas();
-}
+  // 3. Cargar en "Nuevo", sliders y canvas
+  cargarColorActivo(colorString);
 
+  // 4. Si la paleta no está fijada y no es personalizada, calcular armonías
+  if (!pickerState.isPinned && pickerState.currentScheme !== 'custom') {
+    recalcularArmonias();
+  } else {
+    renderizarSlots();
+  }
+
+  // 5. Refrescar lista de paletas disponibles en assets/palettes
+  recargarListaPaletas();
+
+  modal.classList.add('active');
+}
 
 function configurarArrastreFlotante() {
   const modal = document.getElementById('modal-color-picker');
@@ -718,7 +1197,7 @@ function configurarArrastreFlotante() {
   let startX, startY, initialLeft, initialTop;
 
   handle.addEventListener('mousedown', (e) => {
-    if (e.target.closest('button')) return;
+    if (e.target.closest('button') || e.target.closest('select')) return;
     isDragging = true;
     startX = e.clientX;
     startY = e.clientY;

@@ -37,6 +37,14 @@ pub struct IdiomaMetadata {
     file_path: String,
 }
 
+#[derive(serde::Serialize)]
+pub struct PaletaMetadata {
+    #[serde(rename = "paletteName")]
+    palette_name: String,
+    #[serde(rename = "filePath")]
+    file_path: String,
+}
+
 // Utilidad para sanitizar nombres de archivo reemplazando espacios por guiones bajos
 fn sanitizar_nombre_archivo(path: std::path::PathBuf) -> std::path::PathBuf {
     if let Some(file_name) = path.file_name().and_then(|s| s.to_str()) {
@@ -633,6 +641,101 @@ fn abrir_carpeta_temas(app_handle: tauri::AppHandle) -> Result<(), String> {
     Ok(())
 }
 
+#[tauri::command]
+fn listar_paletas(app_handle: tauri::AppHandle) -> Result<Vec<PaletaMetadata>, String> {
+    let base_dir = app_handle.path().app_data_dir()
+        .map_err(|e| format!("No se pudo obtener el directorio de datos de la app: {}", e))?;
+    
+    let path = base_dir.join("assets").join("palettes");
+    
+    if !path.exists() {
+        return Ok(Vec::new());
+    }
+    
+    let mut paletas = Vec::new();
+    let entries = fs::read_dir(path).map_err(|e| e.to_string())?;
+    
+    for entry in entries {
+        if let Ok(entry) = entry {
+            let path_buf = entry.path();
+            if path_buf.is_file() {
+                if let Some(ext) = path_buf.extension() {
+                    if ext == "md" {
+                        let file_stem = path_buf.file_stem()
+                            .and_then(|s| s.to_str())
+                            .unwrap_or("")
+                            .to_string();
+                        let file_path = path_buf.to_string_lossy().to_string();
+                        paletas.push(PaletaMetadata {
+                            palette_name: file_stem,
+                            file_path,
+                        });
+                    }
+                }
+            }
+        }
+    }
+    
+    paletas.sort_by(|a, b| a.palette_name.to_lowercase().cmp(&b.palette_name.to_lowercase()));
+    Ok(paletas)
+}
+
+#[tauri::command]
+fn leer_paleta(file_path: String) -> Result<String, String> {
+    fs::read_to_string(&file_path).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn guardar_paleta(app_handle: tauri::AppHandle, file_name: String, content: String) -> Result<String, String> {
+    let base_dir = app_handle.path().app_data_dir()
+        .map_err(|e| format!("No se pudo obtener el directorio de datos de la app: {}", e))?;
+    let path = base_dir.join("assets").join("palettes");
+    fs::create_dir_all(&path).map_err(|e| e.to_string())?;
+    
+    let trimmed = file_name.trim();
+    let mut clean_name = trimmed.replace(' ', "_");
+    if !clean_name.ends_with(".md") {
+        clean_name.push_str(".md");
+    }
+    let file_path = path.join(&clean_name);
+    fs::write(&file_path, content).map_err(|e| e.to_string())?;
+    Ok(file_path.to_string_lossy().to_string())
+}
+
+#[tauri::command]
+fn abrir_carpeta_paletas(app_handle: tauri::AppHandle) -> Result<(), String> {
+    let base_dir = app_handle.path().app_data_dir()
+        .map_err(|e| format!("No se pudo obtener el directorio de datos de la app: {}", e))?;
+    let path = base_dir.join("assets").join("palettes");
+    fs::create_dir_all(&path).map_err(|e| e.to_string())?;
+
+    #[cfg(target_os = "windows")]
+    {
+        std::process::Command::new("explorer")
+            .arg(&path)
+            .spawn()
+            .map_err(|e| format!("No se pudo abrir el explorador de archivos: {}", e))?;
+    }
+
+    #[cfg(target_os = "macos")]
+    {
+        std::process::Command::new("open")
+            .arg(&path)
+            .spawn()
+            .map_err(|e| format!("No se pudo abrir el buscador: {}", e))?;
+    }
+
+    #[cfg(target_os = "linux")]
+    {
+        std::process::Command::new("xdg-open")
+            .arg(&path)
+            .spawn()
+            .map_err(|e| format!("No se pudo abrir el gestor de archivos: {}", e))?;
+    }
+
+    Ok(())
+}
+
 fn es_url_permitida(url: &str) -> bool {
     let url_lower = url.trim().to_lowercase();
     url_lower.starts_with("http://") || url_lower.starts_with("https://") || url_lower.starts_with("mailto:")
@@ -697,6 +800,13 @@ fn sincronizar_idioma_base(path: &std::path::Path, base_content: &str) {
                     if !existing_obj.contains_key(k) {
                         existing_obj.insert(k.clone(), v.clone());
                         modificado = true;
+                    } else if k == "color_picker_btn_apply" {
+                        if let Some(s) = existing_obj.get(k).and_then(|val| val.as_str()) {
+                            if s == "Accept" || s == "Aceptar" || s == "Accipere" {
+                                existing_obj.insert(k.clone(), v.clone());
+                                modificado = true;
+                            }
+                        }
                     }
                 }
                 if modificado {
@@ -774,6 +884,12 @@ pub fn run() {
       let _ = fs::remove_file(themes_dir.join("Cyberpunk-Dark.json"));
       let _ = fs::remove_file(themes_dir.join("Classic-Light.json"));
 
+      // Crear directorio de paletas e inyectar paletas base
+      let palettes_dir = assets_dir.join("palettes");
+      fs::create_dir_all(&palettes_dir).unwrap_or_default();
+      fs::write(palettes_dir.join("Por_Defecto.md"), include_str!("../../assets/palettes/Por_Defecto.md")).unwrap_or_default();
+      fs::write(palettes_dir.join("Cyberpunk_Neon.md"), include_str!("../../assets/palettes/Cyberpunk_Neon.md")).unwrap_or_default();
+
       if cfg!(debug_assertions) {
         app.handle().plugin(
           tauri_plugin_log::Builder::default()
@@ -805,6 +921,10 @@ pub fn run() {
         leer_idioma,
         abrir_carpeta_idiomas,
         abrir_carpeta_temas,
+        abrir_carpeta_paletas,
+        listar_paletas,
+        leer_paleta,
+        guardar_paleta,
         abrir_url_externa
     ])
     .run(tauri::generate_context!())

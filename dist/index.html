@@ -1182,7 +1182,7 @@
       </div>
     </div>
     <footer class="playground-footer">
-      <span class="playground-status-indicator" id="playground-status-text">Visualizando borrador local</span>
+      <span class="playground-status-indicator" id="playground-status-text" data-i18n="playground_status_draft">Visualizando borrador local</span>
       <button id="btn-apply-theme-global" data-i18n="playground_apply" class="config-action-btn btn-primary-premium" style="margin-top: 0; padding: 6px 14px; font-size: 12px; font-weight: 600;">Aplicar Tema al Sistema</button>
     </footer>
     <!-- Tirador para redimensionar en la esquina inferior derecha -->
@@ -1200,6 +1200,21 @@
       <button id="btn-close-color-picker" class="playground-close-btn" title="Cerrar">&times;</button>
     </header>
     <div class="color-picker-body">
+      <!-- Selector de Esquema Armónico -->
+      <div class="color-scheme-row">
+        <label for="select-color-scheme" class="color-scheme-label">
+          <span data-i18n="color_picker_scheme">Esquema</span>:
+        </label>
+        <select id="select-color-scheme" class="color-scheme-select">
+          <option value="monochromatic" data-i18n="color_scheme_monochromatic">Monocromático</option>
+          <option value="complementary" data-i18n="color_scheme_complementary">Complementario</option>
+          <option value="analogous" data-i18n="color_scheme_analogous">Análogo</option>
+          <option value="triadic" data-i18n="color_scheme_triadic">Triádico</option>
+          <option value="tetradic" data-i18n="color_scheme_tetradic">Cuadrado</option>
+          <option value="custom" data-i18n="color_scheme_custom">Personalizado (Libre)</option>
+        </select>
+      </div>
+
       <div class="color-picker-main-row">
         <!-- Canvas con el anillo de tono y el triángulo interior -->
         <div class="color-canvas-container">
@@ -1216,7 +1231,7 @@
             </div>
             <div class="color-swatch-box">
               <span class="color-swatch-label" data-i18n="color_picker_new">Nuevo</span>
-              <div id="color-preview-new" class="color-preview-swatch">
+              <div id="color-preview-new" class="color-preview-swatch draggable-swatch" draggable="true" title="Arrastra sobre una casilla para asignar color">
                 <div class="color-swatch-fill" id="color-fill-new"></div>
               </div>
             </div>
@@ -1266,25 +1281,31 @@
         </div>
       </div>
 
-      <!-- Paleta de memoria (6 casillas permanentes en la sesión) -->
+      <!-- Paleta Armónica (10 casillas fijables y guardables) -->
       <div class="color-palette-section">
         <div class="color-palette-header">
-          <span>Paleta de Sesión</span>
-          <button type="button" id="btn-save-to-palette" class="btn-subtle-sm" data-i18n="color_picker_save_slot">+ Guardar en casilla</button>
+          <div class="palette-header-left">
+            <span class="palette-title" data-i18n="color_picker_palette_title">Paleta Armónica</span>
+            <button type="button" id="btn-pin-palette" class="btn-palette-pin" title="Fijar paleta para evitar actualización automática">
+              <span id="pin-icon-status">📌</span>
+              <span data-i18n="color_picker_pin">Fijar</span>
+            </button>
+          </div>
+          <div class="palette-header-right">
+            <select id="select-palette-file" class="palette-select-sm" title="Cargar paleta">
+              <option value="" data-i18n="color_picker_select_palette">Cargar paleta...</option>
+            </select>
+            <button type="button" id="btn-save-palette" class="btn-subtle-sm" data-i18n="color_picker_save_palette">💾 Guardar</button>
+          </div>
         </div>
-        <div class="color-palette-slots" id="color-palette-slots">
-          <div class="color-slot active" data-index="0" title="Casilla 1"></div>
-          <div class="color-slot" data-index="1" title="Casilla 2"></div>
-          <div class="color-slot" data-index="2" title="Casilla 3"></div>
-          <div class="color-slot" data-index="3" title="Casilla 4"></div>
-          <div class="color-slot" data-index="4" title="Casilla 5"></div>
-          <div class="color-slot" data-index="5" title="Casilla 6"></div>
+        <div class="color-palette-slots ten-slots" id="color-palette-slots">
+          <!-- 10 casillas generadas dinámicamente -->
         </div>
       </div>
     </div>
     <footer class="modal-footer" style="padding: 10px 16px; border-top: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.08)); display: flex; justify-content: flex-end; gap: 8px;">
       <button id="btn-cancel-color-picker" class="modal-btn-cancel" data-i18n="color_picker_btn_cancel">Cancelar</button>
-      <button id="btn-apply-color-picker" class="modal-btn-apply" data-i18n="color_picker_btn_apply">Aceptar</button>
+      <button id="btn-apply-color-picker" class="modal-btn-apply" data-i18n="color_picker_btn_apply">Aplicar</button>
     </footer>
   </div>
 
@@ -1312,8 +1333,26 @@
 
   <!-- Menú contextual para las casillas de color (clic derecho) -->
   <div id="palette-context-menu" class="palette-context-menu" style="display: none;">
-    <button type="button" id="ctx-palette-complementary" data-i18n="color_picker_ctx_complementary">Color Complementario</button>
-    <button type="button" id="ctx-palette-analogous" data-i18n="color_picker_ctx_analogous">Color Análogo</button>
+    <button type="button" id="ctx-palette-assign" data-i18n="color_picker_ctx_assign">🎨 Asignar color actual a esta casilla</button>
+    <button type="button" id="ctx-palette-copy" data-i18n="color_picker_ctx_copy">📋 Copiar código de color</button>
+  </div>
+
+  <!-- Modal para ingresar nombre de paleta al guardar -->
+  <div id="modal-palette-name" class="modal-overlay" style="z-index: 1070;">
+    <div class="modal-box modal-confirm-box" style="max-width: 420px;">
+      <header class="modal-header">
+        <h3 data-i18n="color_picker_save_palette">Guardar Paleta</h3>
+        <button id="btn-close-palette-name-modal" class="modal-close-btn">&times;</button>
+      </header>
+      <div class="modal-body" style="padding: 18px 20px; display: flex; flex-direction: column; gap: 10px;">
+        <label for="input-palette-name" style="font-size: 12px; color: var(--text-muted);" data-i18n="color_picker_prompt_name">Introduce un nombre para la paleta:</label>
+        <input type="text" id="input-palette-name" class="settings-input" style="width: 100%; box-sizing: border-box;" placeholder="Mi_Paleta">
+      </div>
+      <footer class="modal-footer" style="padding: 10px 18px; border-top: 1px solid var(--border-subtle); display: flex; justify-content: flex-end; gap: 8px;">
+        <button type="button" id="btn-cancel-palette-name" class="modal-btn-cancel" data-i18n="color_picker_btn_cancel">Cancelar</button>
+        <button type="button" id="btn-confirm-palette-name" class="modal-btn-apply" data-i18n="color_picker_save_palette">Guardar</button>
+      </footer>
+    </div>
   </div>
 
   

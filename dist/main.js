@@ -2842,6 +2842,18 @@ function actualizarTextosInterfaz(lang) {
   const t = translations[lang];
   if (!t) return;
 
+  const esDict = translations.es || {};
+  const currentDict = translations[lang] || translations[appState.language] || t || esDict;
+
+  // Actualización reactiva universal de todos los elementos con atributo data-i18n
+  document.querySelectorAll('[data-i18n]').forEach(el => {
+    const key = el.getAttribute('data-i18n');
+    const val = (currentDict && currentDict[key]) || (t && t[key]) || esDict[key];
+    if (key && val) {
+      el.textContent = val;
+    }
+  });
+
   // 1. Barra de Herramientas (tooltips)
   const setTooltip = (el, text) => { if (el) el.setAttribute('title', text); };
   setTooltip(DOM.btnNew, t.title_new);
@@ -2934,8 +2946,6 @@ function actualizarTextosInterfaz(lang) {
   setFloatingHeaderAndFooter('modal-md-advanced', t.md_title_advanced, t.help_advanced);
 
   // 6. Botones de Atajos (leídos íntegramente desde los archivos de configuración de idioma con fallback automático)
-  const esDict = translations.es || {};
-  const currentDict = translations[lang] || translations[appState.language] || t || esDict;
   const getTrans = (key) => (currentDict && currentDict[key]) || (t && t[key]) || (translations[lang] && translations[lang][key]) || esDict[key] || '';
 
   const shortcutTranslations = {
@@ -3196,8 +3206,15 @@ function inicializarDragAndDrop() {
   }
 
   // 2. Soporte para API Drag & Drop HTML5 estándar (en WebView2 o navegador)
+  const isFileDrag = (e) => {
+    if (!e || !e.dataTransfer || !e.dataTransfer.types) return false;
+    const types = Array.from(e.dataTransfer.types);
+    return types.includes('Files') || types.includes('application/x-moz-file');
+  };
+
   ['dragenter', 'dragover'].forEach(evt => {
     window.addEventListener(evt, (e) => {
+      if (!isFileDrag(e)) return;
       e.preventDefault();
       e.stopPropagation();
       dragCounter++;
@@ -3205,6 +3222,7 @@ function inicializarDragAndDrop() {
     });
     if (DOM.editor) {
       DOM.editor.addEventListener(evt, (e) => {
+        if (!isFileDrag(e)) return;
         e.preventDefault();
         e.stopPropagation();
       });
@@ -3212,6 +3230,7 @@ function inicializarDragAndDrop() {
   });
 
   window.addEventListener('dragleave', (e) => {
+    if (!isFileDrag(e)) return;
     e.preventDefault();
     e.stopPropagation();
     dragCounter--;
@@ -3222,6 +3241,7 @@ function inicializarDragAndDrop() {
   });
 
   const handleDrop = async (e) => {
+    if (!isFileDrag(e)) return;
     e.preventDefault();
     e.stopPropagation();
     dragCounter = 0;
@@ -3688,6 +3708,45 @@ DOM.editor.addEventListener('click', () => {
   sincronizarFocoElemento();
   if (DOM.modalStats.classList.contains('active')) {
     actualizarEstadisticasDetalladas();
+  }
+
+  // Si el selector de color está activo, detectar si el clic seleccionó otra línea con color
+  const modalColorPicker = document.getElementById('modal-color-picker');
+  if (modalColorPicker && modalColorPicker.classList.contains('active')) {
+    setTimeout(() => {
+      const textarea = DOM.editor;
+      const start = textarea.selectionStart;
+      const allText = textarea.value;
+      const lineStart = allText.lastIndexOf('\n', start - 1) + 1;
+      let lineEnd = allText.indexOf('\n', start);
+      if (lineEnd === -1) lineEnd = allText.length;
+      const line = allText.substring(lineStart, lineEnd);
+      const offsetInLine = start - lineStart;
+
+      const colorRegex = /(#[0-9a-fA-F]{3,8}|rgba?\s*\([^)]+\))/g;
+      let match;
+      while ((match = colorRegex.exec(line)) !== null) {
+        const mStart = match.index;
+        const mEnd = match.index + match[0].length;
+        if (offsetInLine >= mStart && offsetInLine <= mEnd) {
+          const absStart = lineStart + mStart;
+          const absEnd = lineStart + mEnd;
+          const colorFound = match[0];
+
+          textarea.setSelectionRange(absStart, absEnd);
+
+          abrirColorPicker(colorFound, (nuevoColor) => {
+            textarea.setRangeText(nuevoColor, absStart, absEnd, 'select');
+            textarea.dispatchEvent(new Event('input', { bubbles: true }));
+            setSavedState(false);
+            if (typeof refrescarPlaygroundLocal === 'function') {
+              refrescarPlaygroundLocal();
+            }
+          });
+          break;
+        }
+      }
+    }, 0);
   }
 });
 

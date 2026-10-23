@@ -1,0 +1,31 @@
+/* ==========================================================================
+   EDITOR (PANEL IZQUIERDO)
+   ========================================================================== */
+#editor-container {
+  background-color: var(--bg-app);
+}
+
+#editor {
+  flex: 1;
+  width: 100%;
+  height: 100%;
+  background-color: transparent;
+  border: none;
+  resize: none;
+  outline: none;
+  color: var(--text-editor);
+  font-family: var(--editor-font-family);
+  font-size: var(--editor-font-size);
+  line-height: 1.65;
+  padding: 32px;
+  tab-size: 4;
+  overflow-y: auto;
+  caret-color: var(--accent-hover);
+  transition: font-size var(--transition-fast), font-family var(--transition-fast);
+}
+
+#editor::placeholder {
+  color: rgba(148, 163, 184, 0.25);
+  font-style: italic;
+}
+

@@ -1,0 +1,131 @@
+/* ==========================================================================
+   ESTILOS PREMIUM - MARKDOWN EDITOR (MIGRACIÓN TAURI v2)
+   ========================================================================== */
+
+/* Variables de Configuración Dinámica (Cargadas e Inyectadas en Tiempo Real) */
+:root {
+  /* Paleta de Colores de Alta Gama (Tema Oscuro Satinado) */
+  --bg-app: #090b11;            /* Fondo profundo de la aplicación */
+  --bg-panel: #11141e;          /* Fondo de los paneles principales */
+  --bg-toolbar: #0c0e16;        /* Fondo de barras superior e inferior */
+  --bg-modal: linear-gradient(135deg, #171c2a 0%, #0d1017 100%);
+  --bg-input: rgba(255, 255, 255, 0.02);
+  --bg-code: #161b29;           /* Fondo para bloques de código */
+  
+  --border-subtle: rgba(255, 255, 255, 0.06);
+  --border-focus: rgba(139, 92, 246, 0.45); /* Violeta brillante */
+  
+  --text-main: #f1f5f9;         /* Blanco suave premium (slate-100) */
+  --text-muted: #64748b;        /* Gris apagado elegante (slate-500) */
+  --text-editor: #cbd5e1;       /* Texto de escritura confortable */
+  
+  --accent: #8b5cf6;            /* Violeta acento */
+  --accent-gradient: linear-gradient(135deg, #8b5cf6 0%, #3b82f6 100%);
+  --accent-hover: #a78bfa;
+  
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.3);
+  --shadow-lg: 0 20px 40px rgba(0, 0, 0, 0.6);
+  
+  --transition-fast: 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-normal: 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  
+  /* Valores Tipográficos Editables Dinámicamente desde Configuración */
+  --editor-font-family: 'Fira Code', 'JetBrains Mono', Consolas, monospace;
+  --reader-font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  --editor-font-size: 14px;
+  --reader-font-size: 15px;
+  --reader-paragraph-indent: 24px;
+}
+
+/* Reseteo y Estilos Base */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  background-color: var(--bg-app);
+  color: var(--text-main);
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+
+/* ==========================================================================
+   BARRA DE ESTADO (STATUS BAR)
+   ========================================================================== */
+#statusbar {
+  height: 28px;
+  background-color: var(--bg-toolbar);
+  border-top: 1px solid var(--border-subtle);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 20px;
+  font-size: 11.5px;
+  color: var(--text-muted);
+  user-select: none;
+}
+
+.statusbar-left,
+.statusbar-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Círculo indicador de estado */
+#status-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  display: inline-block;
+  transition: background-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.dot-saved {
+  background-color: #10b981; /* Verde esmeralda */
+  box-shadow: 0 0 6px rgba(16, 185, 129, 0.45);
+}
+
+.dot-unsaved {
+  background-color: #ef4444; /* Rojo - no guardado / solo en memoria */
+  box-shadow: 0 0 6px rgba(239, 68, 68, 0.45);
+}
+
+/* ==========================================================================
+   SCROLLBARS ELEGANTES AUTOCULTIVABLES
+   ========================================================================== */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* Ocultar por defecto (color transparente) con transición suave */
+::-webkit-scrollbar-thumb {
+  background: transparent;
+  border-radius: 4px;
+  transition: background-color 0.25s ease;
+}
+
+/* Mostrar la barra de scroll de forma muy sutil al pasar el mouse sobre el editor o visor */
+#editor-container:hover ::-webkit-scrollbar-thumb,
+#preview-container:hover ::-webkit-scrollbar-thumb {
+  background: var(--border-subtle, rgba(255, 255, 255, 0.08));
+}
+
+/* Resaltado dinámico en color violeta acentuado cuando el mouse se posiciona sobre el propio scroll */
+#editor-container ::-webkit-scrollbar-thumb:hover,
+#preview-container ::-webkit-scrollbar-thumb:hover {
+  background: var(--accent) !important;
+}
+

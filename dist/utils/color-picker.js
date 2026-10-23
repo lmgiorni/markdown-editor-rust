@@ -957,8 +957,7 @@ function configurarPaletaArmonica() {
 
   // Selector de Paletas guardadas (Cargar paleta)
   if (selectFile) {
-    selectFile.addEventListener('focus', recargarListaPaletas);
-    selectFile.addEventListener('mousedown', recargarListaPaletas);
+    selectFile.addEventListener('focus', () => recargarListaPaletas());
     selectFile.addEventListener('change', async (e) => {
       const filePath = e.target.value;
       if (!filePath) return;
@@ -1016,16 +1015,36 @@ export async function recargarListaPaletas() {
       const paletas = await inv('listar_paletas');
       if (Array.isArray(paletas)) {
         const currentVal = selectFile.value;
-        while (selectFile.options.length > 1) {
-          selectFile.remove(1);
-        }
+        selectFile.innerHTML = '';
+        
+        let defaultPalette = null;
         paletas.forEach(p => {
           const opt = document.createElement('option');
           opt.value = p.filePath;
           opt.textContent = p.paletteName.replace(/_/g, ' ');
           selectFile.appendChild(opt);
+          if (p.paletteName.toLowerCase() === 'default' || p.paletteName.toLowerCase() === 'por_defecto') {
+            if (!defaultPalette || p.paletteName.toLowerCase() === 'default') {
+              defaultPalette = p;
+            }
+          }
         });
-        if (currentVal) selectFile.value = currentVal;
+        
+        if (currentVal && Array.from(selectFile.options).some(o => o.value === currentVal)) {
+          selectFile.value = currentVal;
+        } else if (pickerState.activePaletteName) {
+          const matched = paletas.find(p => p.paletteName.toLowerCase() === pickerState.activePaletteName.toLowerCase());
+          if (matched) {
+            selectFile.value = matched.filePath;
+          } else if (defaultPalette) {
+            selectFile.value = defaultPalette.filePath;
+          }
+        } else if (defaultPalette) {
+          selectFile.value = defaultPalette.filePath;
+          if (!sessionStorage.getItem('md-color-palette-10')) {
+            await cargarPaletaDesdeArchivo(defaultPalette.filePath);
+          }
+        }
       }
     } catch (e) {
       console.warn('Error listando paletas:', e);

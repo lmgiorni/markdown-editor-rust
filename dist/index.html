@@ -948,7 +948,7 @@
           <div class="config-row">
             <label for="select-max-recent-files" data-i18n="config_max_recent_files">Límite de Archivos Recientes</label>
             <select id="select-max-recent-files" class="config-select">
-              <option value="5" selected>5 archivos (Predeterminado)</option>
+              <option value="5" selected data-i18n="recent_files_count_5">5 archivos</option>
               <option value="6">6 archivos</option>
               <option value="7">7 archivos</option>
               <option value="8">8 archivos</option>
@@ -1292,8 +1292,9 @@
             </button>
           </div>
           <div class="palette-header-right">
-            <select id="select-palette-file" class="palette-select-sm" title="Cargar paleta">
-              <option value="" data-i18n="color_picker_select_palette">Cargar paleta...</option>
+            <label for="select-palette-file" class="palette-select-label" data-i18n="color_picker_palette_label" style="font-size: 11.5px; color: var(--text-muted); margin-right: 2px;">Paleta:</label>
+            <select id="select-palette-file" class="palette-select-sm" title="Seleccionar paleta">
+
             </select>
             <button type="button" id="btn-save-palette" class="btn-subtle-sm" data-i18n="color_picker_save_palette">💾 Guardar</button>
           </div>

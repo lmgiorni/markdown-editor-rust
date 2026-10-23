@@ -18,7 +18,15 @@
 .modal-overlay.active {
   opacity: 1;
   visibility: visible;
+  pointer-events: none;
+}
+
+/* Modales críticos que sí deben bloquear toda interacción detrás */
+.modal-overlay.blocking-modal.active,
+#modal-system-confirm.active,
+#modal-palette-name.active {
   pointer-events: auto;
+  background-color: rgba(0, 0, 0, 0.45);
 }
 
 .modal-box {
@@ -723,11 +731,11 @@
    ========================================================================== */
 /* Dimensionado responsivo de la ventana flotante de Configuración (#modal-config) */
 #modal-config .modal-box {
-  top: 24px;
+  top: 70px;
   max-width: 480px;
   width: 90%;
   left: calc(50% - 240px);
-  max-height: 94vh;
+  max-height: calc(100vh - 85px);
 }
 
 #modal-config .modal-header {
@@ -736,7 +744,7 @@
 
 #modal-config .modal-body {
   padding: 12px 18px 16px;
-  max-height: calc(94vh - 48px);
+  max-height: calc(100vh - 140px);
   overflow-y: auto;
 }
 

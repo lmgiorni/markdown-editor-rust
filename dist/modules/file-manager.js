@@ -165,7 +165,7 @@ export function actualizarNombreArchivo() {
 
   if (appState.filePath === null) {
     // Si el documento nunca ha sido guardado en disco
-    DOM.fileInfo.textContent = appState.isSaved ? `${display}.md` : `${display}.md (${t.status_unsaved || 'sin guardar'})`;
+    DOM.fileInfo.textContent = `${display}.md`;
     if (DOM.activeFilepathDisplay) {
       DOM.activeFilepathDisplay.textContent = t.status_no_file_disk || (lang === 'es' ? 'Sin archivo guardado en disco' : (lang === 'en' ? 'No file saved on disk' : 'Nullum documentum in disco'));
     }
@@ -175,7 +175,7 @@ export function actualizarNombreArchivo() {
     }
   } else {
     const statusText = appState.isSaved ? (t.status_saved || 'guardado') : (t.status_unsaved || 'sin guardar');
-    DOM.fileInfo.textContent = `${display}.md (${statusText})`;
+    DOM.fileInfo.textContent = `${display}.md`;
     if (DOM.activeFilepathDisplay) {
       DOM.activeFilepathDisplay.textContent = appState.filePath;
     }

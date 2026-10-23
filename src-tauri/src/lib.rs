@@ -887,6 +887,7 @@ pub fn run() {
       // Crear directorio de paletas e inyectar paletas base
       let palettes_dir = assets_dir.join("palettes");
       fs::create_dir_all(&palettes_dir).unwrap_or_default();
+      fs::write(palettes_dir.join("default.md"), include_str!("../../assets/palettes/default.md")).unwrap_or_default();
       fs::write(palettes_dir.join("Por_Defecto.md"), include_str!("../../assets/palettes/Por_Defecto.md")).unwrap_or_default();
       fs::write(palettes_dir.join("Cyberpunk_Neon.md"), include_str!("../../assets/palettes/Cyberpunk_Neon.md")).unwrap_or_default();
 

@@ -286,9 +286,6 @@ export function inicializarThemePlayground() {
       playgroundBox.classList.remove('active');
       playgroundBox.style.height = '';
       await refrescarListaTemas();
-      if (DOM.modalConfig) {
-        DOM.modalConfig.classList.add('active');
-      }
     });
   }
 
@@ -371,9 +368,13 @@ export function inicializarThemePlayground() {
 
   // 5. Botón de aplicar tema globalmente
   if (btnApplyThemeGlobal) {
-    btnApplyThemeGlobal.addEventListener('click', () => {
+    btnApplyThemeGlobal.addEventListener('click', async () => {
       if (appState.filePath && appState.filePath.includes('themes')) {
-        cargarYAplicarTema(appState.filePath);
+        if (!appState.isSaved && typeof ctx.guardarArchivo === 'function') {
+          const guardado = await ctx.guardarArchivo();
+          if (!guardado) return;
+        }
+        await cargarYAplicarTema(appState.filePath);
         if (typeof ctx.alertNotification === 'function') {
           ctx.alertNotification('¡Tema aplicado globalmente al sistema!', 'success');
         }

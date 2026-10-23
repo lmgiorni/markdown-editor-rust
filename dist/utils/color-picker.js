@@ -583,6 +583,76 @@ function cargarColorActivo(colorString) {
   dibujarCanvas();
 }
 
+// Sistema nativo de arrastre y soltar (Pointer Drag & Drop) para muestras y casillas
+function iniciarArrastreColor(startEvent, colorToDrag) {
+  if (!colorToDrag) return;
+
+  const startX = startEvent.clientX;
+  const startY = startEvent.clientY;
+  let isDragging = false;
+  let ghost = null;
+
+  const onPointerMove = (e) => {
+    const dist = Math.hypot(e.clientX - startX, e.clientY - startY);
+    if (!isDragging && dist > 4) {
+      isDragging = true;
+      document.body.style.cursor = 'grabbing';
+      document.body.style.userSelect = 'none';
+
+      ghost = document.createElement('div');
+      ghost.className = 'color-drag-ghost';
+      ghost.style.backgroundColor = colorToDrag;
+      document.body.appendChild(ghost);
+    }
+
+    if (isDragging && ghost) {
+      ghost.style.left = `${e.clientX}px`;
+      ghost.style.top = `${e.clientY}px`;
+
+      // Resaltar casilla bajo el cursor
+      document.querySelectorAll('.color-slot').forEach(s => s.classList.remove('drag-over'));
+      const elemBelow = document.elementFromPoint(e.clientX, e.clientY);
+      const slot = elemBelow ? elemBelow.closest('.color-slot') : null;
+      if (slot) {
+        slot.classList.add('drag-over');
+      }
+    }
+  };
+
+  const onPointerUp = (e) => {
+    document.removeEventListener('pointermove', onPointerMove);
+    document.removeEventListener('pointerup', onPointerUp);
+    document.body.style.cursor = '';
+    document.body.style.userSelect = '';
+
+    if (ghost) {
+      ghost.remove();
+      ghost = null;
+    }
+
+    if (isDragging) {
+      document.querySelectorAll('.color-slot').forEach(s => s.classList.remove('drag-over'));
+      const elemBelow = document.elementFromPoint(e.clientX, e.clientY);
+      const slot = elemBelow ? elemBelow.closest('.color-slot') : null;
+      if (slot) {
+        const slotIdx = parseInt(slot.dataset.index, 10);
+        if (!isNaN(slotIdx)) {
+          pickerState.palette[slotIdx] = colorToDrag;
+          pickerState.activeSlotIndex = slotIdx;
+          pickerState.isPinned = true;
+          actualizarBotonFijar();
+          guardarPaletaSesion();
+          renderizarSlots();
+          mostrarToast(`Color asignado a la casilla ${slotIdx + 1}`);
+        }
+      }
+    }
+  };
+
+  document.addEventListener('pointermove', onPointerMove);
+  document.addEventListener('pointerup', onPointerUp);
+}
+
 function configurarControlesUI() {
   const inputR = document.getElementById('color-input-r');
   const inputG = document.getElementById('color-input-g');
@@ -693,19 +763,14 @@ function configurarControlesUI() {
     });
   }
 
-  // Drag & Drop desde la muestra "Nuevo"
+  // Drag & Drop fluido desde la muestra "Nuevo"
   const newSwatch = document.getElementById('color-preview-new');
   if (newSwatch) {
-    newSwatch.setAttribute('draggable', 'true');
-    newSwatch.addEventListener('dragstart', (e) => {
-      e.dataTransfer.setData('text/plain', pickerState.currentColor);
-      e.dataTransfer.setData('application/x-color', pickerState.currentColor);
-      e.dataTransfer.effectAllowed = 'copyMove';
-      newSwatch.classList.add('is-dragging');
-    });
-    newSwatch.addEventListener('dragend', () => {
-      newSwatch.classList.remove('is-dragging');
-      document.querySelectorAll('.color-slot').forEach(s => s.classList.remove('drag-over'));
+    newSwatch.setAttribute('draggable', 'false');
+    newSwatch.addEventListener('dragstart', (e) => e.preventDefault());
+    newSwatch.addEventListener('pointerdown', (e) => {
+      if (e.button !== 0) return;
+      iniciarArrastreColor(e, pickerState.currentColor);
     });
   }
 
@@ -806,47 +871,10 @@ function renderizarSlots() {
       }
     });
 
-    // 2. Drag & Drop: Asignar color al soltar sobre la casilla
-    slot.addEventListener('dragenter', (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      e.dataTransfer.dropEffect = 'copy';
-      slot.classList.add('drag-over');
-    });
-
-    slot.addEventListener('dragover', (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      e.dataTransfer.dropEffect = 'copy';
-      if (!slot.classList.contains('drag-over')) {
-        slot.classList.add('drag-over');
-      }
-    });
-
-    slot.addEventListener('dragleave', (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      if (!slot.contains(e.relatedTarget)) {
-        slot.classList.remove('drag-over');
-      }
-    });
-
-    slot.addEventListener('drop', (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      slot.classList.remove('drag-over');
-      const colorDrop = e.dataTransfer.getData('application/x-color') || 
-                        e.dataTransfer.getData('text/plain') || 
-                        pickerState.currentColor;
-      if (colorDrop) {
-        pickerState.palette[idx] = colorDrop;
-        pickerState.activeSlotIndex = idx;
-        pickerState.isPinned = true;
-        actualizarBotonFijar();
-        guardarPaletaSesion();
-        renderizarSlots();
-        mostrarToast(`Color asignado a la casilla ${idx + 1}`);
-      }
+    // 2. Drag & Drop fluido: Arrastrar el color de esta casilla a otra
+    slot.addEventListener('pointerdown', (e) => {
+      if (e.button !== 0 || !color) return;
+      iniciarArrastreColor(e, color);
     });
 
     // 3. Clic derecho: Menú contextual

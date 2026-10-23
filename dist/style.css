@@ -3697,6 +3697,18 @@ dd {
   box-shadow: 0 0 0 2px var(--border-focus, var(--accent));
 }
 
+.color-drag-ghost {
+  position: fixed;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: 2px solid #ffffff;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(0, 0, 0, 0.2);
+  pointer-events: none;
+  z-index: 100000;
+  transform: translate(-50%, -50%);
+}
+
 .color-slot.drag-over {
   border-color: var(--accent, #6366f1) !important;
   box-shadow: 0 0 0 2px var(--accent, #6366f1) !important;

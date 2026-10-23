@@ -93,12 +93,7 @@ import {
   actualizarTextosInterfaz,
   actualizarBarraDeEstadoTextos,
   inicializarModalAbout,
-  alertNotification,
-  inicializarMenuContextualVisor,
-  insertarTextoModuloConSangria,
-  inicializarSidebarComponentes,
-  cargarComponentesSidebar,
-  renderizarComponentesFiltrados
+  alertNotification
 } from './modules/ui-dialogs.js';
 
 // Configuración y Acceso Seguro al Puente de Tauri
@@ -984,8 +979,7 @@ Este es tu nuevo espacio de escritura histórica y gestión. Todo lo que escriba
   // Inicializar el historial unificado una vez cargados todos los contenidos
   inicializarHistorial();
   
-  // Inicializar menú contextual del Visor e integraciones (Fases 11 & 12)
-  inicializarMenuContextualVisor();
+  // Motores e integraciones (Fases 11 & 12)
   initEditorEngine({
     DOM,
     appState,
@@ -1003,7 +997,6 @@ Este es tu nuevo espacio de escritura histórica y gestión. Todo lo que escriba
     setSavedState,
     getHistorial: () => historial
   });
-  inicializarSidebarComponentes();
   initStructuredEditor({
     DOM,
     appState,

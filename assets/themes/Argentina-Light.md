@@ -7,7 +7,7 @@
 			**bg-app**: #ffffff
 			**bg-toolbar**: #e2e8f0
 			**bg-sidebar**: #f1f5f9
-			**bg-panel**: #e0aa14
+			**bg-panel**: #f4e5bd
 			**bg-modal**: #0000
 			**border-subtle**: rgba(0, 0, 0, 0.08)
 			**accent**: #6366f1

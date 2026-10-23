@@ -4,7 +4,9 @@
 
 import { translations, listarIdiomasDisponibles, cargarIdiomaDesdeDisco } from '../utils/i18n.js';
 import { obtenerTextoModuloConSangria } from '../utils/template-engine.js';
+import { parseMarkdownToJSON } from '../utils/data-parser.js';
 import { renderMarkdown } from './reader-engine.js';
+import { renderStructuredTreeVisual } from './structured-editor.js';
 import { exportarAHTML, exportarAPDF, procesarCargaDePlantillaText } from './export-manager.js';
 import { actualizarNombreArchivo, setSavedState } from './file-manager.js';
 import { refrescarListaTemas } from './theme-manager.js';
@@ -670,6 +672,7 @@ export function inicializarModalAbout() {
 export function inicializarMenuContextualVisor() {
   const DOM = getDOM();
   const appState = getAppState();
+  const invoke = getInvoke();
 
   let menu = document.getElementById('visor-context-menu');
   if (!menu) {
@@ -688,57 +691,124 @@ export function inicializarMenuContextualVisor() {
       const lang = appState.language || 'es';
       const t = translations[lang] || translations.es;
       
+      const seleccion = window.getSelection().toString();
+      const tieneSeleccion = seleccion.trim().length > 0;
+      
+      const label = appState.structuredModeActive ? t.ctx_disable_struct : t.ctx_enable_struct;
+      const icon = appState.structuredModeActive 
+        ? `<svg viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="2"><path d="M12 20h9M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>`
+        : `<svg viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="9" y1="21" x2="9" y2="9"></line><line x1="3" y1="9" x2="21" y2="9"></line></svg>`;
+        
       menu.innerHTML = `
-        <div class="context-item" id="ctx-copy-selection">📋 ${t.ctx_copy_selection || 'Copiar Selección'}</div>
-        <div class="context-item" id="ctx-copy-all">📑 ${t.ctx_copy_all || 'Copiar Todo el Documento'}</div>
-        <div class="context-divider"></div>
-        <div class="context-item" id="ctx-export-html">🌐 ${t.ctx_export_html || 'Exportar a HTML'}</div>
-        <div class="context-item" id="ctx-export-pdf">📄 ${t.ctx_export_pdf || 'Exportar a PDF'}</div>
+        <button class="context-menu-item" id="ctx-copy" ${tieneSeleccion ? '' : 'disabled style="opacity: 0.4; cursor: not-allowed;"'}>
+          <svg viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+          <span>${t.ctx_copy || 'Copiar'}</span>
+        </button>
+        <button class="context-menu-item" id="ctx-select-all">
+          <svg viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect></svg>
+          <span>${t.ctx_select_all || 'Seleccionar todo'}</span>
+        </button>
+        <button class="context-menu-item" id="ctx-export-module" ${tieneSeleccion ? '' : 'disabled style="opacity: 0.4; cursor: not-allowed;"'}>
+          <svg viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
+          <span>${t.ctx_export_module || 'Exportar como Módulo...'}</span>
+        </button>
+        <div class="dropdown-divider"></div>
+        <button class="context-menu-item" id="ctx-toggle-structured">
+          ${icon}
+          <span>${label || 'Alternar Modo Estructurado'}</span>
+        </button>
+        <div class="dropdown-divider"></div>
+        <button class="context-menu-item" id="ctx-export-html">
+          <svg viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>
+          <span>${t.ctx_export_html || 'Exportar a HTML...'}</span>
+        </button>
+        <button class="context-menu-item" id="ctx-export-pdf">
+          <svg viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><path d="M16 13H8v4h8v-4z"></path></svg>
+          <span>${t.ctx_export_pdf || 'Exportar a PDF...'}</span>
+        </button>
       `;
       
-      const mouseX = e.clientX;
-      const mouseY = e.clientY;
-      menu.style.left = `${mouseX}px`;
-      menu.style.top = `${mouseY}px`;
+      menu.style.left = `${e.clientX}px`;
+      menu.style.top = `${e.clientY}px`;
       menu.style.display = 'flex';
       
-      // Manejadores del menú contextual
-      const btnCopySel = document.getElementById('ctx-copy-selection');
-      if (btnCopySel) {
-        btnCopySel.addEventListener('click', async () => {
+      if (tieneSeleccion) {
+        const btnCopy = document.getElementById('ctx-copy');
+        if (btnCopy) {
+          btnCopy.addEventListener('click', () => {
+            menu.style.display = 'none';
+            navigator.clipboard.writeText(seleccion);
+            alertNotification(t.ctx_copy_notification || 'Texto copiado al portapapeles', 'info');
+          });
+        }
+        
+        const btnExportMod = document.getElementById('ctx-export-module');
+        if (btnExportMod) {
+          btnExportMod.addEventListener('click', async () => {
+            menu.style.display = 'none';
+            if (!invoke) {
+              alertNotification(t.struct_web_export_unavailable || 'Exportación no disponible en entorno web', 'error');
+              return;
+            }
+            try {
+              const baseName = appState.fileName && appState.fileName !== 'Sin título' ? appState.fileName : 'nuevo_modulo';
+              const defaultSaveName = baseName.replace(/\s+/g, '_') + '.md';
+              const fileData = await invoke('guardar_como', { 
+                defaultName: defaultSaveName, 
+                content: seleccion, 
+                directoryType: 'modules' 
+              });
+              if (fileData) {
+                alertNotification((t.ctx_export_module_success || 'Módulo exportado con éxito en: ') + fileData.name, 'success');
+                if (DOM.componentsSidebar && !DOM.componentsSidebar.classList.contains('collapsed')) {
+                  cargarComponentesSidebar();
+                }
+              }
+            } catch (err) {
+              alertNotification((t.ctx_export_module_error || 'Error al exportar módulo: ') + err, 'error');
+            }
+          });
+        }
+      }
+      
+      const btnSelAll = document.getElementById('ctx-select-all');
+      if (btnSelAll) {
+        btnSelAll.addEventListener('click', () => {
           menu.style.display = 'none';
-          const sel = window.getSelection().toString();
-          if (sel) {
-            await navigator.clipboard.writeText(sel);
-            alertNotification(t.ctx_alert_copied_selection || 'Selección copiada al portapapeles', 'success');
+          const range = document.createRange();
+          range.selectNodeContents(DOM.preview);
+          const sel = window.getSelection();
+          sel.removeAllRanges();
+          sel.addRange(range);
+          alertNotification(t.ctx_select_all_notification || 'Contenido del visor seleccionado', 'info');
+        });
+      }
+      
+      const btnToggleStruct = document.getElementById('ctx-toggle-structured');
+      if (btnToggleStruct) {
+        btnToggleStruct.addEventListener('click', () => {
+          menu.style.display = 'none';
+          appState.structuredModeActive = !appState.structuredModeActive;
+          if (appState.structuredModeActive) {
+            const arbol = parseMarkdownToJSON(DOM.editor ? DOM.editor.value : '');
+            renderStructuredTreeVisual(arbol);
           } else {
-            alertNotification(t.ctx_alert_no_selection || 'No hay texto seleccionado en el visor', 'info');
+            renderMarkdown();
           }
         });
       }
       
-      const btnCopyAll = document.getElementById('ctx-copy-all');
-      if (btnCopyAll) {
-        btnCopyAll.addEventListener('click', async () => {
-          menu.style.display = 'none';
-          if (DOM.editor) {
-            await navigator.clipboard.writeText(DOM.editor.value);
-            alertNotification(t.ctx_alert_copied_all || 'Documento completo copiado al portapapeles', 'success');
-          }
-        });
-      }
-      
-      const btnExpHtml = document.getElementById('ctx-export-html');
-      if (btnExpHtml) {
-        btnExpHtml.addEventListener('click', () => {
+      const btnExportHtml = document.getElementById('ctx-export-html');
+      if (btnExportHtml) {
+        btnExportHtml.addEventListener('click', () => {
           menu.style.display = 'none';
           exportarAHTML();
         });
       }
       
-      const btnExpPdf = document.getElementById('ctx-export-pdf');
-      if (btnExpPdf) {
-        btnExpPdf.addEventListener('click', () => {
+      const btnExportPdf = document.getElementById('ctx-export-pdf');
+      if (btnExportPdf) {
+        btnExportPdf.addEventListener('click', () => {
           menu.style.display = 'none';
           exportarAPDF();
         });
@@ -846,49 +916,68 @@ export async function cargarComponentesSidebar() {
   const lang = appState.language || 'es';
   const t = translations[lang] || translations.es;
 
-  DOM.sidebarList.innerHTML = `<div style="color: #64748b; font-size: 12px; padding: 12px; text-align: center;">${t.lib_loading}</div>`;
+  DOM.sidebarList.innerHTML = `<div style="color: #64748b; font-size: 12px; padding: 12px; text-align: center;">${t.lib_loading || 'Cargando componentes...'}</div>`;
+  listadoComponentesEnriquecidos = [];
 
   if (!invoke) {
-    DOM.sidebarList.innerHTML = `<div style="color: #ef4444; font-size: 12px; padding: 12px; text-align: center;">${t.lib_offline}</div>`;
+    DOM.sidebarList.innerHTML = `<div style="color: #ef4444; font-size: 12px; padding: 12px; text-align: center;">${t.lib_offline || 'Entorno web: activos no disponibles.'}</div>`;
     return;
   }
 
   try {
-    const comando = sidebarActiveType === 'modules' ? 'listar_modulos' : 'listar_plantillas';
-    const rawList = await invoke(comando);
-    
-    if (Array.isArray(rawList)) {
-      listadoComponentesEnriquecidos = rawList.map(item => {
-        const matchMeta = item.content.match(/^---\r?\n([\s\S]*?)\r?\n---/);
-        let cat = 'General';
-        let desc = '';
-        let cleanText = item.content;
-
-        if (matchMeta) {
-          const metaStr = matchMeta[1];
-          cleanText = item.content.replace(/^---\r?\n[\s\S]*?\r?\n---\r?\n?/, '');
-          const catMatch = metaStr.match(/categoria:\s*([^\r\n]+)/i);
-          if (catMatch) cat = catMatch[1].trim();
-          const descMatch = metaStr.match(/descripcion:\s*([^\r\n]+)/i);
-          if (descMatch) desc = descMatch[1].trim();
-        }
-
-        return {
-          id: item.id,
-          nombreMenu: item.name,
-          categoria: cat,
-          descripcion: desc,
-          text: cleanText
-        };
-      });
-    } else {
-      listadoComponentesEnriquecidos = [];
+    const activos = await invoke('listar_activos', { tipo: sidebarActiveType });
+    if (!activos || activos.length === 0) {
+      const msgNoAssets = t.lib_no_assets ? t.lib_no_assets.replace('{tipo}', sidebarActiveType) : `No hay activos en /assets/${sidebarActiveType}/`;
+      DOM.sidebarList.innerHTML = `<div style="color: #64748b; font-size: 12px; padding: 12px; text-align: center;">${msgNoAssets}</div>`;
+      return;
     }
 
+    const promesas = activos.map(async (activo) => {
+      try {
+        const text = await invoke('leer_activo', { filePath: activo.filePath });
+        
+        // Extraer categoría y descripción
+        const lines = text.split('\n');
+        let firstLine = '';
+        for (let line of lines) {
+          if (line.trim().length > 0) {
+            firstLine = line.trim();
+            break;
+          }
+        }
+
+        let categoria = t.lib_default_category || 'General';
+        let descripcion = t.lib_default_desc || 'Sin descripción disponible.';
+        const metaRegex = /^#\s*([a-zA-Z0-9_#-]+)\s*`([^`]+)`/;
+        const match = firstLine.match(metaRegex);
+        if (match) {
+          categoria = match[1].replace(/_/g, ' ');
+          descripcion = match[2];
+        }
+
+        const nombreMenu = activo.fileName.replace(/_/g, ' ').replace(/([A-Z])/g, ' $1').replace(/\s+/g, ' ').trim();
+
+        return {
+          fileName: activo.fileName,
+          filePath: activo.filePath,
+          nombreMenu,
+          categoria,
+          descripcion,
+          text
+        };
+      } catch (err) {
+        console.error('Error individual de componente:', err);
+        return null;
+      }
+    });
+
+    const resultados = await Promise.all(promesas);
+    listadoComponentesEnriquecidos = resultados.filter(r => r !== null);
     renderizarComponentesFiltrados();
+
   } catch (err) {
-    console.error('Error cargando biblioteca:', err);
-    DOM.sidebarList.innerHTML = `<div style="color: #ef4444; font-size: 12px; padding: 12px; text-align: center;">${t.lib_error}</div>`;
+    console.error('Error al listar componentes:', err);
+    DOM.sidebarList.innerHTML = `<div style="color: #ef4444; font-size: 12px; padding: 12px; text-align: center;">${t.lib_error || 'Error al listar componentes:'} ${err}</div>`;
   }
 }
 

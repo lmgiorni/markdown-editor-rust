@@ -17,6 +17,7 @@ export function initEditorEngine(options = {}) {
   ctx = { ...ctx, ...options };
   inicializarAtajosMarkdown();
   actualizarInsigniasAtajos();
+  inicializarTabToIndent();
 }
 
 function getDOM() {
@@ -1060,4 +1061,119 @@ document.querySelectorAll('.shortcuts-category-header').forEach(header => {
 });
 
 
+}
+
+
+/**
+ * Funcionalidad Premium Tab-To-Indent y consolidación de escritura
+ */
+export function inicializarTabToIndent() {
+  const DOM = getDOM();
+  if (!DOM.editor) return;
+
+  DOM.editor.addEventListener('keydown', (e) => {
+    if (e.key === ' ' || e.key === 'Enter') {
+      const historial = getHistorial();
+      if (historial) historial.finalizarSesionEscritura();
+    }
+
+    if (e.key === 'Tab') {
+      e.preventDefault();
+      const historial = getHistorial();
+      if (historial) historial.finalizarSesionEscritura();
+      
+      const textarea = DOM.editor;
+      const start = textarea.selectionStart;
+      const end = textarea.selectionEnd;
+      const originalText = textarea.value;
+      
+      if (historial) {
+        historial.registrarCambioAntesDeFormato();
+      }
+      
+      const isShift = e.shiftKey;
+      
+      if (start !== end) {
+        let inicioSeleccion = originalText.lastIndexOf('\n', start - 1);
+        if (inicioSeleccion === -1) {
+          inicioSeleccion = 0;
+        } else {
+          inicioSeleccion += 1;
+        }
+        
+        let finSeleccion = originalText.indexOf('\n', end);
+        if (finSeleccion === -1) {
+          finSeleccion = originalText.length;
+        }
+        
+        const textoSeleccionado = originalText.substring(inicioSeleccion, finSeleccion);
+        const lineas = textoSeleccionado.split('\n');
+        
+        let lineasProcesadas = [];
+        let cambiosLongitud = 0;
+        
+        if (!isShift) {
+          lineasProcesadas = lineas.map(linea => {
+            if (linea.length > 0 || lineas.length === 1) {
+              cambiosLongitud += 1;
+              return '\t' + linea;
+            }
+            return linea;
+          });
+        } else {
+          lineasProcesadas = lineas.map(linea => {
+            if (linea.startsWith('\t')) {
+              cambiosLongitud -= 1;
+              return linea.substring(1);
+            } else if (linea.startsWith('    ')) {
+              cambiosLongitud -= 4;
+              return linea.substring(4);
+            } else {
+              const espacios = linea.match(/^ {1,3}/);
+              if (espacios) {
+                const len = espacios[0].length;
+                cambiosLongitud -= len;
+                return linea.substring(len);
+              }
+            }
+            return linea;
+          });
+        }
+        
+        const nuevoTextoBloque = lineasProcesadas.join('\n');
+        textarea.setRangeText(nuevoTextoBloque, inicioSeleccion, finSeleccion, 'select');
+        
+        const offsetInicio = !isShift ? 1 : (lineas[0].startsWith('\t') ? -1 : (lineas[0].startsWith('    ') ? -4 : 0));
+        textarea.setSelectionRange(Math.max(inicioSeleccion, start + offsetInicio), Math.max(inicioSeleccion, end + cambiosLongitud));
+        
+      } else {
+        if (!isShift) {
+          textarea.setRangeText('\t', start, start, 'end');
+        } else {
+          let inicioLinea = originalText.lastIndexOf('\n', start - 1);
+          if (inicioLinea === -1) {
+            inicioLinea = 0;
+          } else {
+            inicioLinea += 1;
+          }
+          
+          const lineaActual = originalText.substring(inicioLinea, start);
+          if (lineaActual.startsWith('\t')) {
+            textarea.setRangeText('', inicioLinea, inicioLinea + 1, 'select');
+            textarea.setSelectionRange(Math.max(inicioLinea, start - 1), Math.max(inicioLinea, start - 1));
+          } else if (lineaActual.startsWith('    ')) {
+            textarea.setRangeText('', inicioLinea, inicioLinea + 4, 'select');
+            textarea.setSelectionRange(Math.max(inicioLinea, start - 4), Math.max(inicioLinea, start - 4));
+          }
+        }
+      }
+      
+      renderMarkdown();
+      setSavedState(false);
+      
+      if (historial) {
+        historial.registrarCambioDespuesDeFormato();
+      }
+    }
+  });
 }

@@ -758,4 +758,151 @@ export function inicializarEventosReader() {
       gestionarClicEnlace(e);
     }
   });
+
+  // Inicializar física de inercia y cursores de scroll
+  inicializarInerciaScroll();
+  if (DOM.editor) registrarCursorEnScrollbar(DOM.editor);
+  if (DOM.previewContainer) registrarCursorEnScrollbar(DOM.previewContainer);
+}
+
+// ==========================================================================
+// DESPLAZAMIENTO GESTUAL POR ARRASTRE FÍSICO CON INERCIA (DRAG TO SCROLL)
+// ==========================================================================
+
+let isScrollingDrag = false;
+let lastY = 0;
+let lastTime = 0;
+let scrollVelocity = 0; // Velocidad instantánea en px/ms
+let inertiaFrameId = null;
+const scrollFriction = 0.975; // Coeficiente de desaceleración premium
+let velocityHistory = []; // Registro de velocidades recientes para suavizado
+
+function aplicarInerciaScroll() {
+  const DOM = getDOM();
+  if (!DOM.previewContainer) return;
+
+  if (Math.abs(scrollVelocity) > 0.01) {
+    scrollVelocity *= scrollFriction;
+    DOM.previewContainer.scrollTop -= scrollVelocity * 16;
+    inertiaFrameId = requestAnimationFrame(aplicarInerciaScroll);
+  } else {
+    scrollVelocity = 0;
+    DOM.previewContainer.style.cursor = 'auto';
+  }
+}
+
+export function inicializarInerciaScroll() {
+  const DOM = getDOM();
+  if (!DOM.previewContainer) return;
+
+  DOM.previewContainer.addEventListener('mousedown', (e) => {
+    if (e.button !== 0) return;
+    if (e.target.closest('a') || e.target.closest('button') || e.target.closest('input')) return;
+    
+    isScrollingDrag = true;
+    lastY = e.clientY;
+    lastTime = Date.now();
+    scrollVelocity = 0;
+    velocityHistory = [];
+    
+    if (inertiaFrameId) {
+      cancelAnimationFrame(inertiaFrameId);
+      inertiaFrameId = null;
+    }
+    
+    DOM.previewContainer.style.cursor = 'grab';
+  });
+
+  DOM.previewContainer.addEventListener('mousemove', (e) => {
+    if (!isScrollingDrag) return;
+    
+    const selection = window.getSelection();
+    if (selection && selection.toString().length > 0) {
+      isScrollingDrag = false;
+      DOM.previewContainer.style.cursor = 'auto';
+      return;
+    }
+    
+    const currentY = e.clientY;
+    const currentTime = Date.now();
+    
+    const dy = currentY - lastY;
+    const dt = currentTime - lastTime;
+    
+    DOM.previewContainer.scrollTop -= dy * 1.2;
+    
+    if (dt > 0) {
+      const instVelocity = dy / dt;
+      velocityHistory.push(instVelocity);
+      if (velocityHistory.length > 5) {
+        velocityHistory.shift();
+      }
+    }
+    
+    lastY = currentY;
+    lastTime = currentTime;
+    DOM.previewContainer.style.cursor = 'grabbing';
+  });
+
+  const detenerArrastreScroll = () => {
+    if (isScrollingDrag) {
+      isScrollingDrag = false;
+      DOM.previewContainer.style.cursor = 'auto';
+      
+      if (velocityHistory.length > 0) {
+        scrollVelocity = velocityHistory.reduce((sum, v) => sum + v, 0) / velocityHistory.length;
+      } else {
+        scrollVelocity = 0;
+      }
+      
+      if (Math.abs(scrollVelocity) > 0.02) {
+        inertiaFrameId = requestAnimationFrame(aplicarInerciaScroll);
+      }
+    }
+  };
+
+  DOM.previewContainer.addEventListener('mouseup', detenerArrastreScroll);
+  DOM.previewContainer.addEventListener('mouseleave', detenerArrastreScroll);
+}
+
+export function registrarCursorEnScrollbar(container) {
+  if (!container) return;
+  const DOM = getDOM();
+  let isDraggingScroll = false;
+  
+  container.addEventListener('mousemove', (e) => {
+    if (isDraggingScroll) return;
+    
+    const rect = container.getBoundingClientRect();
+    const isOverScrollbar = (e.clientX >= rect.right - 14) && (e.clientX <= rect.right);
+    
+    if (isOverScrollbar) {
+      container.style.cursor = 'pointer';
+    } else {
+      if (container === DOM.previewContainer && isScrollingDrag) {
+        container.style.cursor = 'grabbing';
+      } else {
+        container.style.cursor = 'auto';
+      }
+    }
+  });
+  
+  container.addEventListener('mousedown', (e) => {
+    const rect = container.getBoundingClientRect();
+    const isOverScrollbar = (e.clientX >= rect.right - 14) && (e.clientX <= rect.right);
+    
+    if (isOverScrollbar) {
+      isDraggingScroll = true;
+      container.style.cursor = 'grabbing';
+      document.body.style.cursor = 'grabbing';
+    }
+  });
+  
+  window.addEventListener('mouseup', () => {
+    if (isDraggingScroll) {
+      isDraggingScroll = false;
+      container.style.cursor = 'auto';
+      document.body.style.cursor = 'auto';
+    }
+  });
 }

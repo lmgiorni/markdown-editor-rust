@@ -1,0 +1,39 @@
+{
+  "version": "1.2.0",
+  "categoria": "equipamiento",
+  "configuracion": {
+    "limite_inventario": 20,
+    "peso_maximo": 75.5,
+    "permitir_comercio": true
+  },
+  "items": [
+    {
+      "id": 101,
+      "nombre": "Espada de Hierro",
+      "tipo": "arma",
+      "ataque": 15,
+      "durabilidad": 100,
+      "magico": false,
+      "etiquetas": ["comun", "acero", "cuerpo_a_cuerpo"]
+    },
+    {
+      "id": 102,
+      "nombre": "Báculo de Tormenta",
+      "tipo": "arma",
+      "ataque": 8,
+      "poder_magico": 24.5,
+      "durabilidad": 60,
+      "magico": true,
+      "etiquetas": ["raro", "rayo", "dos_manos"]
+    },
+    {
+      "id": 201,
+      "nombre": "Poción de Salud",
+      "tipo": "consumible",
+      "curacion": 50,
+      "durabilidad": 1,
+      "magico": true,
+      "etiquetas": ["alquimia", "curacion"]
+    }
+  ]
+}

@@ -1,0 +1,25 @@
+version: "3.8"
+
+services:
+  servidor_juego:
+    image: node:20-alpine
+    container_name: servidor_idolatria
+    restart: always
+    environment:
+      MODO: produccion
+      PUERTO: 8080
+      MAX_JUGADORES: 64
+      DEPURACION: false
+    ports:
+      - "8080:8080"
+      - "9000:9000"
+    volumes:
+      - ./datos:/app/datos
+
+  base_datos:
+    image: postgres:15
+    container_name: db_idolatria
+    environment:
+      POSTGRES_DB: partida_db
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: secret_password

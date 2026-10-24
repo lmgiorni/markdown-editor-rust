@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuracion_juego version="1.0">
+	<servidor>
+		<nombre>Servidor Principal</nombre>
+		<puerto>8080</puerto>
+		<max_conexiones>100</max_conexiones>
+		<activo>true</activo>
+	</servidor>
+	<partida modo="supervivencia" dificultad="dificil">
+		<duracion_minutos>45</duracion_minutos>
+		<recursos_iniciales>500</recursos_iniciales>
+		<niebla_guerra>true</niebla_guerra>
+	</partida>
+</configuracion_juego>

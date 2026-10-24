@@ -43,6 +43,12 @@ export function parseMarkdownToJSON(text) {
       
       const parent = stack[stack.length - 1].data;
       
+      // Registrar orden secuencial físico en el nodo padre
+      if (!parent._children) {
+        parent._children = [];
+      }
+      parent._children.push({ name: nodeNameClean, value: newNode });
+
       if (parent[nodeNameClean]) {
         if (Array.isArray(parent[nodeNameClean])) {
           parent[nodeNameClean].push(newNode);
@@ -136,20 +142,21 @@ export function parseMarkdownToJSON(text) {
           currentNode[key] = parsedVal;
         }
       } else {
-        // C. Contenido Narrativo (Línea sin separador ':')
+        // C. Contenido de Texto / Narrativo del nodo (Línea sin separador ':')
         if (content.length > 0) {
           const currentNode = stack[stack.length - 1].data;
           
-          // Verificación inteligente de colisiones sugerida por el usuario
-          let keyToUse = "contenido";
+          let keyToUse = "_text";
           if (currentNode[keyToUse] !== undefined && typeof currentNode[keyToUse] !== 'string') {
-            keyToUse = "descripcion";
+            keyToUse = "contenido";
           }
+          
+          const parsedVal = parseTypedValue(content);
           
           if (currentNode[keyToUse] !== undefined) {
             currentNode[keyToUse] += '\n' + content;
           } else {
-            currentNode[keyToUse] = content;
+            currentNode[keyToUse] = parsedVal;
           }
         }
       }
@@ -210,7 +217,7 @@ export function convertJSONToXML(obj, rootName = "Documento") {
   
   function escape(str) {
     return String(str)
-      .replace(/&/g, '&amp;')
+      .replace(/&(?!(?:amp|lt|gt|quot|apos|#\d+|#x[0-9a-fA-F]+);)/g, '&amp;')
       .replace(/</g, '&lt;')
       .replace(/>/g, '&gt;')
       .replace(/"/g, '&quot;')
@@ -237,8 +244,8 @@ export function convertJSONToXML(obj, rootName = "Documento") {
     let children = [];
     
     for (let key in node) {
+      if (key === "_text" || key === "contenido" || key === "_children") continue;
       const val = node[key];
-      if (key === "_text") continue;
       
       if (val !== null && typeof val !== 'object') {
         let attrName = key;
@@ -255,21 +262,30 @@ export function convertJSONToXML(obj, rootName = "Documento") {
     }
     
     const attrsStr = attrs.length > 0 ? " " + attrs.join(" ") : "";
-    const hasInternalText = node.hasOwnProperty("_text");
-    const internalText = hasInternalText ? escape(node["_text"]) : "";
+    const hasInternalText = node.hasOwnProperty("_text") || node.hasOwnProperty("contenido");
+    const rawText = node["_text"] !== undefined ? node["_text"] : node["contenido"];
+    const internalText = hasInternalText ? escape(rawText) : "";
     
-    if (children.length === 0 && !hasInternalText) {
+    const hasChildren = (Array.isArray(node._children) && node._children.length > 0) || children.length > 0;
+    
+    if (!hasChildren && !hasInternalText) {
       return `${indent}<${tagName}${attrsStr}/>`;
     }
     
-    if (children.length === 0 && hasInternalText) {
+    if (!hasChildren && hasInternalText) {
       return `${indent}<${tagName}${attrsStr}>${internalText}</${tagName}>`;
     }
     
     let childrenXml = "";
-    children.forEach(child => {
-      childrenXml += serialize(child.val, child.key, indentLevel + 1) + "\n";
-    });
+    if (Array.isArray(node._children) && node._children.length > 0) {
+      node._children.forEach(child => {
+        childrenXml += serialize(child.value, child.name, indentLevel + 1) + "\n";
+      });
+    } else {
+      children.forEach(child => {
+        childrenXml += serialize(child.val, child.key, indentLevel + 1) + "\n";
+      });
+    }
     
     const textPrefix = hasInternalText ? indent + "\t" + internalText + "\n" : "";
     return `${indent}<${tagName}${attrsStr}>\n${textPrefix}${childrenXml}${indent}</${tagName}>`;
@@ -278,10 +294,11 @@ export function convertJSONToXML(obj, rootName = "Documento") {
   let finalXml = '<?xml version="1.0" encoding="UTF-8"?>\n';
   let combined = "";
   for (let key in obj) {
+    if (key === "_children") continue;
     combined += serialize(obj[key], key, 0) + "\n";
   }
   
-  const rootKeys = Object.keys(obj);
+  const rootKeys = Object.keys(obj).filter(k => k !== '_children');
   if (rootKeys.length === 1 && typeof obj[rootKeys[0]] === 'object' && !Array.isArray(obj[rootKeys[0]])) {
     finalXml += combined.trim() + "\n";
   } else {
@@ -297,6 +314,7 @@ export function buildTreeHTML(node) {
   let html = '';
   
   for (let key in node) {
+    if (key === '_children') continue;
     const val = node[key];
     
     if (typeof val === 'object' && !Array.isArray(val)) {
@@ -353,11 +371,12 @@ export function buildTreeHTML(node) {
         typeLabel = 'Booleano';
       }
       
+      const displayKey = (key === '_text' || key === 'contenido') ? 'contenido' : key;
       const badge = `<span class="type-badge ${typeClass}">${typeLabel}</span>`;
       
       html += `<div class="property-container">
         <div class="tree-property">
-          <span class="prop-key">${key}:</span>
+          <span class="prop-key">${displayKey}:</span>
           <span class="prop-val">${formattedVal}</span>
           ${badge}
         </div>
@@ -378,44 +397,26 @@ export function convertJSONToMarkdown(obj, level = 0) {
     return String(obj);
   }
   
-  for (const [key, value] of Object.entries(obj)) {
-    if (value && typeof value === 'object') {
-      if (Array.isArray(value)) {
-        if (value.length === 0) {
-          // Si es un array vacío, representarlo explícitamente para no perder el parámetro
-          markdown += `${indent}**${key}**: []\n`;
-        } else {
-          // Si contiene elementos
-          if (typeof value[0] === 'object') {
-            // Array de objetos (Nodos duplicados de la jerarquía)
-            value.forEach(item => {
-              markdown += `${indent}# ${key}\n`;
-              markdown += convertJSONToMarkdown(item, level + 1);
-            });
-          } else {
-            // Array de valores simples (Propiedades duplicadas)
-            value.forEach(item => {
-              let formattedVal = item;
-              if (typeof item === 'boolean') {
-                formattedVal = item ? 'Sí' : 'No';
-              } else if (typeof item === 'number') {
-                if (Number.isInteger(item)) {
-                  formattedVal = `${item}i`;
-                } else {
-                  formattedVal = `${item}f`;
-                }
-              }
-              markdown += `${indent}**${key}**: ${formattedVal}\n`;
-            });
-          }
-        }
+  // 1. Texto interno directo (_text o contenido)
+  if (obj._text !== undefined || obj.contenido !== undefined) {
+    const rawVal = obj._text !== undefined ? obj._text : obj.contenido;
+    let formattedVal = rawVal;
+    if (typeof rawVal === 'boolean') {
+      formattedVal = rawVal ? 'Sí' : 'No';
+    } else if (typeof rawVal === 'number') {
+      if (Number.isInteger(rawVal)) {
+        formattedVal = `${rawVal}i`;
       } else {
-        // Objeto simple (Nodo jerárquico tradicional)
-        markdown += `${indent}# ${key}\n`;
-        markdown += convertJSONToMarkdown(value, level + 1);
+        formattedVal = `${rawVal}f`;
       }
-    } else {
-      // Valor simple (Propiedad tradicional)
+    }
+    markdown += `${indent}${formattedVal}\n`;
+  }
+
+  // 2. Propiedades simples / atributos (valores primitivos)
+  for (const [key, value] of Object.entries(obj)) {
+    if (key === '_text' || key === 'contenido' || key === '_children') continue;
+    if (value === null || typeof value !== 'object') {
       let formattedVal = value;
       if (typeof value === 'boolean') {
         formattedVal = value ? 'Sí' : 'No';
@@ -429,6 +430,45 @@ export function convertJSONToMarkdown(obj, level = 0) {
       markdown += `${indent}**${key}**: ${formattedVal}\n`;
     }
   }
+
+  // 3. Nodos hijos (usar _children si existe para preservar el orden secuencial físico exacto)
+  if (Array.isArray(obj._children) && obj._children.length > 0) {
+    obj._children.forEach(child => {
+      markdown += `${indent}# ${child.name}\n`;
+      markdown += convertJSONToMarkdown(child.value, level + 1);
+    });
+  } else {
+    // Modo tradicional agrupado por clave para objetos JSON normales
+    for (const [key, value] of Object.entries(obj)) {
+      if (key === '_text' || key === 'contenido' || key === '_children') continue;
+      if (value && typeof value === 'object') {
+        if (Array.isArray(value)) {
+          if (value.length === 0) {
+            markdown += `${indent}**${key}**: []\n`;
+          } else if (typeof value[0] === 'object') {
+            value.forEach(item => {
+              markdown += `${indent}# ${key}\n`;
+              markdown += convertJSONToMarkdown(item, level + 1);
+            });
+          } else {
+            value.forEach(item => {
+              let formattedVal = item;
+              if (typeof item === 'boolean') {
+                formattedVal = item ? 'Sí' : 'No';
+              } else if (typeof item === 'number') {
+                formattedVal = Number.isInteger(item) ? `${item}i` : `${item}f`;
+              }
+              markdown += `${indent}**${key}**: ${formattedVal}\n`;
+            });
+          }
+        } else {
+          markdown += `${indent}# ${key}\n`;
+          markdown += convertJSONToMarkdown(value, level + 1);
+        }
+      }
+    }
+  }
+
   return markdown;
 }
 
@@ -444,6 +484,7 @@ export function convertXMLToJSON(node) {
   }
   
   const obj = {};
+  const childrenList = [];
   
   // 1. Cargar atributos como propiedades (incluyendo namespaces como xmlns)
   if (node.attributes && node.attributes.length > 0) {
@@ -466,9 +507,6 @@ export function convertXMLToJSON(node) {
       if (child.nodeType === 3 || child.nodeType === 4) {
         const textVal = child.nodeValue.trim();
         if (textVal) {
-          if (node.childNodes.length === 1 && Object.keys(obj).length === 0) {
-            return parseTypedValue(textVal);
-          }
           obj["_text"] = parseTypedValue(textVal);
         }
         continue;
@@ -478,6 +516,7 @@ export function convertXMLToJSON(node) {
       const childVal = convertXMLToJSON(child);
       
       if (childVal !== null && childVal !== undefined) {
+        childrenList.push({ name: childName, value: childVal });
         if (obj[childName] !== undefined) {
           if (Array.isArray(obj[childName])) {
             obj[childName].push(childVal);
@@ -491,10 +530,16 @@ export function convertXMLToJSON(node) {
     }
   }
   
-  // Si el objeto está vacío, pero el nodo tenía texto, devolver el texto
+  if (childrenList.length > 0) {
+    obj._children = childrenList;
+  }
+  
+  // Si el objeto está vacío, pero el nodo tenía texto, asignar _text
   if (Object.keys(obj).length === 0 && node.textContent) {
     const txt = node.textContent.trim();
-    if (txt) return parseTypedValue(txt);
+    if (txt) {
+      obj["_text"] = parseTypedValue(txt);
+    }
   }
   
   return obj;
@@ -513,6 +558,11 @@ function parseTypedValue(val) {
   if (lowerVal === 'sí' || lowerVal === 'si' || lowerVal === 'true') return true;
   if (lowerVal === 'no' || lowerVal === 'false') return false;
   if (cleanVal === '[]') return [];
+
+  // Entero tipado explícito (8080i -> 8080)
+  if (/^-?\d+i$/.test(cleanVal)) return parseInt(cleanVal.slice(0, -1), 10);
+  // Flotante tipado explícito (2.5f -> 2.5)
+  if (/^-?\d+(\.\d+)?f$/.test(cleanVal)) return parseFloat(cleanVal.slice(0, -1));
   
   // Evitar coerción si tiene ceros a la izquierda (ej. serialNo="0000057" o Reel="020")
   if (/^-?(0|[1-9]\d*)$/.test(cleanVal)) return parseInt(cleanVal, 10);
@@ -561,7 +611,7 @@ export function convertJSONToYAML(obj) {
       }
     }
     
-    let keys = Object.keys(node);
+    let keys = Object.keys(node).filter(k => k !== '_children');
     if (keys.length === 0) return "{}";
     let yaml = [];
     keys.forEach(key => {
@@ -621,7 +671,8 @@ export function convertYAMLToJSON(yamlText) {
         }
       }
       
-      if (listVal.includes(':') && !listVal.includes('|') && !listVal.endsWith(':')) {
+      const isQuoted = (listVal.startsWith('"') && listVal.endsWith('"')) || (listVal.startsWith("'") && listVal.endsWith("'"));
+      if (!isQuoted && listVal.includes(': ') && !listVal.includes('|') && !listVal.endsWith(':')) {
         const colonIdx = listVal.indexOf(':');
         const k = listVal.substring(0, colonIdx).trim();
         const v = listVal.substring(colonIdx + 1).trim();

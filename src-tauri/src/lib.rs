@@ -1,6 +1,48 @@
 use std::fs;
+use std::sync::atomic::{AtomicBool, Ordering};
 use rfd::FileDialog;
 use tauri::{Manager, Emitter};
+
+static FILE_DIALOG_OPEN: AtomicBool = AtomicBool::new(false);
+
+pub struct DialogGuard;
+
+impl DialogGuard {
+    pub fn try_acquire() -> Option<Self> {
+        if FILE_DIALOG_OPEN.compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst).is_ok() {
+            Some(DialogGuard)
+        } else {
+            None
+        }
+    }
+}
+
+impl Drop for DialogGuard {
+    fn drop(&mut self) {
+        FILE_DIALOG_OPEN.store(false, Ordering::SeqCst);
+    }
+}
+
+pub struct HwndWrapper(pub isize);
+
+unsafe impl raw_window_handle::HasRawWindowHandle for HwndWrapper {
+    fn raw_window_handle(&self) -> raw_window_handle::RawWindowHandle {
+        let mut handle = raw_window_handle::Win32WindowHandle::empty();
+        handle.hwnd = self.0 as *mut std::ffi::c_void;
+        raw_window_handle::RawWindowHandle::Win32(handle)
+    }
+}
+
+pub fn attach_parent(dialog: FileDialog, window: &tauri::WebviewWindow) -> FileDialog {
+    #[cfg(target_os = "windows")]
+    {
+        if let Ok(hwnd) = window.hwnd() {
+            return dialog.set_parent(&HwndWrapper(hwnd.0 as isize));
+        }
+    }
+    let _ = window;
+    dialog
+}
 
 mod epub_exporter;
 
@@ -76,8 +118,13 @@ fn abrir_archivo_desde_ruta(file_path: String) -> Result<FileData, String> {
 }
 
 #[tauri::command]
-fn abrir_archivo() -> Result<Option<FileData>, String> {
-    let file_path = match FileDialog::new()
+fn abrir_archivo(window: tauri::WebviewWindow) -> Result<Option<FileData>, String> {
+    let _guard = match DialogGuard::try_acquire() {
+        Some(g) => g,
+        None => return Ok(None),
+    };
+
+    let file_path = match attach_parent(FileDialog::new(), &window)
         .add_filter("Markdown & Datos (*.md, *.json, *.xml, *.yaml, *.yml)", &["md", "markdown", "txt", "json", "xml", "yaml", "yml"])
         .pick_file() {
             Some(path) => path,
@@ -113,8 +160,13 @@ fn guardar_archivo(path: String, content: String) -> Result<String, String> {
 }
 
 #[tauri::command]
-fn guardar_como(default_name: String, content: String, default_path: Option<String>) -> Result<Option<FileData>, String> {
-    let mut dialog = FileDialog::new()
+fn guardar_como(window: tauri::WebviewWindow, default_name: String, content: String, default_path: Option<String>) -> Result<Option<FileData>, String> {
+    let _guard = match DialogGuard::try_acquire() {
+        Some(g) => g,
+        None => return Ok(None),
+    };
+
+    let mut dialog = attach_parent(FileDialog::new(), &window)
         .add_filter("Markdown", &["md", "markdown"])
         .set_file_name(&default_name);
 
@@ -172,8 +224,13 @@ fn obtener_ruta_base_documentos(app_handle: tauri::AppHandle) -> Result<String, 
 }
 
 #[tauri::command]
-fn seleccionar_carpeta(ruta_inicial: Option<String>) -> Result<Option<String>, String> {
-    let mut dialog = FileDialog::new();
+fn seleccionar_carpeta(window: tauri::WebviewWindow, ruta_inicial: Option<String>) -> Result<Option<String>, String> {
+    let _guard = match DialogGuard::try_acquire() {
+        Some(g) => g,
+        None => return Ok(None),
+    };
+
+    let mut dialog = attach_parent(FileDialog::new(), &window);
     if let Some(ref ruta) = ruta_inicial {
         let p = std::path::PathBuf::from(ruta);
         if p.exists() {
@@ -286,8 +343,10 @@ fn versionar_documento(file_path: String, content: String, digits: usize) -> Res
 }
 
 #[tauri::command]
-fn exportar_html(default_name: String, content: String) -> Option<String> {
-    let mut file_path = FileDialog::new()
+fn exportar_html(window: tauri::WebviewWindow, default_name: String, content: String) -> Option<String> {
+    let _guard = DialogGuard::try_acquire()?;
+
+    let mut file_path = attach_parent(FileDialog::new(), &window)
         .add_filter("HTML", &["html"])
         .set_file_name(&default_name)
         .save_file()?;
@@ -301,8 +360,10 @@ fn exportar_html(default_name: String, content: String) -> Option<String> {
 }
 
 #[tauri::command]
-fn exportar_archivo(default_name: String, content: String, extension: String, filter_name: String) -> Option<String> {
-    let mut file_path = FileDialog::new()
+fn exportar_archivo(window: tauri::WebviewWindow, default_name: String, content: String, extension: String, filter_name: String) -> Option<String> {
+    let _guard = DialogGuard::try_acquire()?;
+
+    let mut file_path = attach_parent(FileDialog::new(), &window)
         .add_filter(&filter_name, &[&extension])
         .set_file_name(&default_name)
         .save_file()?;
@@ -379,8 +440,13 @@ fn buscar_portada_candidata(file_path: String) -> Result<Option<String>, String>
 }
 
 #[tauri::command]
-fn seleccionar_imagen_portada() -> Result<Option<String>, String> {
-    let file_path = FileDialog::new()
+fn seleccionar_imagen_portada(window: tauri::WebviewWindow) -> Result<Option<String>, String> {
+    let _guard = match DialogGuard::try_acquire() {
+        Some(g) => g,
+        None => return Ok(None),
+    };
+
+    let file_path = attach_parent(FileDialog::new(), &window)
         .add_filter("Imágenes de Portada (*.jpg, *.jpeg, *.png, *.webp)", &["jpg", "jpeg", "png", "webp"])
         .pick_file();
 
@@ -397,6 +463,7 @@ fn leer_archivo_binario(path: String) -> Result<Vec<u8>, String> {
 
 #[tauri::command]
 fn exportar_epub(
+    window: tauri::WebviewWindow,
     default_name: String, 
     title: String, 
     body_html: String, 
@@ -411,7 +478,13 @@ fn exportar_epub(
     cover_image_bytes: Option<Vec<u8>>,
     cover_image_path: Option<String>,
 ) -> Result<Option<String>, String> {
+    let _guard = match DialogGuard::try_acquire() {
+        Some(g) => g,
+        None => return Ok(None),
+    };
+
     epub_exporter::exportar_epub_interno(
+        &window,
         default_name, 
         title, 
         body_html, 

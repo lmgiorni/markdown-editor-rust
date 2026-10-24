@@ -20,6 +20,27 @@ let _ctx = {
 
 let fileEventsInitialized = false;
 let autosaveTimeout = null;
+let isFileDialogActive = false;
+
+function setDialogButtonsDisabled(disabled) {
+  const DOM = getDOM();
+  if (DOM.btnOpen) {
+    DOM.btnOpen.style.pointerEvents = disabled ? 'none' : '';
+    if (disabled) DOM.btnOpen.setAttribute('aria-busy', 'true');
+    else DOM.btnOpen.removeAttribute('aria-busy');
+  }
+  if (DOM.btnSave) {
+    DOM.btnSave.style.pointerEvents = disabled ? 'none' : '';
+    if (disabled) DOM.btnSave.setAttribute('aria-busy', 'true');
+    else DOM.btnSave.removeAttribute('aria-busy');
+  }
+  if (DOM.btnRelocateDoc) {
+    DOM.btnRelocateDoc.style.pointerEvents = disabled ? 'none' : '';
+  }
+  if (DOM.btnVersionDoc) {
+    DOM.btnVersionDoc.style.pointerEvents = disabled ? 'none' : '';
+  }
+}
 
 function getDOM() {
   if (_ctx.DOM) return _ctx.DOM;
@@ -625,6 +646,7 @@ export async function abrirArchivoDesdeRuta(filePath) {
  * Abre el selector nativo de archivos para abrir un documento
  */
 export async function abrirArchivo() {
+  if (isFileDialogActive) return;
   const appState = getAppState();
   const invoke = getInvoke();
 
@@ -653,6 +675,8 @@ export async function abrirArchivo() {
     return;
   }
 
+  isFileDialogActive = true;
+  setDialogButtonsDisabled(true);
   try {
     const fileData = await invoke('abrir_archivo');
     if (fileData) {
@@ -661,6 +685,9 @@ export async function abrirArchivo() {
   } catch (error) {
     console.error('Error al abrir:', error);
     notificar('Error al abrir el archivo: ' + error, 'error');
+  } finally {
+    isFileDialogActive = false;
+    setDialogButtonsDisabled(false);
   }
 }
 
@@ -776,6 +803,7 @@ export function actualizarVisualizacionRutaRaiz() {
  * Abre el cuadro de diálogo para guardar el documento con una nueva ruta o nombre
  */
 export async function guardarComo() {
+  if (isFileDialogActive) return;
   const DOM = getDOM();
   const appState = getAppState();
   const invoke = getInvoke();
@@ -785,6 +813,8 @@ export async function guardarComo() {
     return;
   }
 
+  isFileDialogActive = true;
+  setDialogButtonsDisabled(true);
   try {
     const contenido = DOM.editor ? DOM.editor.value : '';
     const defaultSaveName = (appState.fileName || 'documento').replace(/\s+/g, '_') + '.md';
@@ -827,6 +857,9 @@ export async function guardarComo() {
   } catch (error) {
     console.error('Error al guardar como:', error);
     notificar('Error al guardar el archivo: ' + error, 'error');
+  } finally {
+    isFileDialogActive = false;
+    setDialogButtonsDisabled(false);
   }
 }
 
@@ -934,6 +967,7 @@ export async function versionarDocumentoActual() {
  * Reubica el documento actual en otra carpeta seleccionada por el usuario
  */
 export async function reubicarCarpetaDocumento() {
+  if (isFileDialogActive) return;
   const DOM = getDOM();
   const appState = getAppState();
   const invoke = getInvoke();
@@ -941,6 +975,8 @@ export async function reubicarCarpetaDocumento() {
   const t = translations[lang] || translations.es;
   const currentContent = DOM.editor ? DOM.editor.value : '';
 
+  isFileDialogActive = true;
+  setDialogButtonsDisabled(true);
   try {
     if (invoke) {
       const rutaInicial = obtenerDirectorioArranqueDialogo();
@@ -976,6 +1012,9 @@ export async function reubicarCarpetaDocumento() {
   } catch (err) {
     console.error('Error al reubicar documento:', err);
     notificar('Error al cambiar carpeta de destino: ' + err, 'error');
+  } finally {
+    isFileDialogActive = false;
+    setDialogButtonsDisabled(false);
   }
 }
 
@@ -1138,6 +1177,11 @@ export function inicializarEventosFileManager() {
   // Botón Abrir (clic normal abre diálogo, Ctrl+Shift abre recientes)
   if (DOM.btnOpen) {
     DOM.btnOpen.addEventListener('click', (e) => {
+      if (isFileDialogActive) {
+        e.preventDefault();
+        e.stopPropagation();
+        return;
+      }
       if (e.ctrlKey && e.shiftKey) {
         e.preventDefault();
         e.stopPropagation();
@@ -1152,6 +1196,11 @@ export function inicializarEventosFileManager() {
   // Botón Guardar (clic normal guarda, Ctrl+Shift abre Guardar Como)
   if (DOM.btnSave) {
     DOM.btnSave.addEventListener('click', (e) => {
+      if (isFileDialogActive) {
+        e.preventDefault();
+        e.stopPropagation();
+        return;
+      }
       if (e.ctrlKey && e.shiftKey) {
         guardarComo();
       } else {
@@ -1196,17 +1245,25 @@ export function inicializarEventosFileManager() {
   // Configuración de carpeta raíz
   if (DOM.btnChangeRootFolder) {
     DOM.btnChangeRootFolder.addEventListener('click', async () => {
+      if (isFileDialogActive) return;
       const invoke = getInvoke();
       if (invoke) {
-        const actual = obtenerRutaRaizEfectiva();
-        const seleccionada = await invoke('seleccionar_carpeta', { rutaInicial: actual || null });
-        if (seleccionada) {
-          appState.customRootFolder = seleccionada;
-          localStorage.setItem('md-root-folder', seleccionada);
-          actualizarVisualizacionRutaRaiz();
-          const lang = appState.language || 'es';
-          const t = translations[lang] || translations.es;
-          notificar((t.root_folder_changed || 'Carpeta raíz actualizada: ') + seleccionada, 'success');
+        isFileDialogActive = true;
+        setDialogButtonsDisabled(true);
+        try {
+          const actual = obtenerRutaRaizEfectiva();
+          const seleccionada = await invoke('seleccionar_carpeta', { rutaInicial: actual || null });
+          if (seleccionada) {
+            appState.customRootFolder = seleccionada;
+            localStorage.setItem('md-root-folder', seleccionada);
+            actualizarVisualizacionRutaRaiz();
+            const lang = appState.language || 'es';
+            const t = translations[lang] || translations.es;
+            notificar((t.root_folder_changed || 'Carpeta raíz actualizada: ') + seleccionada, 'success');
+          }
+        } finally {
+          isFileDialogActive = false;
+          setDialogButtonsDisabled(false);
         }
       }
     });

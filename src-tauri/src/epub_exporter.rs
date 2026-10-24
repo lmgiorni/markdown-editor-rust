@@ -36,6 +36,7 @@ fn sanitizar_nombre_archivo(path: std::path::PathBuf) -> std::path::PathBuf {
 }
 
 pub fn exportar_epub_interno(
+    window: &tauri::WebviewWindow,
     default_name: String, 
     title: String, 
     body_html: String, 
@@ -50,7 +51,7 @@ pub fn exportar_epub_interno(
     cover_image_bytes: Option<Vec<u8>>,
     cover_image_path: Option<String>,
 ) -> Result<Option<String>, String> {
-    let mut file_path = match FileDialog::new()
+    let mut file_path = match crate::attach_parent(FileDialog::new(), window)
         .add_filter("Libro Electrónico EPUB (*.epub)", &["epub"])
         .set_file_name(&default_name)
         .save_file() {

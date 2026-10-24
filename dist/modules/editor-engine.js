@@ -177,7 +177,10 @@ function tieneDelimitadorInternoValido(str, open, close) {
 }
 
 export function insertarSintaxisMarkdown(tipo) {
-  const historial = getHistorial(); if (historial) {
+  const DOM = getDOM();
+  const appState = getAppState();
+  const historial = getHistorial();
+  if (historial) {
     historial.registrarCambioAntesDeFormato();
   }
 

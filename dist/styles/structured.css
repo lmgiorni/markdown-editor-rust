@@ -19,7 +19,7 @@
     linear-gradient(90deg, rgba(128, 128, 128, 0.015) 1px, transparent 1px);
   background-size: 20px 20px;
   color: var(--text-reader, #e2e8f0);
-  font-family: var(--structured-font-family, 'Inter', sans-serif);
+  font-family: var(--structured-font-family, 'Fira Code', monospace);
   font-size: var(--structured-font-size, 13px);
   overflow: hidden;
   box-sizing: border-box;
@@ -249,7 +249,7 @@
 .prop-val {
   font-size: 0.9em;
   color: var(--text-main, #f8fafc);
-  font-family: var(--structured-font-family, 'JetBrains Mono', 'Fira Code', monospace);
+  font-family: var(--structured-font-family, 'Fira Code', monospace);
   white-space: pre-wrap;
   word-break: break-word;
   max-width: 550px;
@@ -352,10 +352,22 @@
   overflow-y: hidden !important;
 }
 
+#preview-container.structured-layout #preview,
+#preview-container.structured-layout .tree-root-container,
+#preview-container.structured-layout .tree-node,
+#preview-container.structured-layout .prop-key,
+#preview-container.structured-layout .prop-val,
+#preview-container.structured-layout .node-key,
+#preview-container.structured-layout .structured-code-preview,
+#preview-container.structured-layout .structured-code-preview code {
+  font-family: var(--structured-font-family, 'Fira Code', monospace) !important;
+}
+
 #preview-container.structured-layout #preview {
   flex: 1;
   overflow-y: auto;
   padding: 24px 32px;
+  font-size: var(--structured-font-size, 13px);
 }
 
 .structured-header-bar {

@@ -114,7 +114,7 @@ let appState = {
   
   // Configuración visual (valores iniciales elegantes)
   editorFont: localStorage.getItem('md-editor-font') || 'Fira Code',
-  readerFont: localStorage.getItem('md-reader-font') || 'Inter',
+  readerFont: localStorage.getItem('md-reader-font') || 'Georgia',
   structuredFont: localStorage.getItem('md-structured-font') || 'Fira Code',
   editorFontSize: parseInt(localStorage.getItem('md-editor-font-size')) || 14,
   readerFontSize: parseInt(localStorage.getItem('md-reader-font-size')) || 15,

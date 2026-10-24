@@ -435,7 +435,7 @@ pub fn generar_epub_zip<W: std::io::Write + std::io::Seek>(
     let style_css = if is_eink {
         // Estilo de Alto Contraste ultra-agresivo para Eink (blanco y negro absolutos)
         format!(r#"body {{
-  font-family: '{}', 'Inter', system-ui, -apple-system, sans-serif;
+  font-family: '{}', 'Georgia', serif, sans-serif;
   padding: 15px;
   line-height: 1.6;
   color: #000000;
@@ -516,7 +516,7 @@ img {{
     } else {
         // Estilo adaptativo rico que conserva la fidelidad cromática del modo Lectura
         format!(r#"body {{
-  font-family: '{}', 'Inter', system-ui, -apple-system, sans-serif;
+  font-family: '{}', 'Georgia', serif, sans-serif;
   padding: 15px;
   line-height: 1.6;
   color: {};

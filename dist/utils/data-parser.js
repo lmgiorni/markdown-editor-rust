@@ -62,6 +62,10 @@ export function parseMarkdownToJSON(text) {
       stack.push({ level: level, data: newNode, name: nodeNameClean });
       
     } else {
+      while (stack.length > 1 && stack[stack.length - 1].level >= level) {
+        stack.pop();
+      }
+      
       // B. Detectar si es una Propiedad (Clave: Valor)
       let key = '';
       let rawVal = '';
@@ -278,8 +282,15 @@ export function convertJSONToXML(obj, rootName = "Documento") {
     
     let childrenXml = "";
     if (Array.isArray(node._children) && node._children.length > 0) {
+      const serializedKeys = new Set();
       node._children.forEach(child => {
         childrenXml += serialize(child.value, child.name, indentLevel + 1) + "\n";
+        serializedKeys.add(child.name);
+      });
+      children.forEach(child => {
+        if (!serializedKeys.has(child.key)) {
+          childrenXml += serialize(child.val, child.key, indentLevel + 1) + "\n";
+        }
       });
     } else {
       children.forEach(child => {
@@ -747,4 +758,19 @@ export function convertYAMLToJSON(yamlText) {
   
   return root;
 }
+
+/**
+ * Limpia recursivamente metadatos internos de AST (como _children) para exportar JSON estándar
+ */
+export function cleanJSON(obj) {
+  if (obj === null || typeof obj !== 'object') return obj;
+  if (Array.isArray(obj)) return obj.map(cleanJSON);
+  const result = {};
+  for (const [key, val] of Object.entries(obj)) {
+    if (key === '_children') continue;
+    result[key] = cleanJSON(val);
+  }
+  return result;
+}
+
 

@@ -2,7 +2,7 @@
 // MÓDULO DE MODO ESTRUCTURADO Y VISOR EN ÁRBOL JERÁRQUICO (TAURI v2)
 // ==========================================================================
 
-import { buildTreeHTML, convertJSONToXML, convertJSONToYAML } from '../utils/data-parser.js';
+import { buildTreeHTML, convertJSONToXML, convertJSONToYAML, cleanJSON } from '../utils/data-parser.js';
 import { translations } from '../utils/i18n.js';
 
 let ctx = {
@@ -128,7 +128,7 @@ export function inicializarModoEstructurado() {
 
       const activeTab = appState.structuredActiveTab;
       if (activeTab === 'json') {
-        const jsonStr = JSON.stringify(ultimoArbolParseado, null, 2).replace(/\\"/g, '"');
+        const jsonStr = JSON.stringify(cleanJSON(ultimoArbolParseado), null, 2).replace(/\\"/g, '"');
         inv('exportar_archivo', {
           defaultName: `${(appState.fileName || 'archivo').replace(/\s+/g, '_')}.json`,
           content: jsonStr,
@@ -257,7 +257,7 @@ export function renderStructuredTreeVisual(obj) {
   if (isTree) {
     contentHtml = `<div class="tree-root-container">${buildTreeHTML(obj)}</div>`;
   } else if (isJson) {
-    const jsonStr = JSON.stringify(obj, null, 2).replace(/\\"/g, '"');
+    const jsonStr = JSON.stringify(cleanJSON(obj), null, 2).replace(/\\"/g, '"');
     contentHtml = `<pre class="structured-code-preview"><code>${escapeHTML(jsonStr)}</code></pre>`;
   } else if (isXml) {
     const xmlStr = convertJSONToXML(obj, appState.fileName || 'documento');

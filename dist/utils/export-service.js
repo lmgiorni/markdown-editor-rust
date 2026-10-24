@@ -20,7 +20,7 @@ export async function exportarDocumentoAHTML(fileName, markdownText, readerFont,
   <title>${fileName}</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400;1,700&family=Fira+Code:wght@400;500&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&family=Merriweather:ital,wght@0,300;0,400;0,700;1,300&family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Alegreya:ital,wght@0,400..900;1,400..900&family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400;1,700&family=EB+Garamond:ital,wght@0,400..800;1,400..800&family=Fira+Code:wght@400;500;700&family=IM+Fell+French+Canon:ital@0;1&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&family=Merriweather:ital,wght@0,300;0,400;0,700;1,300;1,400;1,700&family=Roboto:wght@300;400;500;700&family=Special+Elite&family=VT323&display=swap" rel="stylesheet">
   <style>
     /* ESTILOS PREMIUM BASE AUTÓNOMOS */
     ${cssContent}
@@ -29,7 +29,7 @@ export async function exportarDocumentoAHTML(fileName, markdownText, readerFont,
       background-color: var(--bg-reader, #0b0b0e) !important;
       color: var(--text-reader, #e2e8f0) !important;
       padding: 60px 20px !important;
-      font-family: '${readerFont}', 'Inter', sans-serif !important;
+      font-family: '${readerFont}', 'Georgia', serif, sans-serif !important;
       display: block !important;
       overflow-y: auto !important;
       height: auto !important;
@@ -149,14 +149,14 @@ export async function exportarDocumentoAPDF(fileName, markdownText, readerFont, 
   <title>${fileName}</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400;1,700&family=Fira+Code:wght@400;500&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&family=Merriweather:ital,wght@0,300;0,400;0,700;1,300&family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Alegreya:ital,wght@0,400..900;1,400..900&family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400;1,700&family=EB+Garamond:ital,wght@0,400..800;1,400..800&family=Fira+Code:wght@400;500;700&family=IM+Fell+French+Canon:ital@0;1&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&family=Merriweather:ital,wght@0,300;0,400;0,700;1,300;1,400;1,700&family=Roboto:wght@300;400;500;700&family=Special+Elite&family=VT323&display=swap" rel="stylesheet">
   <style>
     ${cssContent}
     ${printThemeStyles}
 
     body {
       padding: 40px !important;
-      font-family: '${readerFont}', 'Inter', sans-serif !important;
+      font-family: '${readerFont}', 'Georgia', serif, sans-serif !important;
       display: block !important;
       overflow: visible !important;
       height: auto !important;
@@ -495,7 +495,7 @@ export async function exportarDocumentoAEPUB(fileName, markdownText, readerFont,
     let accentColor = '#000000';
     let codeColor = '#be185d';
     let blockquoteBg = 'rgba(0,0,0,0.03)';
-    let fontFamily = readerFont || 'Inter';
+    let fontFamily = readerFont || 'Georgia';
     
     if (!optEink) {
       // Extraer los colores calculados en caliente del tema activo actual

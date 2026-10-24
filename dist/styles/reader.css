@@ -146,7 +146,7 @@
 
 /* Código y Bloques de Código */
 .markdown-body code {
-  font-family: var(--editor-font-family);
+  font-family: var(--reader-font-family);
   font-size: 0.88em;
   background-color: var(--bg-code);
   padding: 3px 6px;

@@ -10,6 +10,7 @@ import { renderStructuredTreeVisual } from './structured-editor.js';
 import { exportarAHTML, exportarAPDF, procesarCargaDePlantillaText } from './export-manager.js';
 import { actualizarNombreArchivo, setSavedState } from './file-manager.js';
 import { refrescarListaTemas } from './theme-manager.js';
+import { fontManager } from './font-manager.js';
 
 let _ctx = {
   DOM: null,
@@ -406,23 +407,9 @@ export function aplicarConfiguracionVisual() {
   const appState = getAppState();
   const root = document.documentElement;
   
-  const tipografias = {
-    'JetBrains Mono': "'JetBrains Mono', 'Fira Code', monospace",
-    'Iosevka': "'Iosevka', 'JetBrains Mono', monospace",
-    'Google Sans Code': "'Google Sans Code', 'Fira Code', monospace",
-    'Consolas': "Consolas, monospace",
-    'Fira Code': "'Fira Code', monospace",
-    'Courier New': "'Courier New', monospace",
-    'Inter': "'Inter', system-ui, -apple-system, sans-serif",
-    'Roboto': "'Roboto', sans-serif",
-    'Georgia': "Georgia, serif",
-    'Merriweather': "'Merriweather', Georgia, serif",
-    'Atkinson Hyperlegible': "'Atkinson Hyperlegible', sans-serif"
-  };
-
-  const editorFamily = tipografias[appState.editorFont] || tipografias['Fira Code'];
-  const readerFamily = tipografias[appState.readerFont] || tipografias['Inter'];
-  const structuredFamily = tipografias[appState.structuredFont] || tipografias['Fira Code'];
+  const editorFamily = fontManager.getFontFamily(appState.editorFont, 'editor');
+  const readerFamily = fontManager.getFontFamily(appState.readerFont, 'reader');
+  const structuredFamily = fontManager.getFontFamily(appState.structuredFont, 'structured');
 
   root.style.setProperty('--editor-font-family', editorFamily);
   root.style.setProperty('--reader-font-family', readerFamily);
